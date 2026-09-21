@@ -1,0 +1,396 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import { COLORS } from '../../theme/colors';
+import { RADIUS, SPACING } from '../../theme/spacing';
+import { TYPOGRAPHY } from '../../theme/typography';
+import Header from '../../components/Header';
+import ProfileAvatar from '../../components/ProfileAvatar';
+import CustomModal from '../../components/CustomModal';
+import Icon from '../../components/Icon';
+import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
+
+export const DriverProfileScreen = ({ navigation }) => {
+  const driver = ACTIVE_MOCK_DRIVER;
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const handleLogout = () => {
+    setShowLogoutModal(false);
+    navigation.replace('RoleSelection');
+  };
+
+  const handleSwitchToRider = () => {
+    navigation.replace('RiderNav');
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+      <Header title="Driver Account" showBack={false} variant="dark" />
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Driver Hero Card */}
+        <View style={styles.driverHeroCard}>
+          <ProfileAvatar
+            name={driver.name}
+            size={80}
+            isOnline={true}
+            showStatus={true}
+            showEdit={true}
+          />
+
+          <Text style={styles.driverName}>{driver.name}</Text>
+          <Text style={styles.driverPhone}>{driver.phone}</Text>
+
+          <View style={styles.statsPillsRow}>
+            <View style={styles.statPill}>
+              <Icon name="star" size={12} color={COLORS.primary} />
+              <Text style={styles.statPillText}>{driver.rating} Rating</Text>
+            </View>
+
+            <View style={styles.statPill}>
+              <Text style={styles.statPillText}>3,840 Trips</Text>
+            </View>
+
+            <View style={styles.statPill}>
+              <Text style={styles.statPillText}>Top Partner</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Switch to Rider Mode Banner */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleSwitchToRider}
+          style={styles.switchBanner}
+        >
+          <View style={styles.bannerIconCircle}>
+            <Icon name="user" size={20} color={COLORS.secondPrimary} />
+          </View>
+          <View style={styles.bannerTextCol}>
+            <Text style={styles.bannerTitle}>Switch to Rider Mode</Text>
+            <Text style={styles.bannerSubtitle}>
+              Need a ride yourself? Book a trip instantly as a passenger.
+            </Text>
+          </View>
+          <Icon name="arrow-right" size={18} color={COLORS.white} />
+        </TouchableOpacity>
+
+        {/* Vehicle Information Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardTitle}>Active Vehicle</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('VehicleSetup')}
+              style={styles.editLink}
+            >
+              <Text style={styles.editLinkText}>Manage</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.vehicleRow}>
+            <View style={styles.vehicleIconCircle}>
+              <Icon name="car" size={22} color={COLORS.secondPrimary} />
+            </View>
+            <View style={styles.vehicleInfo}>
+              <Text style={styles.carName}>{driver.car.model}</Text>
+              <Text style={styles.carColor}>
+                {driver.car.year} • {driver.car.color}
+              </Text>
+            </View>
+            <View style={styles.plateBadge}>
+              <Text style={styles.plateText}>{driver.car.plateNumber}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Partner Menu Items */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Preferences & Documents</Text>
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('DocumentUpload')}
+            style={styles.menuRow}
+          >
+            <View style={styles.menuIconBox}>
+              <Icon name="document" size={18} color={COLORS.secondPrimary} />
+            </View>
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Documents & Inspection</Text>
+              <Text style={styles.menuSub}>Registration, Insurance & DMV</Text>
+            </View>
+            <View style={styles.verifiedBadge}>
+              <Text style={styles.verifiedBadgeText}>Verified</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.7} style={styles.menuRow}>
+            <View style={styles.menuIconBox}>
+              <Icon name="settings" size={18} color={COLORS.secondPrimary} />
+            </View>
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Navigation Preferences</Text>
+              <Text style={styles.menuSub}>In-app routing & voice guidance</Text>
+            </View>
+            <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+          </TouchableOpacity>
+
+          <TouchableOpacity activeOpacity={0.7} style={styles.menuRow}>
+            <View style={styles.menuIconBox}>
+              <Icon name="shield" size={18} color={COLORS.secondPrimary} />
+            </View>
+            <View style={styles.menuTextCol}>
+              <Text style={styles.menuTitle}>Safety & Dashcam Toolkit</Text>
+              <Text style={styles.menuSub}>Registered dashcam & emergency contact</Text>
+            </View>
+            <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Logout */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setShowLogoutModal(true)}
+          style={styles.logoutBtn}
+        >
+          <Icon name="close" size={16} color={COLORS.danger} />
+          <Text style={styles.logoutText}>Sign Out as Driver</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      {/* Logout Modal */}
+      <CustomModal
+        visible={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        title="Sign Out?"
+        message="You will go offline and will not receive any ride requests while signed out."
+        confirmText="Sign Out"
+        cancelText="Cancel"
+        isDanger={true}
+        onConfirm={handleLogout}
+        icon="alert-triangle"
+      />
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.backgroundglass,
+  },
+  content: {
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xxxl,
+  },
+  driverHeroCard: {
+    backgroundColor: COLORS.secondBackgroundglass,
+    borderRadius: RADIUS.large,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+  },
+  driverName: {
+    ...TYPOGRAPHY.h2,
+    fontWeight: '800',
+    color: COLORS.white,
+    marginTop: SPACING.sm,
+  },
+  driverPhone: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  statsPillsRow: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    marginTop: SPACING.md,
+  },
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.backgroundglass,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statPillText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginLeft: 3,
+  },
+  switchBanner: {
+    backgroundColor: COLORS.secondBackgroundglass,
+    borderRadius: RADIUS.large,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.secondPrimary,
+  },
+  bannerIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  bannerTextCol: {
+    flex: 1,
+  },
+  bannerTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  bannerSubtitle: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.large,
+    padding: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  cardTitle: {
+    ...TYPOGRAPHY.title,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  editLink: {
+    padding: SPACING.xs,
+  },
+  editLinkText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.secondPrimary,
+  },
+  vehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.medium,
+    padding: SPACING.md,
+  },
+  vehicleIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  vehicleInfo: {
+    flex: 1,
+  },
+  carName: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  carColor: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  plateBadge: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.small,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  plateText: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  menuIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.medium,
+    backgroundColor: COLORS.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  menuTextCol: {
+    flex: 1,
+  },
+  menuTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  menuSub: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  verifiedBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.small,
+  },
+  verifiedBadgeText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.backgroundglass,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.secondBackgroundglass,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.large,
+    marginVertical: SPACING.md,
+  },
+  logoutText: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.danger,
+    marginLeft: SPACING.xs,
+  },
+});
+
+export default DriverProfileScreen;
