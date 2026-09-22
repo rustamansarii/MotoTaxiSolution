@@ -34,7 +34,7 @@ export const RideCard = ({
         <Icon
           name={ride.iconType === 'van' ? 'users' : 'car'}
           size={24}
-          color={isSelected ? COLORS.secondBackgroundglass : COLORS.text}
+          color={isSelected ? COLORS.primaryDark : COLORS.text}
         />
       </View>
 

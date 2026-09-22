@@ -159,7 +159,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <AdaptiveSplitView
         primaryPane={mapPane}
         secondaryPane={
@@ -183,7 +183,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   mapArea: {
     height: '38%',
@@ -194,20 +194,25 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderTopLeftRadius: RADIUS.extraLarge,
     borderTopRightRadius: RADIUS.extraLarge,
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.xl,
-    borderTopWidth: 2,
-    borderColor: COLORS.primary,
+    borderTopWidth: 1,
+    borderColor: COLORS.border,
     justifyContent: 'space-between',
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
   sideSheetContainer: {
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
-    borderLeftWidth: 2,
+    borderLeftWidth: 1,
     borderTopWidth: 0,
   },
   countdownRow: {
@@ -220,7 +225,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.sm,
@@ -228,7 +233,7 @@ const styles = StyleSheet.create({
   timerNumber: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
-    color: COLORS.backgroundglass,
+    color: COLORS.white,
   },
   timerLabel: {
     ...TYPOGRAPHY.caption,
@@ -248,11 +253,11 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h1,
     fontSize: 38,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
     marginTop: 2,
   },
   surgeTag: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.primaryLight,
     paddingHorizontal: SPACING.md,
     paddingVertical: 3,
     borderRadius: RADIUS.round,
@@ -261,31 +266,31 @@ const styles = StyleSheet.create({
   surgeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     fontSize: 11,
   },
   passengerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   passengerAvatar: {
     width: 44,
     height: 44,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
   },
   passengerInitials: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.secondPrimaryDark,
   },
   passengerInfo: {
     flex: 1,
@@ -293,7 +298,7 @@ const styles = StyleSheet.create({
   passengerName: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -303,7 +308,7 @@ const styles = StyleSheet.create({
   ratingText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.text,
     marginLeft: 3,
   },
   categoryText: {
@@ -317,16 +322,19 @@ const styles = StyleSheet.create({
   pickupDistVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   pickupTimeVal: {
     ...TYPOGRAPHY.caption,
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
+    fontWeight: '600',
   },
   routeBox: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   routePoint: {
     flexDirection: 'row',
@@ -349,14 +357,14 @@ const styles = StyleSheet.create({
   routeConnector: {
     width: 2,
     height: 12,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.border,
     marginLeft: 3,
     marginVertical: 2,
   },
   routePointText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.text,
     flex: 1,
   },
   actionsRow: {
@@ -369,7 +377,7 @@ const styles = StyleSheet.create({
     height: 52,
     paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.large,
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -378,7 +386,7 @@ const styles = StyleSheet.create({
   declineText: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.danger,
   },
   acceptBtnWrapper: {
     flex: 1,

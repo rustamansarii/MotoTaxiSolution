@@ -17,7 +17,7 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import { useResponsive } from '../../utils/responsive';
 
-const GREEN = '#45DDB1';
+const GREEN = '#17baa1';
 
 export const LoginScreen = ({ navigation, route }) => {
   const { isCompact, isLandscape, isFoldableOrTablet, insets } = useResponsive();

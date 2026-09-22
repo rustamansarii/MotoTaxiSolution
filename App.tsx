@@ -6,12 +6,16 @@ import RootNavigator from './src/navigation/RootNavigator';
 
 function App(): React.JSX.Element {
   return (
+    <SafeAreaView style={{flex:1}}>
+
+    
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" />
       <NavigationContainer>
         <RootNavigator />
       </NavigationContainer>
     </SafeAreaProvider>
+    </SafeAreaView>
   );
 }
 

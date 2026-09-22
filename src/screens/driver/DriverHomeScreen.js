@@ -86,20 +86,10 @@ export const DriverHomeScreen = ({ navigation }) => {
       {/* Earnings Ticker */}
       <View style={styles.earningsRow}>
         <View>
-          <Text
-            style={[
-              styles.earningsLabel,
-              { color: isOnline ? COLORS.primary : COLORS.textLight },
-            ]}
-          >
+          <Text style={styles.earningsLabel}>
             Today's Earnings
           </Text>
-          <Text
-            style={[
-              styles.earningsAmount,
-              { color: isOnline ? COLORS.white : COLORS.text },
-            ]}
-          >
+          <Text style={styles.earningsAmount}>
             {formatCurrency(MOCK_DRIVER_STATS.dailyEarnings)}
           </Text>
         </View>
@@ -116,45 +106,48 @@ export const DriverHomeScreen = ({ navigation }) => {
       {/* Quick Stats Grid */}
       <View style={styles.statsGrid}>
         <View style={styles.statCell}>
-          <Text
-            style={[
-              styles.statNumber,
-              { color: isOnline ? COLORS.white : COLORS.text },
-            ]}
-          >
-            4.2 hrs
-          </Text>
+          <Text style={styles.statNumber}>4.2 hrs</Text>
           <Text style={styles.statCaption}>Online Time</Text>
         </View>
 
         <View style={styles.statCellDivider} />
 
         <View style={styles.statCell}>
-          <Text
-            style={[
-              styles.statNumber,
-              { color: isOnline ? COLORS.white : COLORS.text },
-            ]}
-          >
-            8
-          </Text>
+          <Text style={styles.statNumber}>8</Text>
           <Text style={styles.statCaption}>Trips Completed</Text>
         </View>
 
         <View style={styles.statCellDivider} />
 
         <View style={styles.statCell}>
-          <Text
-            style={[
-              styles.statNumber,
-              { color: isOnline ? COLORS.primary : COLORS.secondPrimary },
-            ]}
-          >
+          <Text style={[styles.statNumber, { color: COLORS.primaryDark }]}>
             {MOCK_DRIVER_STATS.acceptanceRate}
           </Text>
           <Text style={styles.statCaption}>Acceptance</Text>
         </View>
       </View>
+
+      {/* MapLibre Live Navigation Demo CTA */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate('DriverMap')}
+        style={styles.maplibreDemoBanner}
+      >
+        <View style={styles.maplibreIconBadge}>
+          <Icon name="navigation" size={16} color={COLORS.white} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.maplibreTitle}>
+            MapLibre Navigation UI
+          </Text>
+          <Text style={styles.maplibreSub}>Interactive driver demo map</Text>
+        </View>
+        <Icon
+          name="chevron-right"
+          size={18}
+          color={COLORS.secondPrimary}
+        />
+      </TouchableOpacity>
 
       {/* Direct Action Trigger */}
       {isOnline ? (
@@ -180,8 +173,8 @@ export const DriverHomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar
-        barStyle={isOnline ? 'light-content' : 'dark-content'}
-        backgroundColor={isOnline ? COLORS.backgroundglass : COLORS.white}
+        barStyle="dark-content"
+        backgroundColor={COLORS.background}
       />
 
       {/* Top Floating Dashboard Header */}
@@ -235,10 +228,10 @@ export const DriverHomeScreen = ({ navigation }) => {
           <Text
             style={[
               styles.statusPillText,
-              { color: isOnline ? COLORS.white : COLORS.text },
+              { color: isOnline ? COLORS.primaryDark : COLORS.textLight },
             ]}
           >
-            {isOnline ? 'YOU ARE ONLINE' : 'GO ONLINE'}
+            {isOnline ? 'YOU ARE ONLINE' : 'OFFLINE'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -320,7 +313,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   onlinePill: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.primaryLight,
     borderWidth: 1.5,
     borderColor: COLORS.primary,
   },
@@ -348,7 +341,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 75,
     alignSelf: 'center',
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
     borderRadius: RADIUS.round,
@@ -358,7 +351,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 6,
   },
@@ -372,7 +365,7 @@ const styles = StyleSheet.create({
   incomingBadgeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   bottomPanel: {
     borderTopLeftRadius: RADIUS.extraLarge,
@@ -382,14 +375,14 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xl,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 8,
   },
   onlinePanel: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderTopWidth: 1,
-    borderColor: COLORS.secondBackgroundglass,
+    borderColor: COLORS.border,
   },
   offlinePanel: {
     backgroundColor: COLORS.white,
@@ -423,12 +416,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    color: COLORS.textLight,
   },
   earningsAmount: {
     ...TYPOGRAPHY.h1,
     fontSize: 32,
     fontWeight: '800',
     marginTop: 2,
+    color: COLORS.text,
   },
   viewEarningsBtn: {
     padding: SPACING.xs,
@@ -436,15 +431,17 @@ const styles = StyleSheet.create({
   viewEarningsText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
   statsGrid: {
     flexDirection: 'row',
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
     alignItems: 'center',
     marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   statCell: {
     flex: 1,
@@ -453,6 +450,7 @@ const styles = StyleSheet.create({
   statNumber: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
+    color: COLORS.text,
   },
   statCaption: {
     ...TYPOGRAPHY.caption,
@@ -463,10 +461,41 @@ const styles = StyleSheet.create({
   statCellDivider: {
     width: 1,
     height: '70%',
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.border,
   },
   requestCta: {
     width: '100%',
+  },
+  maplibreDemoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: RADIUS.large,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+    marginBottom: SPACING.md,
+    gap: SPACING.md,
+  },
+  maplibreIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  maplibreTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  maplibreSub: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginTop: 1,
   },
 });
 

@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarCircle: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.primaryLight,
     borderWidth: 2,
     borderColor: COLORS.primary,
     alignItems: 'center',
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   initialsText: {
     ...TYPOGRAPHY.title,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.primaryDark,
   },
   statusBadge: {
     position: 'absolute',

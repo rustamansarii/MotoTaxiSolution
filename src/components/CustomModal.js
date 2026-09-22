@@ -52,49 +52,49 @@ export const CustomModal = ({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
               >
-              {/* Optional Icon Header */}
-              {icon && (
-                <View
-                  style={[
-                    styles.iconWrapper,
-                    isDanger && styles.dangerIconWrapper,
-                  ]}
-                >
-                  <Icon
-                    name={icon}
-                    size={28}
-                    color={
-                      iconColor ||
-                      (isDanger ? COLORS.danger : COLORS.primary)
-                    }
-                  />
-                </View>
-              )}
+                {/* Optional Icon Header */}
+                {icon && (
+                  <View
+                    style={[
+                      styles.iconWrapper,
+                      isDanger && styles.dangerIconWrapper,
+                    ]}
+                  >
+                    <Icon
+                      name={icon}
+                      size={28}
+                      color={
+                        iconColor ||
+                        (isDanger ? COLORS.danger : COLORS.primary)
+                      }
+                    />
+                  </View>
+                )}
 
-              {/* Title & Message */}
-              {title ? <Text style={styles.title}>{title}</Text> : null}
-              {message ? <Text style={styles.message}>{message}</Text> : null}
+                {/* Title & Message */}
+                {title ? <Text style={styles.title}>{title}</Text> : null}
+                {message ? <Text style={styles.message}>{message}</Text> : null}
 
-              {/* Custom children */}
-              {children}
+                {/* Custom children */}
+                {children}
 
-              {/* Actions */}
-              <View style={styles.actionsRow}>
-                {showCancel && (
+                {/* Actions */}
+                <View style={styles.actionsRow}>
+                  {showCancel && (
+                    <CustomButton
+                      title={cancelText}
+                      variant="outline"
+                      onPress={onClose}
+                      style={styles.actionBtn}
+                    />
+                  )}
                   <CustomButton
-                    title={cancelText}
-                    variant="outline"
-                    onPress={onClose}
+                    title={confirmText}
+                    variant={isDanger ? 'danger' : 'primary'}
+                    onPress={onConfirm || onClose}
                     style={styles.actionBtn}
                   />
-                )}
-                <CustomButton
-                  title={confirmText}
-                  variant={isDanger ? 'danger' : 'primary'}
-                  onPress={onConfirm || onClose}
-                  style={styles.actionBtn}
-                />
-              </View>
+                </View>
               </ScrollView>
             </View>
           </TouchableWithoutFeedback>

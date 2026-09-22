@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   avatarInitials: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.secondPrimaryDark,
   },
   driverInfo: {
     flex: 1,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   ratingText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
     marginLeft: 2,
   },
   rateBtn: {

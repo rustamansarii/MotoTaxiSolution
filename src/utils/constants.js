@@ -1,4 +1,4 @@
-export const APP_NAME = 'Moto Taxi Solution';
+export const APP_NAME = 'MTS';
 export const APP_TAGLINE = 'Fast, dependable rides in minutes';
 
 export const USER_ROLES = {

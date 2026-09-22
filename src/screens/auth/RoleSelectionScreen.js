@@ -16,7 +16,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useResponsive } from '../../utils/responsive';
 
-const GREEN = '#45DDB1';
+const GREEN = '#17baa1';
 
 export const RoleSelectionScreen = ({ navigation }) => {
   const { isFoldableOrTablet, isLandscape, isCompact, insets } = useResponsive();
@@ -74,7 +74,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
           </View>
 
           <Text style={styles.brandName}>
-            Aber
+            MTS
           </Text>
 
           <Text style={styles.heroText}>

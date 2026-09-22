@@ -13,9 +13,12 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import RatingStars from '../../components/RatingStars';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
+import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 
 export const DriverTripCompletedScreen = ({ navigation, route }) => {
+  const { insets } = useResponsive();
   const fare = route.params?.fare || 28.5;
   const passengerName = route.params?.passengerName || 'Elena Rostova';
   const distance = route.params?.distance || '16.4 mi';
@@ -32,14 +35,18 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+      <ResponsiveContainer maxWidth={560} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.checkCircle}>
-          <Icon name="check" size={36} color={COLORS.primary} />
+          <Icon name="check" size={36} color={COLORS.primaryDark} />
         </View>
 
         <Text style={styles.title}>Trip Completed!</Text>
@@ -112,14 +119,15 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
           style={styles.nextBtn}
         />
       </ScrollView>
-    </SafeAreaView>
-  );
+    </ResponsiveContainer>
+  </SafeAreaView>
+);
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   content: {
     padding: SPACING.xl,
@@ -130,7 +138,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.primaryLight,
     borderWidth: 2,
     borderColor: COLORS.primary,
     alignItems: 'center',
@@ -141,7 +149,7 @@ const styles = StyleSheet.create({
   title: {
     ...TYPOGRAPHY.h2,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   subtitle: {
     ...TYPOGRAPHY.bodySmall,
@@ -152,17 +160,22 @@ const styles = StyleSheet.create({
   },
   earningsCard: {
     width: '100%',
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.lg,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
     marginBottom: SPACING.md,
   },
   earningsLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     textAlign: 'center',
@@ -171,7 +184,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h1,
     fontSize: 36,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
     textAlign: 'center',
     marginVertical: SPACING.xs,
   },
@@ -187,24 +200,26 @@ const styles = StyleSheet.create({
   breakdownVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   surgeVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
   tipVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
   statsCard: {
     width: '100%',
     flexDirection: 'row',
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     marginBottom: SPACING.md,
   },
   statCol: {
@@ -214,7 +229,7 @@ const styles = StyleSheet.create({
   statNum: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   statLabel: {
     ...TYPOGRAPHY.caption,
@@ -223,7 +238,7 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.border,
     height: '70%',
     alignSelf: 'center',
   },
@@ -234,6 +249,8 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     alignItems: 'center',
     marginBottom: SPACING.xl,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
   },
   rateTitle: {
     ...TYPOGRAPHY.title,

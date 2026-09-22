@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   activeTipText: {
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
   complimentsGrid: {
     flexDirection: 'row',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   activeComplimentText: {
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
   commentInput: {
     marginTop: SPACING.xs,

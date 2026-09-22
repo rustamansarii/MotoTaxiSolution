@@ -12,7 +12,7 @@ import {
 import { APP_NAME } from '../../utils/constants';
 import { useResponsive } from '../../utils/responsive';
 
-const GREEN = '#45DDB1';
+const GREEN = '#17baa1';
 const WHITE = '#FFFFFF';
 
 export const SplashScreen = ({ navigation }) => {
@@ -69,6 +69,7 @@ export const SplashScreen = ({ navigation }) => {
           style={[
             styles.content,
             {
+              marginBottom: height * 0.08,
               opacity: opacityAnim,
               transform: [{ scale: scaleAnim }],
             },
@@ -96,7 +97,7 @@ export const SplashScreen = ({ navigation }) => {
 
           {/* App Name */}
           <Text style={[styles.appName, isCompact && { fontSize: 36 }]}>
-            {APP_NAME || 'Moto Taxi Solution'}
+            {APP_NAME || 'MTS'}
           </Text>
         </Animated.View>
 
@@ -192,10 +193,6 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
     justifyContent: 'center',
-
-    // Slightly above center
-    marginBottom: height * 0.08,
-
     zIndex: 10,
   },
 
@@ -343,7 +340,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
 
-    height: height * 0.25,
+    height: '25%',
 
     justifyContent: 'flex-end',
 

@@ -53,12 +53,12 @@ const formatNotificationDate = (dateString) => {
 export default function NotificationScreen() {
   const navigation = useNavigation();
   const {
-    themeColor = "#000",
-    bgColor = "#000",
-    textColor = "#fff",
-    borderColor = "#222",
-    iconColor = "#fff",
-    subTextColor = "#888",
+    themeColor = COLORS.primary,
+    bgColor = COLORS.background,
+    textColor = COLORS.text,
+    borderColor = COLORS.border,
+    iconColor = COLORS.text,
+    subTextColor = COLORS.textLight,
   } = useTheme ? useTheme() : {};
 
   const [notifications, setNotifications] = useState([]);

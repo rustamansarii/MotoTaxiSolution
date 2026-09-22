@@ -15,6 +15,8 @@ import Header from '../../components/Header';
 import CustomButton from '../../components/CustomButton';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
+import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
   MOCK_WALLET,
@@ -22,9 +24,12 @@ import {
 } from '../../data/mockTransactions';
 
 export const DriverEarningsScreen = ({ navigation }) => {
+  const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const [balance, setBalance] = useState(MOCK_WALLET.driverBalance);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
   const [cashoutSuccess, setCashoutSuccess] = useState(false);
+
+  const isMultiColumn = isFoldableOrTablet || isSplitLayout;
 
   const maxDayAmount = Math.max(
     ...MOCK_DRIVER_EARNINGS_BREAKDOWN.map((d) => d.amount)
@@ -36,121 +41,150 @@ export const DriverEarningsScreen = ({ navigation }) => {
     setCashoutSuccess(true);
   };
 
+  const heroBanner = (
+    <View style={styles.earningsHero}>
+      <Text style={styles.heroPeriod}>This Week • Sep 14 - Sep 20</Text>
+      <Text style={styles.heroAmount}>{formatCurrency(balance)}</Text>
+      <Text style={styles.heroSub}>42 completed trips • 28.5 hrs online</Text>
+
+      <CustomButton
+        title="Cash Out Instantly"
+        onPress={() => setShowCashoutModal(true)}
+        disabled={balance <= 0}
+        variant="primary"
+        icon="wallet"
+        size="small"
+        style={styles.cashoutBtn}
+      />
+    </View>
+  );
+
+  const chartCard = (
+    <View style={styles.chartCard}>
+      <View style={styles.chartHeader}>
+        <Text style={styles.chartTitle}>Daily Activity</Text>
+        <Text style={styles.chartSubtitle}>Mon - Sun</Text>
+      </View>
+
+      <View style={styles.barContainer}>
+        {MOCK_DRIVER_EARNINGS_BREAKDOWN.map((item, index) => {
+          const heightPercent =
+            maxDayAmount > 0 ? (item.amount / maxDayAmount) * 100 : 0;
+          const isToday = item.day === 'Fri';
+
+          return (
+            <View key={index} style={styles.barCol}>
+              <Text style={styles.barValText}>
+                {item.amount > 0 ? `$${Math.round(item.amount)}` : ''}
+              </Text>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.barFill,
+                    { height: `${Math.max(8, heightPercent)}%` },
+                    isToday && styles.activeBarFill,
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.barDayText,
+                  isToday && styles.activeBarDayText,
+                ]}
+              >
+                {item.day}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const breakdownCard = (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Earnings Breakdown</Text>
+
+      <View style={styles.breakdownRow}>
+        <View style={styles.rowLabelGroup}>
+          <Icon name="car" size={16} color={COLORS.primary} />
+          <Text style={styles.rowLabel}>Standard Trip Fares</Text>
+        </View>
+        <Text style={styles.rowVal}>$620.00</Text>
+      </View>
+
+      <View style={styles.breakdownRow}>
+        <View style={styles.rowLabelGroup}>
+          <Icon name="trending-up" size={16} color={COLORS.primary} />
+          <Text style={styles.rowLabel}>Surge & Zone Bonuses</Text>
+        </View>
+        <Text style={[styles.rowVal, styles.positiveVal]}>+$134.50</Text>
+      </View>
+
+      <View style={styles.breakdownRow}>
+        <View style={styles.rowLabelGroup}>
+          <Icon name="star" size={16} color={COLORS.primary} />
+          <Text style={styles.rowLabel}>Passenger Tips (100%)</Text>
+        </View>
+        <Text style={[styles.rowVal, styles.positiveVal]}>+$88.00</Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.breakdownRow}>
+        <Text style={styles.totalLabel}>Total Payout Balance</Text>
+        <Text style={styles.totalVal}>{formatCurrency(balance)}</Text>
+      </View>
+    </View>
+  );
+
+  const bankCard = (
+    <View style={styles.bankCard}>
+      <View style={styles.bankIcon}>
+        <Icon name="wallet" size={20} color={COLORS.secondPrimary} />
+      </View>
+      <View style={styles.bankInfo}>
+        <Text style={styles.bankName}>Chase Bank •••• 5612</Text>
+        <Text style={styles.bankSub}>Standard weekly payout on Tuesday</Text>
+      </View>
+      <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
-      <Header title="Driver Earnings" showBack={false} variant="dark" />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ResponsiveContainer maxWidth={960} style={{ flex: 1 }}>
+        <Header title="Driver Earnings" showBack={false} variant="light" />
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Weekly Total Banner */}
-        <View style={styles.earningsHero}>
-          <Text style={styles.heroPeriod}>This Week • Sep 14 - Sep 20</Text>
-          <Text style={styles.heroAmount}>{formatCurrency(balance)}</Text>
-          <Text style={styles.heroSub}>42 completed trips • 28.5 hrs online</Text>
-
-          <CustomButton
-            title="Cash Out Instantly"
-            onPress={() => setShowCashoutModal(true)}
-            disabled={balance <= 0}
-            variant="primary"
-            icon="wallet"
-            size="small"
-            style={styles.cashoutBtn}
-          />
-        </View>
-
-        {/* Weekly Bar Visualizer */}
-        <View style={styles.chartCard}>
-          <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>Daily Activity</Text>
-            <Text style={styles.chartSubtitle}>Mon - Sun</Text>
-          </View>
-
-          <View style={styles.barContainer}>
-            {MOCK_DRIVER_EARNINGS_BREAKDOWN.map((item, index) => {
-              const heightPercent =
-                maxDayAmount > 0 ? (item.amount / maxDayAmount) * 100 : 0;
-              const isToday = item.day === 'Fri';
-
-              return (
-                <View key={index} style={styles.barCol}>
-                  <Text style={styles.barValText}>
-                    {item.amount > 0 ? `$${Math.round(item.amount)}` : ''}
-                  </Text>
-                  <View style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        { height: `${Math.max(8, heightPercent)}%` },
-                        isToday && styles.activeBarFill,
-                      ]}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.barDayText,
-                      isToday && styles.activeBarDayText,
-                    ]}
-                  >
-                    {item.day}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Breakdown Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Earnings Breakdown</Text>
-
-          <View style={styles.breakdownRow}>
-            <View style={styles.rowLabelGroup}>
-              <Icon name="car" size={16} color={COLORS.primary} />
-              <Text style={styles.rowLabel}>Standard Trip Fares</Text>
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {isMultiColumn ? (
+            <View style={styles.splitRow}>
+              <View style={styles.splitCol}>
+                {heroBanner}
+                {chartCard}
+              </View>
+              <View style={styles.splitCol}>
+                {breakdownCard}
+                {bankCard}
+              </View>
             </View>
-            <Text style={styles.rowVal}>$620.00</Text>
-          </View>
-
-          <View style={styles.breakdownRow}>
-            <View style={styles.rowLabelGroup}>
-              <Icon name="trending-up" size={16} color={COLORS.primary} />
-              <Text style={styles.rowLabel}>Surge & Zone Bonuses</Text>
-            </View>
-            <Text style={[styles.rowVal, styles.positiveVal]}>+$134.50</Text>
-          </View>
-
-          <View style={styles.breakdownRow}>
-            <View style={styles.rowLabelGroup}>
-              <Icon name="star" size={16} color={COLORS.primary} />
-              <Text style={styles.rowLabel}>Passenger Tips (100%)</Text>
-            </View>
-            <Text style={[styles.rowVal, styles.positiveVal]}>+$88.00</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.breakdownRow}>
-            <Text style={styles.totalLabel}>Total Payout Balance</Text>
-            <Text style={styles.totalVal}>{formatCurrency(balance)}</Text>
-          </View>
-        </View>
-
-        {/* Banking / Payout Account */}
-        <View style={styles.bankCard}>
-          <View style={styles.bankIcon}>
-            <Icon name="wallet" size={20} color={COLORS.secondPrimary} />
-          </View>
-          <View style={styles.bankInfo}>
-            <Text style={styles.bankName}>Chase Bank •••• 5612</Text>
-            <Text style={styles.bankSub}>Standard weekly payout on Tuesday</Text>
-          </View>
-          <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
-        </View>
-      </ScrollView>
+          ) : (
+            <>
+              {heroBanner}
+              {chartCard}
+              {breakdownCard}
+              {bankCard}
+            </>
+          )}
+        </ScrollView>
+      </ResponsiveContainer>
 
       {/* Cashout Confirmation Modal */}
       <CustomModal
@@ -181,32 +215,45 @@ export const DriverEarningsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   content: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xxxl,
   },
+  splitRow: {
+    flexDirection: 'row',
+    gap: SPACING.lg,
+    alignItems: 'flex-start',
+  },
+  splitCol: {
+    flex: 1,
+  },
   earningsHero: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.extraLarge,
     padding: SPACING.xl,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     marginBottom: SPACING.lg,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   heroPeriod: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     textTransform: 'uppercase',
   },
   heroAmount: {
     ...TYPOGRAPHY.h1,
     fontSize: 40,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
     marginVertical: SPACING.xs,
   },
   heroSub: {
@@ -219,10 +266,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
   },
   chartCard: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -233,7 +287,7 @@ const styles = StyleSheet.create({
   chartTitle: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   chartSubtitle: {
     ...TYPOGRAPHY.caption,
@@ -256,13 +310,13 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontSize: 9,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
     marginBottom: 4,
   },
   barTrack: {
     width: 14,
     height: 90,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.round,
     justifyContent: 'flex-end',
     overflow: 'hidden',
@@ -282,7 +336,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   activeBarDayText: {
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     fontWeight: '700',
   },
   card: {

@@ -62,7 +62,7 @@ export const MapPlaceholder = ({
         </View>
       )}
 
-      {/* Driver Marker using COLORS.backgroundglass */}
+      {/* Driver Marker using COLORS.secondPrimary */}
       {showDriverMarker && (
         <View style={styles.driverMarkerContainer}>
           <View style={styles.driverMarkerPill}>
@@ -254,13 +254,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.secondBackgroundglass,
-    borderWidth: 1,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
     borderColor: COLORS.primary,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   surgeZoneText: {
     ...TYPOGRAPHY.caption,
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     fontWeight: '700',
     fontSize: 11,
   },
@@ -333,7 +338,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.secondPrimary,
     borderWidth: 2,
     borderColor: COLORS.white,
     alignItems: 'center',
@@ -351,16 +356,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickupCallout: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     borderRadius: RADIUS.small,
     marginBottom: 4,
     maxWidth: 140,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   pickupCalloutText: {
     ...TYPOGRAPHY.caption,
-    color: COLORS.white,
+    color: COLORS.text,
     fontWeight: '700',
     fontSize: 10,
   },
@@ -383,7 +395,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
   },
   destinationMarkerContainer: {
     position: 'absolute',
@@ -392,16 +404,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   destinationCallout: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     borderRadius: RADIUS.small,
     marginBottom: 4,
     maxWidth: 140,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   destinationCalloutText: {
     ...TYPOGRAPHY.caption,
-    color: COLORS.white,
+    color: COLORS.text,
     fontWeight: '700',
     fontSize: 10,
   },

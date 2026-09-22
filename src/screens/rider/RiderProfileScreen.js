@@ -108,7 +108,7 @@ export const RiderProfileScreen = ({ navigation }) => {
             Switch to driver mode or complete partner signup.
           </Text>
         </View>
-        <Icon name="arrow-right" size={18} color={COLORS.white} />
+        <Icon name="arrow-right" size={18} color={COLORS.text} />
       </TouchableOpacity>
     </>
   );
@@ -274,23 +274,28 @@ const styles = StyleSheet.create({
   tripsBadgeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
   switchBanner: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.secondBackgroundglass,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bannerIconCircle: {
     width: 42,
     height: 42,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -301,7 +306,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   bannerSubtitle: {
     ...TYPOGRAPHY.caption,

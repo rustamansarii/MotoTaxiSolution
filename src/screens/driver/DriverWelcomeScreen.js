@@ -20,17 +20,20 @@ const PERKS = [
   {
     icon: 'dollar-sign',
     title: 'Top Earnings & Tips',
-    description: 'Keep 100% of rider tips with low platform commission and instant daily cash outs.',
+    description:
+      'Keep 100% of rider tips with low platform commission and instant daily cash outs.',
   },
   {
     icon: 'clock',
     title: 'Drive on Your Schedule',
-    description: 'Turn on Driver Mode whenever you are ready. No minimum weekly hours required.',
+    description:
+      'Turn on Driver Mode whenever you are ready. No minimum weekly hours required.',
   },
   {
     icon: 'shield',
     title: 'Comprehensive Protection',
-    description: 'Every trip includes full insurance coverage, 24/7 support, and rider ratings.',
+    description:
+      'Every trip includes full insurance coverage, 24/7 support, and rider ratings.',
   },
 ];
 
@@ -39,11 +42,11 @@ export const DriverWelcomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <Header
         title="Driver Partner"
         onBack={() => navigation.navigate('RoleSelection')}
-        variant="dark"
+        variant="light"
       />
 
       <ScrollView
@@ -53,58 +56,64 @@ export const DriverWelcomeScreen = ({ navigation }) => {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.innerWrapper, { maxWidth: isFoldableOrTablet ? 580 : '100%' }]}>
+        <View
+          style={[
+            styles.innerWrapper,
+            { maxWidth: isFoldableOrTablet ? 580 : '100%' },
+          ]}
+        >
           {/* Hero Card */}
           <View style={styles.heroCard}>
-          <View style={styles.iconCircle}>
-            <Icon name="car" size={36} color={COLORS.primary} />
-          </View>
-          <Text style={styles.heroTitle}>Drive & Earn on Your Terms</Text>
-          <Text style={styles.heroSubtitle}>
-            Join thousands of independent driver partners powering reliable urban mobility.
-          </Text>
-
-          <View style={styles.earningsEstimate}>
-            <Text style={styles.estLabel}>Average Partner Earnings</Text>
-            <Text style={styles.estAmount}>$28 - $36 / hr</Text>
-          </View>
-        </View>
-
-        {/* Perks */}
-        <View style={styles.perksList}>
-          {PERKS.map((perk, index) => (
-            <View key={index} style={styles.perkItem}>
-              <View style={styles.perkIconBox}>
-                <Icon name={perk.icon} size={20} color={COLORS.primary} />
-              </View>
-              <View style={styles.perkTextCol}>
-                <Text style={styles.perkTitle}>{perk.title}</Text>
-                <Text style={styles.perkDescription}>{perk.description}</Text>
-              </View>
+            <View style={styles.iconCircle}>
+              <Icon name="car" size={32} color={COLORS.primaryDark} />
             </View>
-          ))}
-        </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actions}>
-          <CustomButton
-            title="Register as Driver"
-            onPress={() => navigation.navigate('DriverLogin')}
-            variant="primary"
-            icon="arrow-right"
-            iconPosition="right"
-          />
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('DriverNav')}
-            style={styles.directDashboardBtn}
-          >
-            <Text style={styles.directDashboardText}>
-              Direct to Driver Dashboard ›
+            <Text style={styles.heroTitle}>Drive & Earn on Your Terms</Text>
+            <Text style={styles.heroSubtitle}>
+              Join thousands of independent driver partners powering reliable urban mobility.
             </Text>
-          </TouchableOpacity>
-        </View>
+
+            <View style={styles.earningsEstimate}>
+              <Text style={styles.estLabel}>Average Partner Earnings</Text>
+              <Text style={styles.estAmount}>$28 - $36 / hr</Text>
+            </View>
+          </View>
+
+          {/* Perks */}
+          <View style={styles.perksList}>
+            {PERKS.map((perk, index) => (
+              <View key={index} style={styles.perkItem}>
+                <View style={styles.perkIconBox}>
+                  <Icon name={perk.icon} size={22} color={COLORS.primaryDark} />
+                </View>
+                <View style={styles.perkTextCol}>
+                  <Text style={styles.perkTitle}>{perk.title}</Text>
+                  <Text style={styles.perkDescription}>{perk.description}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actions}>
+            <CustomButton
+              title="Register as Driver"
+              onPress={() => navigation.navigate('DriverLogin')}
+              variant="primary"
+              icon="arrow-right"
+              iconPosition="right"
+            />
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('DriverNav')}
+              style={styles.directDashboardBtn}
+            >
+              <Text style={styles.directDashboardText}>
+                Direct to Driver Dashboard ›
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -114,7 +123,7 @@ export const DriverWelcomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   innerWrapper: {
     width: '100%',
@@ -125,27 +134,34 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.xxxl,
   },
   heroCard: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.extraLarge,
     padding: SPACING.xl,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: COLORS.primary,
     marginBottom: SPACING.xl,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
   },
   iconCircle: {
-    width: 72,
-    height: 72,
+    width: 68,
+    height: 68,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(69, 221, 177, 0.3)',
   },
   heroTitle: {
     ...TYPOGRAPHY.h2,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
     textAlign: 'center',
   },
   heroSubtitle: {
@@ -157,40 +173,52 @@ const styles = StyleSheet.create({
   },
   earningsEstimate: {
     marginTop: SPACING.lg,
-    backgroundColor: COLORS.backgroundglass,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.sm + 2,
     borderRadius: RADIUS.large,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.secondPrimary,
+    borderColor: 'rgba(69, 221, 177, 0.4)',
   },
   estLabel: {
     ...TYPOGRAPHY.caption,
+    fontWeight: '700',
     color: COLORS.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontSize: 10,
   },
   estAmount: {
     ...TYPOGRAPHY.h3,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     marginTop: 2,
+    fontSize: 20,
   },
   perksList: {
-    gap: SPACING.lg,
+    gap: SPACING.md,
     marginBottom: SPACING.xl,
   },
   perkItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.secondBackgroundglass,
-    padding: SPACING.md,
+    backgroundColor: COLORS.white,
+    padding: SPACING.lg,
     borderRadius: RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   perkIconBox: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: RADIUS.medium,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -199,15 +227,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   perkTitle: {
-    ...TYPOGRAPHY.bodySmall,
+    ...TYPOGRAPHY.bodyMedium,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   perkDescription: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 3,
     lineHeight: 18,
+    fontSize: 12,
   },
   actions: {
     marginTop: SPACING.sm,
@@ -218,9 +247,9 @@ const styles = StyleSheet.create({
     padding: SPACING.xs,
   },
   directDashboardText: {
-    ...TYPOGRAPHY.caption,
+    ...TYPOGRAPHY.bodySmall,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: COLORS.textLight,
   },
 });
 

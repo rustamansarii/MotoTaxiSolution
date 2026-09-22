@@ -108,14 +108,14 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
   avatarInitials: {
     ...TYPOGRAPHY.title,
-    color: COLORS.white,
+    color: COLORS.secondPrimaryDark,
     fontWeight: '700',
   },
   driverInfo: {
@@ -155,12 +155,12 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontSize: 10,
     fontWeight: '600',
-    color: COLORS.secondBackgroundglass,
+    color: COLORS.primaryDark,
   },
   pinValue: {
     ...TYPOGRAPHY.title,
     fontWeight: '800',
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
     letterSpacing: 2,
   },
   vehicleRow: {

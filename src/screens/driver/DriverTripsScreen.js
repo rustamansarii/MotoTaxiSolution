@@ -14,6 +14,8 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import StatusBadge from '../../components/StatusBadge';
 import Icon from '../../components/Icon';
+import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 
 const DRIVER_PAST_TRIPS = [
@@ -72,6 +74,7 @@ const DRIVER_PAST_TRIPS = [
 ];
 
 export const DriverTripsScreen = ({ navigation }) => {
+  const { isFoldableOrTablet, insets } = useResponsive();
   const [filter, setFilter] = useState('all'); // 'all' | 'today'
 
   const filteredTrips =
@@ -80,7 +83,7 @@ export const DriverTripsScreen = ({ navigation }) => {
       : DRIVER_PAST_TRIPS;
 
   const renderTripItem = ({ item }) => (
-    <View style={styles.tripCard}>
+    <View style={[styles.tripCard, isFoldableOrTablet && { flex: 1 }]}>
       {/* Top row with passenger & fare */}
       <View style={styles.cardHeader}>
         <View>
@@ -125,48 +128,56 @@ export const DriverTripsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
-      <Header title="Trip History" showBack={false} variant="dark" />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ResponsiveContainer maxWidth={880} style={{ flex: 1 }}>
+        <Header title="Trip History" showBack={false} variant="light" />
 
-      {/* Filter Tabs */}
-      <View style={styles.filterBar}>
-        <TouchableOpacity
-          onPress={() => setFilter('all')}
-          style={[styles.filterBtn, filter === 'all' && styles.activeFilterBtn]}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === 'all' && styles.activeFilterText,
-            ]}
+        {/* Filter Tabs */}
+        <View style={styles.filterBar}>
+          <TouchableOpacity
+            onPress={() => setFilter('all')}
+            style={[styles.filterBtn, filter === 'all' && styles.activeFilterBtn]}
           >
-            All Completed Trips
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.filterText,
+                filter === 'all' && styles.activeFilterText,
+              ]}
+            >
+              All Completed Trips
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => setFilter('today')}
-          style={[styles.filterBtn, filter === 'today' && styles.activeFilterBtn]}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              filter === 'today' && styles.activeFilterText,
-            ]}
+          <TouchableOpacity
+            onPress={() => setFilter('today')}
+            style={[styles.filterBtn, filter === 'today' && styles.activeFilterBtn]}
           >
-            Today's Trips
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              style={[
+                styles.filterText,
+                filter === 'today' && styles.activeFilterText,
+              ]}
+            >
+              Today's Trips
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Trips List */}
-      <FlatList
-        data={filteredTrips}
-        keyExtractor={(item) => item.id}
-        renderItem={renderTripItem}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+        {/* Trips List */}
+        <FlatList
+          key={isFoldableOrTablet ? 'grid-2' : 'list-1'}
+          data={filteredTrips}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTripItem}
+          numColumns={isFoldableOrTablet ? 2 : 1}
+          columnWrapperStyle={isFoldableOrTablet ? { gap: SPACING.md } : undefined}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        />
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 };
@@ -202,7 +213,7 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
   },
   activeFilterText: {
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
     fontWeight: '700',
   },
   listContent: {

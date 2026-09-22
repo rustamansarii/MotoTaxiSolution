@@ -19,7 +19,7 @@ export const StatusBadge = ({
         return {
           bg: COLORS.primaryLight,
           border: COLORS.primary,
-          text: COLORS.backgroundglass,
+          text: COLORS.primaryDark,
           dot: COLORS.primary,
         };
       case 'in_progress':
@@ -27,9 +27,9 @@ export const StatusBadge = ({
       case 'arrived':
       case 'accepted':
         return {
-          bg: COLORS.primaryLight,
+          bg: COLORS.secondPrimaryLight,
           border: COLORS.secondPrimary,
-          text: COLORS.secondBackgroundglass,
+          text: COLORS.secondPrimaryDark,
           dot: COLORS.secondPrimary,
         };
       case 'warning':

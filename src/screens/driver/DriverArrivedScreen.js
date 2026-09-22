@@ -133,12 +133,22 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
           iconPosition="right"
           style={styles.startBtn}
         />
+
+        <CustomButton
+          title="START WITH MAPLIBRE NAV"
+          onPress={() => navigation.replace('DriverMap')}
+          disabled={enteredPin.length < 4}
+          variant="ghost"
+          size="small"
+          icon="navigation"
+          style={{ marginTop: 6 }}
+        />
       </View>
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <AdaptiveSplitView
         primaryPane={mapPane}
         secondaryPane={
@@ -162,7 +172,7 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   mapArea: {
     height: '46%',
@@ -177,7 +187,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     alignSelf: 'center',
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.round,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
@@ -187,14 +197,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
   },
   waitText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
     marginLeft: SPACING.xs,
   },
   sheet: {
@@ -261,7 +271,7 @@ const styles = StyleSheet.create({
   pinDigit: {
     ...TYPOGRAPHY.h2,
     fontWeight: '800',
-    color: COLORS.backgroundglass,
+    color: COLORS.text,
   },
   hiddenInput: {
     position: 'absolute',

@@ -149,12 +149,17 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.lg,
     marginBottom: SPACING.xl,
-    borderWidth: 1,
-    borderColor: COLORS.secondBackgroundglass,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bannerTextCol: {
     flex: 1,
@@ -163,7 +168,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   bannerSubtitle: {
     ...TYPOGRAPHY.caption,

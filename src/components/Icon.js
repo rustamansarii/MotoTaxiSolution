@@ -32,6 +32,9 @@ const ICON_MAP = {
   'crosshair': { family: 'Ionicons', name: 'locate' },
   'location': { family: 'Ionicons', name: 'location-sharp' },
   'map-pin': { family: 'Ionicons', name: 'location-sharp' },
+  'flag': { family: 'Ionicons', name: 'flag' },
+  'more-vertical': { family: 'Ionicons', name: 'ellipsis-vertical' },
+  'dots-vertical': { family: 'Ionicons', name: 'ellipsis-vertical' },
 
   // Places & Common
   'home': { family: 'Ionicons', name: 'home' },

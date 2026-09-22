@@ -13,9 +13,13 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import MapPlaceholder from '../../components/MapPlaceholder';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
+import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useResponsive } from '../../utils/responsive';
+import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
 
 export const DriverTripScreen = ({ navigation, route }) => {
+  const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
   const destination = route.params?.destination || 'JFK Terminal 4';
   const passengerName = route.params?.passengerName || 'Elena Rostova';
   const estimatedFare = route.params?.estimatedFare || 28.5;
@@ -30,41 +34,29 @@ export const DriverTripScreen = ({ navigation, route }) => {
     });
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+  const mapPane = (
+    <View style={styles.mapArea}>
+      <MapPlaceholder
+        showRoute={true}
+        showPickupMarker={false}
+        showDestinationMarker={true}
+        showDriverMarker={true}
+        destinationLabel="JFK Terminal 4"
+        height="100%"
+      />
+    </View>
+  );
 
-      {/* Navigation Header */}
-      <View style={styles.navHeader}>
-        <View style={styles.turnIcon}>
-          <Icon name="navigation" size={24} color={COLORS.white} />
-        </View>
-        <View style={styles.turnDetails}>
-          <Text style={styles.turnDistance}>In 1.2 mi</Text>
-          <Text numberOfLines={1} style={styles.turnInstruction}>
-            Keep Left on Grand Central Pkwy East
-          </Text>
-        </View>
-        <View style={styles.speedGauge}>
-          <Text style={styles.speedNum}>52</Text>
-          <Text style={styles.speedLimit}>LIMIT 55</Text>
-        </View>
-      </View>
-
-      {/* Map In-Transit */}
-      <View style={styles.mapArea}>
-        <MapPlaceholder
-          showRoute={true}
-          showPickupMarker={false}
-          showDestinationMarker={true}
-          showDriverMarker={true}
-          destinationLabel="JFK Terminal 4"
-          height="100%"
-        />
-      </View>
-
-      {/* Bottom In-Transit Trip Panel */}
-      <View style={styles.bottomCard}>
+  const tripPane = (
+    <View
+      style={[
+        styles.bottomCard,
+        isSplitLayout && styles.sideCard,
+        !isSplitLayout && {
+          paddingBottom: Math.max(insets.bottom + SPACING.md, SPACING.xl),
+        },
+      ]}
+    >
         <View style={styles.fareEtaRow}>
           <View>
             <Text style={styles.fareLabel}>Trip Earnings</Text>
@@ -109,6 +101,54 @@ export const DriverTripScreen = ({ navigation, route }) => {
           style={styles.endTripBtn}
         />
       </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+      {/* Navigation Header */}
+      <View
+        style={[
+          styles.navHeader,
+          {
+            top: Math.max(insets.top + 10, 30),
+            maxWidth: isFoldableOrTablet ? 540 : width - 32,
+            alignSelf: 'center',
+          },
+        ]}
+      >
+        <View style={styles.turnIcon}>
+          <Icon name="navigation" size={24} color={COLORS.white} />
+        </View>
+        <View style={styles.turnDetails}>
+          <Text style={styles.turnDistance}>In 1.2 mi</Text>
+          <Text numberOfLines={1} style={styles.turnInstruction}>
+            Keep Left on Grand Central Pkwy East
+          </Text>
+        </View>
+        <View style={styles.speedGauge}>
+          <Text style={styles.speedNum}>52</Text>
+          <Text style={styles.speedLimit}>LIMIT 55</Text>
+        </View>
+      </View>
+
+      <AdaptiveSplitView
+        primaryPane={mapPane}
+        secondaryPane={
+          isSplitLayout ? (
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {tripPane}
+            </ScrollView>
+          ) : (
+            tripPane
+          )
+        }
+        primaryRatio={0.6}
+      />
     </SafeAreaView>
   );
 };
@@ -116,7 +156,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   navHeader: {
     position: 'absolute',
@@ -124,16 +164,16 @@ const styles = StyleSheet.create({
     left: SPACING.lg,
     right: SPACING.lg,
     zIndex: 10,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.secondBackgroundglass,
+    borderColor: COLORS.border,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 6,
   },
@@ -152,16 +192,16 @@ const styles = StyleSheet.create({
   turnDistance: {
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
   turnInstruction: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
     marginTop: 2,
   },
   speedGauge: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: RADIUS.small,
@@ -172,7 +212,7 @@ const styles = StyleSheet.create({
   speedNum: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   speedLimit: {
     ...TYPOGRAPHY.caption,
@@ -197,6 +237,14 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderTopWidth: 1,
     borderColor: COLORS.border,
+  },
+  sideCard: {
+    height: '100%',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderLeftWidth: 1,
+    borderTopWidth: 0,
+    justifyContent: 'center',
   },
   fareEtaRow: {
     flexDirection: 'row',
@@ -226,11 +274,11 @@ const styles = StyleSheet.create({
   etaVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
   etaDist: {
     ...TYPOGRAPHY.caption,
-    color: COLORS.secondBackgroundglass,
+    color: COLORS.textLight,
     fontSize: 10,
   },
   destinationRow: {
@@ -270,7 +318,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.sm,
@@ -278,7 +326,7 @@ const styles = StyleSheet.create({
   initials: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.secondPrimaryDark,
   },
   passengerName: {
     ...TYPOGRAPHY.bodySmall,
@@ -295,7 +343,7 @@ const styles = StyleSheet.create({
   comfortText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    color: COLORS.secondBackgroundglass,
+    color: COLORS.primaryDark,
     fontSize: 11,
   },
   endTripBtn: {

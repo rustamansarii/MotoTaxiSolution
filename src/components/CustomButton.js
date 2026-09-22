@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     color: COLORS.secondPrimary,
   },
   darkContainer: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.text,
   },
   darkText: {
     color: COLORS.white,

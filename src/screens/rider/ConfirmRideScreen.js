@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
   appliedBtnText: {
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
   fareRow: {
     flexDirection: 'row',

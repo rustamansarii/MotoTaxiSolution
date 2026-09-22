@@ -110,7 +110,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       {/* Top Turn Header */}
       <View
@@ -161,7 +161,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   topTurnHeader: {
     position: 'absolute',
@@ -169,16 +169,16 @@ const styles = StyleSheet.create({
     left: SPACING.lg,
     right: SPACING.lg,
     zIndex: 10,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.secondBackgroundglass,
+    borderColor: COLORS.border,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 6,
   },
@@ -197,31 +197,33 @@ const styles = StyleSheet.create({
   turnDist: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
   turnStreet: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
     marginTop: 2,
   },
   etaBox: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.inputBg,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: RADIUS.small,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   etaMin: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   etaUnit: {
     ...TYPOGRAPHY.caption,
     fontSize: 9,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
   },
   mapArea: {
     flex: 1,
@@ -289,7 +291,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -297,7 +299,7 @@ const styles = StyleSheet.create({
   avatarInitials: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.secondPrimaryDark,
   },
   passengerDetails: {
     flex: 1,

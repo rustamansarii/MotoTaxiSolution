@@ -15,9 +15,12 @@ import Header from '../../components/Header';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
+import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 export const DriverProfileScreen = ({ navigation }) => {
+  const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const driver = ACTIVE_MOCK_DRIVER;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -30,144 +33,175 @@ export const DriverProfileScreen = ({ navigation }) => {
     navigation.replace('RiderNav');
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundglass} />
-      <Header title="Driver Account" showBack={false} variant="dark" />
+  const isMultiColumn = isFoldableOrTablet || isSplitLayout;
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Driver Hero Card */}
-        <View style={styles.driverHeroCard}>
-          <ProfileAvatar
-            name={driver.name}
-            size={80}
-            isOnline={true}
-            showStatus={true}
-            showEdit={true}
-          />
+  const driverOverview = (
+    <>
+      {/* Driver Hero Card */}
+      <View style={styles.driverHeroCard}>
+        <ProfileAvatar
+          name={driver.name}
+          size={80}
+          isOnline={true}
+          showStatus={true}
+          showEdit={true}
+        />
 
-          <Text style={styles.driverName}>{driver.name}</Text>
-          <Text style={styles.driverPhone}>{driver.phone}</Text>
+        <Text style={styles.driverName}>{driver.name}</Text>
+        <Text style={styles.driverPhone}>{driver.phone}</Text>
 
-          <View style={styles.statsPillsRow}>
-            <View style={styles.statPill}>
-              <Icon name="star" size={12} color={COLORS.primary} />
-              <Text style={styles.statPillText}>{driver.rating} Rating</Text>
-            </View>
+        <View style={styles.statsPillsRow}>
+          <View style={styles.statPill}>
+            <Icon name="star" size={12} color={COLORS.primary} />
+            <Text style={styles.statPillText}>{driver.rating} Rating</Text>
+          </View>
 
-            <View style={styles.statPill}>
-              <Text style={styles.statPillText}>3,840 Trips</Text>
-            </View>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillText}>3,840 Trips</Text>
+          </View>
 
-            <View style={styles.statPill}>
-              <Text style={styles.statPillText}>Top Partner</Text>
-            </View>
+          <View style={styles.statPill}>
+            <Text style={styles.statPillText}>Top Partner</Text>
           </View>
         </View>
+      </View>
 
-        {/* Switch to Rider Mode Banner */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleSwitchToRider}
-          style={styles.switchBanner}
-        >
-          <View style={styles.bannerIconCircle}>
-            <Icon name="user" size={20} color={COLORS.secondPrimary} />
+      {/* Switch to Rider Mode Banner */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={handleSwitchToRider}
+        style={styles.switchBanner}
+      >
+        <View style={styles.bannerIconCircle}>
+          <Icon name="user" size={20} color={COLORS.secondPrimary} />
+        </View>
+        <View style={styles.bannerTextCol}>
+          <Text style={styles.bannerTitle}>Switch to Rider Mode</Text>
+          <Text style={styles.bannerSubtitle}>
+            Need a ride yourself? Book a trip instantly as a passenger.
+          </Text>
+        </View>
+        <Icon name="arrow-right" size={18} color={COLORS.text} />
+      </TouchableOpacity>
+
+      {/* Logout */}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => setShowLogoutModal(true)}
+        style={styles.logoutBtn}
+      >
+        <Icon name="close" size={16} color={COLORS.danger} />
+        <Text style={styles.logoutText}>Sign Out as Driver</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  const driverDetails = (
+    <>
+      {/* Vehicle Information Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardTitle}>Active Vehicle</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('VehicleSetup')}
+            style={styles.editLink}
+          >
+            <Text style={styles.editLinkText}>Manage</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.vehicleRow}>
+          <View style={styles.vehicleIconCircle}>
+            <Icon name="car" size={22} color={COLORS.secondPrimary} />
           </View>
-          <View style={styles.bannerTextCol}>
-            <Text style={styles.bannerTitle}>Switch to Rider Mode</Text>
-            <Text style={styles.bannerSubtitle}>
-              Need a ride yourself? Book a trip instantly as a passenger.
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.carName}>{driver.car.model}</Text>
+            <Text style={styles.carColor}>
+              {driver.car.year} • {driver.car.color}
             </Text>
           </View>
-          <Icon name="arrow-right" size={18} color={COLORS.white} />
-        </TouchableOpacity>
-
-        {/* Vehicle Information Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>Active Vehicle</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('VehicleSetup')}
-              style={styles.editLink}
-            >
-              <Text style={styles.editLinkText}>Manage</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.vehicleRow}>
-            <View style={styles.vehicleIconCircle}>
-              <Icon name="car" size={22} color={COLORS.secondPrimary} />
-            </View>
-            <View style={styles.vehicleInfo}>
-              <Text style={styles.carName}>{driver.car.model}</Text>
-              <Text style={styles.carColor}>
-                {driver.car.year} • {driver.car.color}
-              </Text>
-            </View>
-            <View style={styles.plateBadge}>
-              <Text style={styles.plateText}>{driver.car.plateNumber}</Text>
-            </View>
+          <View style={styles.plateBadge}>
+            <Text style={styles.plateText}>{driver.car.plateNumber}</Text>
           </View>
         </View>
+      </View>
 
-        {/* Partner Menu Items */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Preferences & Documents</Text>
+      {/* Partner Menu Items */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Preferences & Documents</Text>
 
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('DocumentUpload')}
-            style={styles.menuRow}
-          >
-            <View style={styles.menuIconBox}>
-              <Icon name="document" size={18} color={COLORS.secondPrimary} />
-            </View>
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuTitle}>Documents & Inspection</Text>
-              <Text style={styles.menuSub}>Registration, Insurance & DMV</Text>
-            </View>
-            <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedBadgeText}>Verified</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity activeOpacity={0.7} style={styles.menuRow}>
-            <View style={styles.menuIconBox}>
-              <Icon name="settings" size={18} color={COLORS.secondPrimary} />
-            </View>
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuTitle}>Navigation Preferences</Text>
-              <Text style={styles.menuSub}>In-app routing & voice guidance</Text>
-            </View>
-            <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
-          </TouchableOpacity>
-
-          <TouchableOpacity activeOpacity={0.7} style={styles.menuRow}>
-            <View style={styles.menuIconBox}>
-              <Icon name="shield" size={18} color={COLORS.secondPrimary} />
-            </View>
-            <View style={styles.menuTextCol}>
-              <Text style={styles.menuTitle}>Safety & Dashcam Toolkit</Text>
-              <Text style={styles.menuSub}>Registered dashcam & emergency contact</Text>
-            </View>
-            <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Logout */}
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => setShowLogoutModal(true)}
-          style={styles.logoutBtn}
+          onPress={() => navigation.navigate('DocumentUpload')}
+          style={styles.menuRow}
         >
-          <Icon name="close" size={16} color={COLORS.danger} />
-          <Text style={styles.logoutText}>Sign Out as Driver</Text>
+          <View style={styles.menuIconBox}>
+            <Icon name="document" size={18} color={COLORS.secondPrimary} />
+          </View>
+          <View style={styles.menuTextCol}>
+            <Text style={styles.menuTitle}>Documents & Inspection</Text>
+            <Text style={styles.menuSub}>Registration, Insurance & DMV</Text>
+          </View>
+          <View style={styles.verifiedBadge}>
+            <Text style={styles.verifiedBadgeText}>Verified</Text>
+          </View>
         </TouchableOpacity>
-      </ScrollView>
+
+        <TouchableOpacity activeOpacity={0.7} style={styles.menuRow}>
+          <View style={styles.menuIconBox}>
+            <Icon name="settings" size={18} color={COLORS.secondPrimary} />
+          </View>
+          <View style={styles.menuTextCol}>
+            <Text style={styles.menuTitle}>Navigation Preferences</Text>
+            <Text style={styles.menuSub}>In-app routing & voice guidance</Text>
+          </View>
+          <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity activeOpacity={0.7} style={styles.menuRow}>
+          <View style={styles.menuIconBox}>
+            <Icon name="shield" size={18} color={COLORS.secondPrimary} />
+          </View>
+          <View style={styles.menuTextCol}>
+            <Text style={styles.menuTitle}>Safety & Dashcam Toolkit</Text>
+            <Text style={styles.menuSub}>Registered dashcam & emergency contact</Text>
+          </View>
+          <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ResponsiveContainer maxWidth={920} style={{ flex: 1 }}>
+        <Header title="Driver Account" showBack={false} variant="light" />
+
+        <ScrollView
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {isMultiColumn ? (
+            <View style={styles.splitRow}>
+              <View style={styles.splitCol}>
+                {driverOverview}
+              </View>
+              <View style={styles.splitCol}>
+                {driverDetails}
+              </View>
+            </View>
+          ) : (
+            <>
+              {driverOverview}
+              {driverDetails}
+            </>
+          )}
+        </ScrollView>
+      </ResponsiveContainer>
 
       {/* Logout Modal */}
       <CustomModal
@@ -188,25 +222,38 @@ export const DriverProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.background,
   },
   content: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xxxl,
   },
+  splitRow: {
+    flexDirection: 'row',
+    gap: SPACING.lg,
+    alignItems: 'flex-start',
+  },
+  splitCol: {
+    flex: 1,
+  },
   driverHeroCard: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.xl,
     alignItems: 'center',
     marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   driverName: {
     ...TYPOGRAPHY.h2,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
     marginTop: SPACING.sm,
   },
   driverPhone: {
@@ -222,7 +269,7 @@ const styles = StyleSheet.create({
   statPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.inputBg,
     paddingHorizontal: SPACING.md,
     paddingVertical: 4,
     borderRadius: RADIUS.round,
@@ -232,24 +279,29 @@ const styles = StyleSheet.create({
   statPillText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
     marginLeft: 3,
   },
   switchBanner: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.secondPrimary,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bannerIconCircle: {
     width: 42,
     height: 42,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -260,7 +312,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   bannerSubtitle: {
     ...TYPOGRAPHY.caption,
@@ -374,13 +426,15 @@ const styles = StyleSheet.create({
   verifiedBadgeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.large,
     marginVertical: SPACING.md,

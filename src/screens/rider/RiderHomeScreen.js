@@ -110,7 +110,7 @@ export const RiderHomeScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       {/* Top Floating Header */}
-      <View
+      {/* <View
         style={[
           styles.topHeader,
           {
@@ -140,7 +140,7 @@ export const RiderHomeScreen = ({ navigation }) => {
           <Icon name="refresh" size={14} color={COLORS.secondPrimary} />
           <Text style={styles.roleBadgeText}>Switch Role</Text>
         </TouchableOpacity>
-      </View>
+      </View> */}
 
       <AdaptiveSplitView
         primaryPane={mapPane}
@@ -329,17 +329,24 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
   },
   promoBanner: {
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
     padding: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   promoIconCircle: {
     width: 36,
     height: 36,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.secondPrimary,
+    backgroundColor: COLORS.secondPrimaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
@@ -350,7 +357,7 @@ const styles = StyleSheet.create({
   promoTitle: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.text,
   },
   promoSubtitle: {
     ...TYPOGRAPHY.caption,

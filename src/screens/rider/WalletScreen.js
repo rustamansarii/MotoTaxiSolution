@@ -274,17 +274,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   balanceCard: {
-    backgroundColor: COLORS.backgroundglass,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.extraLarge,
     padding: SPACING.xl,
     borderWidth: 1.5,
-    borderColor: COLORS.secondBackgroundglass,
+    borderColor: COLORS.border,
     marginBottom: SPACING.xl,
     shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
     shadowRadius: 10,
-    elevation: 4,
+    elevation: 3,
   },
   balanceHeader: {
     flexDirection: 'row',
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: RADIUS.round,
-    backgroundColor: COLORS.secondBackgroundglass,
+    backgroundColor: COLORS.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.sm,
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   balanceLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: COLORS.primaryDark,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h1,
     fontSize: 36,
     fontWeight: '800',
-    color: COLORS.white,
+    color: COLORS.text,
     marginVertical: SPACING.sm,
   },
   balanceSub: {
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   activeQuickAmtText: {
-    color: COLORS.backgroundglass,
+    color: COLORS.primaryDark,
   },
 });
 
