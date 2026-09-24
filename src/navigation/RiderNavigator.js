@@ -55,7 +55,7 @@ const RiderTabs = () => {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Icon name="car" size={22} color={color} />
+            <Icon name="bike" size={22} color={color} />
           ),
         }}
       />

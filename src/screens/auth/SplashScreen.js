@@ -45,14 +45,14 @@ export const SplashScreen = ({ navigation }) => {
     ]).start();
 
     const timer = setTimeout(() => {
-      navigation.replace('Welcome');
+      navigation.replace('Login');
     }, 2200);
 
     return () => clearTimeout(timer);
   }, [navigation]);
 
   const handleContinue = () => {
-    navigation.replace('Welcome');
+    navigation.replace('Login');
   };
 
   return (
@@ -97,7 +97,7 @@ export const SplashScreen = ({ navigation }) => {
 
           {/* App Name */}
           <Text style={[styles.appName, isCompact && { fontSize: 36 }]}>
-            {APP_NAME || 'MTS'}
+            {APP_NAME || 'Moto Taxi'}
           </Text>
         </Animated.View>
 

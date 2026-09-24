@@ -14,10 +14,12 @@ import RatingStars from '../../components/RatingStars';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 
 export const DriverTripCompletedScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { insets } = useResponsive();
   const fare = route.params?.fare || 28.5;
   const passengerName = route.params?.passengerName || 'Elena Rostova';
@@ -49,14 +51,14 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
           <Icon name="check" size={36} color={COLORS.primaryDark} />
         </View>
 
-        <Text style={styles.title}>Trip Completed!</Text>
+        <Text style={styles.title}>{t('driver.completeTrip')}</Text>
         <Text style={styles.subtitle}>
           Your earnings have been added to your daily wallet.
         </Text>
 
         {/* Total Earned Card */}
         <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>Total Earned</Text>
+          <Text style={styles.earningsLabel}>{t('driver.totalEarnings')}</Text>
           <Text style={styles.earningsAmount}>
             {formatCurrency(totalEarned)}
           </Text>
@@ -79,7 +81,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
         <View style={styles.statsCard}>
           <View style={styles.statCol}>
             <Text style={styles.statNum}>{distance}</Text>
-            <Text style={styles.statLabel}>Distance</Text>
+            <Text style={styles.statLabel}>{t('navigation.distance')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCol}>
@@ -95,7 +97,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
 
         {/* Rate Rider Card */}
         <View style={styles.rateCard}>
-          <Text style={styles.rateTitle}>Rate Passenger</Text>
+          <Text style={styles.rateTitle}>{t('rider.rateExperience')}</Text>
           <Text style={styles.rateSubtitle}>
             How was your experience driving {passengerName}?
           </Text>
@@ -111,7 +113,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
 
         {/* Action Button */}
         <CustomButton
-          title="Ready for Next Ride"
+          title={t('common.done')}
           onPress={handleFinish}
           variant="primary"
           icon="arrow-right"
@@ -128,6 +130,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  topLangBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xs,
   },
   content: {
     padding: SPACING.xl,

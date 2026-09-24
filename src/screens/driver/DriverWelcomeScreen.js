@@ -15,36 +15,38 @@ import Header from '../../components/Header';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useResponsive } from '../../utils/responsive';
-
-const PERKS = [
-  {
-    icon: 'dollar-sign',
-    title: 'Top Earnings & Tips',
-    description:
-      'Keep 100% of rider tips with low platform commission and instant daily cash outs.',
-  },
-  {
-    icon: 'clock',
-    title: 'Drive on Your Schedule',
-    description:
-      'Turn on Driver Mode whenever you are ready. No minimum weekly hours required.',
-  },
-  {
-    icon: 'shield',
-    title: 'Comprehensive Protection',
-    description:
-      'Every trip includes full insurance coverage, 24/7 support, and rider ratings.',
-  },
-];
+import { useTranslation } from 'react-i18next';
 
 export const DriverWelcomeScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
+
+  const perks = [
+    {
+      icon: 'dollar-sign',
+      title: t('driver.todayEarnings', 'Top Earnings & Tips'),
+      description:
+        'Keep 100% of rider tips with low platform commission and instant daily cash outs.',
+    },
+    {
+      icon: 'clock',
+      title: t('driver.hoursOnline', 'Drive on Your Schedule'),
+      description:
+        'Turn on Driver Mode whenever you are ready. No minimum weekly hours required.',
+    },
+    {
+      icon: 'shield',
+      title: t('driver.documents', 'Comprehensive Protection'),
+      description:
+        'Every trip includes full insurance coverage, 24/7 support, and rider ratings.',
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <Header
-        title="Driver Partner"
+        title={t('driver.driverProfile', 'Driver Partner')}
         onBack={() => navigation.navigate('RoleSelection')}
         variant="light"
       />
@@ -65,23 +67,27 @@ export const DriverWelcomeScreen = ({ navigation }) => {
           {/* Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.iconCircle}>
-              <Icon name="car" size={32} color={COLORS.primaryDark} />
+              <Icon name="bike" size={32} color={COLORS.primaryDark} />
             </View>
 
-            <Text style={styles.heroTitle}>Drive & Earn on Your Terms</Text>
+            <Text style={styles.heroTitle}>
+              {t('driver.welcomeDriver', 'Drive & Earn on Your Terms')}
+            </Text>
             <Text style={styles.heroSubtitle}>
-              Join thousands of independent driver partners powering reliable urban mobility.
+              {t('driver.welcomeDriverDesc', 'Join thousands of independent driver partners powering reliable urban mobility.')}
             </Text>
 
             <View style={styles.earningsEstimate}>
-              <Text style={styles.estLabel}>Average Partner Earnings</Text>
+              <Text style={styles.estLabel}>
+                {t('driver.todayEarnings', 'Average Partner Earnings')}
+              </Text>
               <Text style={styles.estAmount}>$28 - $36 / hr</Text>
             </View>
           </View>
 
           {/* Perks */}
           <View style={styles.perksList}>
-            {PERKS.map((perk, index) => (
+            {perks.map((perk, index) => (
               <View key={index} style={styles.perkItem}>
                 <View style={styles.perkIconBox}>
                   <Icon name={perk.icon} size={22} color={COLORS.primaryDark} />
@@ -97,7 +103,7 @@ export const DriverWelcomeScreen = ({ navigation }) => {
           {/* Action Buttons */}
           <View style={styles.actions}>
             <CustomButton
-              title="Register as Driver"
+              title={t('auth.driverRoleTitle', 'Register as Driver')}
               onPress={() => navigation.navigate('DriverLogin')}
               variant="primary"
               icon="arrow-right"
@@ -110,7 +116,7 @@ export const DriverWelcomeScreen = ({ navigation }) => {
               style={styles.directDashboardBtn}
             >
               <Text style={styles.directDashboardText}>
-                Direct to Driver Dashboard ›
+                {t('driver.homeTitle', 'Direct to Driver Dashboard')} ›
               </Text>
             </TouchableOpacity>
           </View>

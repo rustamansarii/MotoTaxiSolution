@@ -16,6 +16,8 @@ import ProfileAvatar from '../../components/ProfileAvatar';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import LanguageButton from '../../components/LanguageButton';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 
 const MENU_ITEMS = [
@@ -52,6 +54,7 @@ const MENU_ITEMS = [
 ];
 
 export const RiderProfileScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
@@ -100,7 +103,7 @@ export const RiderProfileScreen = ({ navigation }) => {
         style={styles.switchBanner}
       >
         <View style={styles.bannerIconCircle}>
-          <Icon name="car" size={20} color={COLORS.primary} />
+          <Icon name="bike" size={20} color={COLORS.primary} />
         </View>
         <View style={styles.bannerInfo}>
           <Text style={styles.bannerTitle}>Earn Money as a Driver</Text>
@@ -149,10 +152,10 @@ export const RiderProfileScreen = ({ navigation }) => {
         style={styles.logoutBtn}
       >
         <Icon name="close" size={16} color={COLORS.danger} />
-        <Text style={styles.logoutText}>Log Out of Account</Text>
+        <Text style={styles.logoutText}>{t('rider.logout')}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.appVersion}>RideGo App Version 2.4.0 (Build 182)</Text>
+      <Text style={styles.appVersion}>Moto Taxi App Version 2.4.0 (Build 182)</Text>
     </>
   );
 
@@ -160,7 +163,11 @@ export const RiderProfileScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={920} style={{ flex: 1 }}>
-        <Header title="Your Profile" showBack={false} />
+        <Header
+          title={t('rider.profile')}
+          showBack={false}
+          rightComponent={<LanguageButton />}
+        />
 
         <ScrollView
           contentContainerStyle={[
@@ -193,10 +200,10 @@ export const RiderProfileScreen = ({ navigation }) => {
       <CustomModal
         visible={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
-        title="Log Out?"
+        title={t('rider.logout')}
         message="Are you sure you want to log out? You will need to sign in again to book rides."
-        confirmText="Yes, Log Out"
-        cancelText="Cancel"
+        confirmText={t('rider.logout')}
+        cancelText={t('common.cancel')}
         isDanger={true}
         onConfirm={handleLogout}
         icon="alert-triangle"

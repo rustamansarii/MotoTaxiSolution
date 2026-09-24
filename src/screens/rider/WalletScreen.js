@@ -17,6 +17,7 @@ import CustomModal from '../../components/CustomModal';
 import CustomInput from '../../components/CustomInput';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -26,6 +27,7 @@ import {
 } from '../../data/mockTransactions';
 
 export const WalletScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const [balance, setBalance] = useState(MOCK_WALLET.riderBalance);
   const [showAddFunds, setShowAddFunds] = useState(false);
@@ -55,7 +57,7 @@ export const WalletScreen = ({ navigation }) => {
         <View style={styles.walletIconCircle}>
           <Icon name="wallet" size={20} color={COLORS.primary} />
         </View>
-        <Text style={styles.balanceLabel}>RideGo Balance</Text>
+        <Text style={styles.balanceLabel}>{t('rider.currentBalance')}</Text>
       </View>
 
       <Text style={styles.balanceAmount}>{formatCurrency(balance)}</Text>
@@ -65,7 +67,7 @@ export const WalletScreen = ({ navigation }) => {
 
       <View style={styles.balanceActions}>
         <CustomButton
-          title="+ Add Funds"
+          title={`+ ${t('rider.addFunds')}`}
           onPress={() => setShowAddFunds(true)}
           variant="primary"
           size="small"
@@ -78,9 +80,9 @@ export const WalletScreen = ({ navigation }) => {
   const paymentMethodsSection = (
     <View style={styles.section}>
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionTitle}>Payment Methods</Text>
+        <Text style={styles.sectionTitle}>{t('rider.paymentMethodsTitle')}</Text>
         <TouchableOpacity style={styles.addMethodBtn}>
-          <Text style={styles.addMethodText}>+ Add Method</Text>
+          <Text style={styles.addMethodText}>+ {t('rider.addPaymentMethod')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -129,7 +131,7 @@ export const WalletScreen = ({ navigation }) => {
 
   const transactionsSection = (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Recent Transactions</Text>
+      <Text style={styles.sectionTitle}>{t('rider.transactionHistory')}</Text>
 
       <View style={styles.transactionsCard}>
         {MOCK_TRANSACTIONS.map((tx, index) => (
@@ -179,7 +181,10 @@ export const WalletScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={960} style={{ flex: 1 }}>
-        <Header title="Wallet & Payments" showBack={false} />
+        <Header
+          title={t('rider.wallet')}
+          showBack={false}
+        />
 
         <ScrollView
           contentContainerStyle={[

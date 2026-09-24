@@ -43,7 +43,12 @@ const ICON_MAP = {
   'search': { family: 'Ionicons', name: 'search' },
 
   // Rides & Vehicles
-  'car': { family: 'Ionicons', name: 'car-sport' },
+  'bike': { family: 'MaterialCommunityIcons', name: 'motorbike' },
+  'motorbike': { family: 'MaterialCommunityIcons', name: 'motorbike' },
+  'motorcycle': { family: 'MaterialCommunityIcons', name: 'motorbike' },
+  'bicycle': { family: 'MaterialCommunityIcons', name: 'motorbike' },
+  'auto': { family: 'MaterialCommunityIcons', name: 'rickshaw' },
+  'car': { family: 'MaterialCommunityIcons', name: 'car' },
   'shield': { family: 'Ionicons', name: 'shield-checkmark' },
   'safety': { family: 'Ionicons', name: 'shield-checkmark' },
   'clock': { family: 'Ionicons', name: 'time-outline' },
@@ -84,25 +89,49 @@ const ICON_MAP = {
   'menu': { family: 'Ionicons', name: 'menu' },
   'info': { family: 'Ionicons', name: 'information-circle' },
   'alert-triangle': { family: 'Ionicons', name: 'warning' },
+  'alert-circle': { family: 'Ionicons', name: 'alert-circle' },
   'warning': { family: 'Ionicons', name: 'warning' },
+  'backspace': { family: 'Ionicons', name: 'backspace-outline' },
+  'backspace-fill': { family: 'Ionicons', name: 'backspace' },
+  'shift-key': { family: 'Ionicons', name: 'arrow-up' },
+  'caps-lock': { family: 'Ionicons', name: 'arrow-up-circle' },
+  'enter-key': { family: 'Ionicons', name: 'return-down-back' },
+  'keyboard-hide': { family: 'Ionicons', name: 'chevron-down' },
+
+  // Security & Authentication
+  'lock': { family: 'Ionicons', name: 'lock-closed' },
+  'lock-closed': { family: 'Ionicons', name: 'lock-closed' },
+  'lock-outline': { family: 'Ionicons', name: 'lock-closed-outline' },
+  'unlock': { family: 'Ionicons', name: 'lock-open' },
+  'key': { family: 'Ionicons', name: 'key' },
+  'eye': { family: 'Ionicons', name: 'eye-outline' },
+  'eye-outline': { family: 'Ionicons', name: 'eye-outline' },
+  'eye-off': { family: 'Ionicons', name: 'eye-off-outline' },
+  'eye-off-outline': { family: 'Ionicons', name: 'eye-off-outline' },
+  'eye-solid': { family: 'Ionicons', name: 'eye' },
+  'globe': { family: 'Ionicons', name: 'globe-outline' },
 
   // Media & Documents
   'document': { family: 'Ionicons', name: 'document-text' },
   'file-text': { family: 'Ionicons', name: 'document-text' },
   'camera': { family: 'Ionicons', name: 'camera' },
+  'image': { family: 'Ionicons', name: 'image' },
+  'images': { family: 'Ionicons', name: 'images' },
   'radio': { family: 'Ionicons', name: 'radio-button-on' },
   'tag': { family: 'Ionicons', name: 'pricetag' },
   'gift': { family: 'Ionicons', name: 'gift' },
   'apple': { family: 'Ionicons', name: 'logo-apple' },
   'activity': { family: 'Ionicons', name: 'pulse' },
+  'calendar': { family: 'Ionicons', name: 'calendar-outline' },
+  'calendar-sharp': { family: 'Ionicons', name: 'calendar' },
 };
 
 export const Icon = ({
   name,
-  type,
+  type = undefined,
   size = 20,
   color = COLORS.text,
-  style,
+  style = undefined,
   ...rest
 }) => {
   let FamilyComponent = Ionicons;

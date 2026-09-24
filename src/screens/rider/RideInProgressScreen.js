@@ -14,11 +14,13 @@ import MapPlaceholder from '../../components/MapPlaceholder';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 export const RideInProgressScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
@@ -59,11 +61,11 @@ export const RideInProgressScreen = ({ navigation, route }) => {
       {/* ETA & Distance */}
       <View style={styles.etaRow}>
         <View style={styles.etaCol}>
-          <Text style={styles.etaLabel}>Estimated Arrival</Text>
+          <Text style={styles.etaLabel}>{t('navigation.eta')}</Text>
           <Text style={styles.etaTime}>11:42 AM</Text>
         </View>
         <View style={styles.distanceBadge}>
-          <Text style={styles.distanceText}>12 min • 4.8 mi</Text>
+          <Text style={styles.distanceText}>12 {t('navigation.min')} • 4.8 mi</Text>
         </View>
       </View>
 
@@ -71,7 +73,7 @@ export const RideInProgressScreen = ({ navigation, route }) => {
       <View style={styles.destRow}>
         <View style={styles.destDot} />
         <View style={styles.destInfo}>
-          <Text style={styles.destLabel}>Destination</Text>
+          <Text style={styles.destLabel}>{t('rider.destination')}</Text>
           <Text numberOfLines={1} style={styles.destTitle}>
             JFK International Airport, Terminal 4
           </Text>
@@ -99,7 +101,7 @@ export const RideInProgressScreen = ({ navigation, route }) => {
 
       {/* Finish / Next Step Simulation CTA */}
       <CustomButton
-        title="Arrive at Destination • Complete Trip"
+        title={`${t('driver.completeTrip')} • Moto Taxi`}
         onPress={handleCompleteTrip}
         variant="primary"
         icon="check"
@@ -128,14 +130,10 @@ export const RideInProgressScreen = ({ navigation, route }) => {
           <Icon name="navigation" size={20} color={COLORS.white} />
         </View>
         <View style={styles.turnInfo}>
-          <Text style={styles.turnDistance}>In 500 ft</Text>
+          <Text style={styles.turnDistance}>{t('navigation.keepStraight')}</Text>
           <Text numberOfLines={1} style={styles.turnStreet}>
             Continue onto FDR Dr North
           </Text>
-        </View>
-        <View style={styles.speedPill}>
-          <Text style={styles.speedVal}>42</Text>
-          <Text style={styles.speedUnit}>MPH</Text>
         </View>
       </View>
 

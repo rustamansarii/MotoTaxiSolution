@@ -3,10 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -15,12 +16,13 @@ import CustomButton from '../../components/CustomButton';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
-import { useResponsive } from '../../utils/responsive';
-import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
 import { MOCK_DRIVER_STATS } from '../../data/mockDrivers';
+import { useTranslation } from 'react-i18next';
+import { useResponsive } from '../../utils/responsive';
 
 export const DriverHomeScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
   const [isOnline, setIsOnline] = useState(true);
 
@@ -87,7 +89,7 @@ export const DriverHomeScreen = ({ navigation }) => {
       <View style={styles.earningsRow}>
         <View>
           <Text style={styles.earningsLabel}>
-            Today's Earnings
+            {t('driver.todayEarnings', "Today's Earnings")}
           </Text>
           <Text style={styles.earningsAmount}>
             {formatCurrency(MOCK_DRIVER_STATS.dailyEarnings)}
@@ -99,7 +101,7 @@ export const DriverHomeScreen = ({ navigation }) => {
           onPress={() => navigation.navigate('DriverEarnings')}
           style={styles.viewEarningsBtn}
         >
-          <Text style={styles.viewEarningsText}>Weekly Stats ›</Text>
+          <Text style={styles.viewEarningsText}>{t('driver.trips', 'Weekly Stats')} ›</Text>
         </TouchableOpacity>
       </View>
 
@@ -107,14 +109,14 @@ export const DriverHomeScreen = ({ navigation }) => {
       <View style={styles.statsGrid}>
         <View style={styles.statCell}>
           <Text style={styles.statNumber}>4.2 hrs</Text>
-          <Text style={styles.statCaption}>Online Time</Text>
+          <Text style={styles.statCaption}>{t('driver.hoursOnline', 'Online Time')}</Text>
         </View>
 
         <View style={styles.statCellDivider} />
 
         <View style={styles.statCell}>
           <Text style={styles.statNumber}>8</Text>
-          <Text style={styles.statCaption}>Trips Completed</Text>
+          <Text style={styles.statCaption}>{t('driver.tripsCompleted', 'Trips Completed')}</Text>
         </View>
 
         <View style={styles.statCellDivider} />
@@ -123,7 +125,7 @@ export const DriverHomeScreen = ({ navigation }) => {
           <Text style={[styles.statNumber, { color: COLORS.primaryDark }]}>
             {MOCK_DRIVER_STATS.acceptanceRate}
           </Text>
-          <Text style={styles.statCaption}>Acceptance</Text>
+          <Text style={styles.statCaption}>{t('driver.acceptRide', 'Acceptance')}</Text>
         </View>
       </View>
 
@@ -210,30 +212,35 @@ export const DriverHomeScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
-        {/* Online / Offline Toggle Button */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={toggleOnline}
-          style={[
-            styles.statusPill,
-            isOnline ? styles.onlinePill : styles.offlinePill,
-          ]}
-        >
-          <View
+        {/* Right Controls: Online / Offline Status */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {/* Online / Offline Toggle Button */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={toggleOnline}
             style={[
-              styles.statusDot,
-              { backgroundColor: isOnline ? COLORS.primary : COLORS.iconLight },
-            ]}
-          />
-          <Text
-            style={[
-              styles.statusPillText,
-              { color: isOnline ? COLORS.primaryDark : COLORS.textLight },
+              styles.statusPill,
+              isOnline ? styles.onlinePill : styles.offlinePill,
             ]}
           >
-            {isOnline ? 'YOU ARE ONLINE' : 'OFFLINE'}
-          </Text>
-        </TouchableOpacity>
+            <View
+              style={[
+                styles.statusDot,
+                { backgroundColor: isOnline ? COLORS.primary : COLORS.iconLight },
+              ]}
+            />
+            <Text
+              style={[
+                styles.statusPillText,
+                { color: isOnline ? COLORS.primaryDark : COLORS.textLight },
+              ]}
+            >
+              {isOnline
+                ? t('driver.online', 'ONLINE').toUpperCase()
+                : t('driver.offline', 'OFFLINE').toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <AdaptiveSplitView

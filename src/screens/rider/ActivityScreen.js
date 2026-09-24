@@ -17,11 +17,13 @@ import RatingStars from '../../components/RatingStars';
 import EmptyState from '../../components/EmptyState';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { MOCK_RIDE_HISTORY } from '../../data/mockRides';
 
 export const ActivityScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
   const [activeTab, setActiveTab] = useState('past'); // 'past' | 'upcoming'
 
@@ -91,7 +93,10 @@ export const ActivityScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={880} style={{ flex: 1 }}>
-        <Header title="Your Activity" showBack={false} />
+        <Header
+          title={t('rider.activity')}
+          showBack={false}
+        />
 
         {/* Tabs */}
         <View style={styles.tabBar}>
@@ -102,7 +107,7 @@ export const ActivityScreen = ({ navigation }) => {
             <Text
               style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}
             >
-              Past Trips
+              {t('rider.allTrips')}
             </Text>
           </TouchableOpacity>
 
@@ -119,7 +124,7 @@ export const ActivityScreen = ({ navigation }) => {
                 activeTab === 'upcoming' && styles.activeTabText,
               ]}
             >
-              Upcoming
+              {t('driver.trips')}
             </Text>
           </TouchableOpacity>
         </View>

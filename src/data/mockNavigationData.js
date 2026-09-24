@@ -96,6 +96,31 @@ export const DEMO_PROGRESS = [
 ];
 
 /**
- * Standard MapLibre Demotiles style JSON URL (free, open source vector tiles)
+ * OpenStreetMap standard tiles style (free, no API key, no watermark)
  */
-export const DEMO_MAP_STYLE = 'https://demotiles.maplibre.org/style.json';
+export const DEMO_MAP_STYLE = JSON.stringify({
+  version: 8,
+  sources: {
+    'osm-street-tiles': {
+      type: 'raster',
+      tiles: [
+        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      ],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'osm-street-tiles-layer',
+      type: 'raster',
+      source: 'osm-street-tiles',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+});
+

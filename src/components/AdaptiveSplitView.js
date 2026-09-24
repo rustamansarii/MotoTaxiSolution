@@ -38,8 +38,24 @@ export const AdaptiveSplitView = ({
 
   return (
     <View style={[styles.columnContainer, style]}>
-      <View style={[styles.stackedPrimary, primaryStyle]}>{primaryPane}</View>
-      <View style={[styles.stackedSecondary, secondaryStyle]}>{secondaryPane}</View>
+      <View
+        style={[
+          styles.stackedPrimary,
+          { flex: primaryRatio || 0.55 },
+          primaryStyle,
+        ]}
+      >
+        {primaryPane}
+      </View>
+      <View
+        style={[
+          styles.stackedSecondary,
+          { flex: 1 - (primaryRatio || 0.55) },
+          secondaryStyle,
+        ]}
+      >
+        {secondaryPane}
+      </View>
     </View>
   );
 };

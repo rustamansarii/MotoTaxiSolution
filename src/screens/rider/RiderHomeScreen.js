@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,87 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
-import MapPlaceholder from '../../components/MapPlaceholder';
+import { RiderLiveMap } from '../../components/navigation';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import Icon from '../../components/Icon';
 import { CURRENT_LOCATION, SAVED_PLACES } from '../../data/mockLocations';
 import { useResponsive } from '../../utils/responsive';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
+import {
+  getCurrentLocation,
+  watchLocation,
+  clearLocationWatch,
+} from '../../utils/locationService';
 
 export const RiderHomeScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
+
+  // User GPS coordinates [longitude, latitude]
+  const [userLocation, setUserLocation] = useState([
+    CURRENT_LOCATION.longitude || 75.8573,
+    CURRENT_LOCATION.latitude || 30.9005,
+  ]);
+  const [locationLabel, setLocationLabel] = useState(
+    CURRENT_LOCATION.shortAddress || 'My Location'
+  );
+
+  // Fetch real GPS location on mount
+  useEffect(() => {
+    let watchId = null;
+
+    const fetchGps = async () => {
+      try {
+        const loc = await getCurrentLocation();
+        if (loc?.latitude && loc?.longitude) {
+          setUserLocation([loc.longitude, loc.latitude]);
+          setLocationLabel('Current Location');
+        }
+      } catch (err) {
+        console.warn('[RiderHome] Initial GPS failed:', err);
+      }
+
+      watchId = await watchLocation(
+        (loc) => {
+          if (loc?.latitude && loc?.longitude) {
+            setUserLocation([loc.longitude, loc.latitude]);
+          }
+        },
+        (err) => console.warn('[RiderHome] Location watch error:', err)
+      );
+    };
+
+    fetchGps();
+
+    return () => {
+      if (watchId !== null) {
+        clearLocationWatch(watchId);
+      }
+    };
+  }, []);
+
+  // Compute nearby dynamic drivers around current GPS location
+  const nearbyDrivers = useMemo(() => {
+    if (!userLocation) return [];
+    const [lng, lat] = userLocation;
+    return [
+      { id: 'd1', coordinate: [lng + 0.0032, lat + 0.0018], heading: 45, eta: '2 min' },
+      { id: 'd2', coordinate: [lng - 0.0028, lat + 0.0035], heading: 135, eta: '4 min' },
+      { id: 'd3', coordinate: [lng + 0.0021, lat - 0.0031], heading: 220, eta: '5 min' },
+    ];
+  }, [userLocation]);
+
+  const handleRecenterLocation = useCallback(async () => {
+    try {
+      const loc = await getCurrentLocation();
+      if (loc?.latitude && loc?.longitude) {
+        setUserLocation([loc.longitude, loc.latitude]);
+      }
+    } catch (err) {
+      console.warn('[RiderHome] Recenter error:', err);
+    }
+  }, []);
 
   const searchControls = (
     <View style={[styles.bottomCard, isSplitLayout && styles.sideCard]}>
@@ -32,7 +104,9 @@ export const RiderHomeScreen = ({ navigation }) => {
         <View style={styles.searchIconBox}>
           <Icon name="search" size={18} color={COLORS.primary} />
         </View>
-        <Text style={styles.searchPlaceholder}>Where to?</Text>
+        <Text style={styles.searchPlaceholder}>
+          {t('rider.whereTo', 'Where to?')}
+        </Text>
         <View style={styles.timeBadge}>
           <Icon name="clock" size={12} color={COLORS.text} />
           <Text style={styles.timeText}>Now ⌄</Text>
@@ -93,14 +167,11 @@ export const RiderHomeScreen = ({ navigation }) => {
 
   const mapPane = (
     <View style={styles.mapArea}>
-      <MapPlaceholder
-        showRoute={false}
-        showPickupMarker={true}
-        showDestinationMarker={false}
-        showDriverMarker={true}
-        pickupLabel={CURRENT_LOCATION.shortAddress}
-        driverEta="3 min"
-        height="100%"
+      <RiderLiveMap
+        userCoordinate={userLocation}
+        nearbyDrivers={nearbyDrivers}
+        pickupLabel={locationLabel}
+        onRecenter={handleRecenterLocation}
       />
     </View>
   );
@@ -108,39 +179,6 @@ export const RiderHomeScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
-
-      {/* Top Floating Header */}
-      {/* <View
-        style={[
-          styles.topHeader,
-          {
-            top: Math.max(insets.top + 10, 30),
-            maxWidth: isFoldableOrTablet ? 560 : width - 32,
-            alignSelf: 'center',
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={() => navigation.navigate('RiderProfile')}
-          activeOpacity={0.8}
-          style={styles.profileBtn}
-        >
-          <ProfileAvatar name="Alex Morgan" size={40} />
-          <View style={styles.greetingCol}>
-            <Text style={styles.greetingText}>Good morning,</Text>
-            <Text style={styles.userName}>Alex Morgan</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate('RoleSelection')}
-          activeOpacity={0.8}
-          style={styles.roleBadge}
-        >
-          <Icon name="refresh" size={14} color={COLORS.secondPrimary} />
-          <Text style={styles.roleBadgeText}>Switch Role</Text>
-        </TouchableOpacity>
-      </View> */}
 
       <AdaptiveSplitView
         primaryPane={mapPane}
@@ -153,7 +191,13 @@ export const RiderHomeScreen = ({ navigation }) => {
               {searchControls}
             </ScrollView>
           ) : (
-            searchControls
+            <ScrollView
+              contentContainerStyle={styles.scrollableBottomPane}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {searchControls}
+            </ScrollView>
           )
         }
         primaryRatio={0.55}
@@ -177,6 +221,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   splitSecondaryScroll: {
+    flexGrow: 1,
+    backgroundColor: COLORS.white,
+  },
+  scrollableBottomPane: {
     flexGrow: 1,
     backgroundColor: COLORS.white,
   },

@@ -36,7 +36,7 @@ export const DriverMarker = ({
       >
         {/* Navigation direction indicator notch */}
         <View style={styles.headingNotch} />
-        <Icon name="car" size={18} color={COLORS.white} />
+        <Icon name="bike" size={18} color={COLORS.white} />
       </View>
     </View>
   );

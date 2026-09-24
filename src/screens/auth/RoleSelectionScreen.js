@@ -15,20 +15,20 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useResponsive } from '../../utils/responsive';
+import { useTranslation } from 'react-i18next';
 
 const GREEN = '#17baa1';
 
 export const RoleSelectionScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, isLandscape, isCompact, insets } = useResponsive();
   const [selectedRole, setSelectedRole] = useState('rider');
 
   const handleProceed = () => {
     if (selectedRole === 'rider') {
-      navigation.navigate('Login', {
-        role: 'rider',
-      });
+      navigation.navigate('RiderSignup');
     } else {
-      navigation.navigate('DriverWelcome');
+      navigation.navigate('DriverSignup');
     }
   };
 
@@ -58,6 +58,26 @@ export const RoleSelectionScreen = ({ navigation }) => {
 
         <View style={styles.hero}>
 
+          {/* Back to Login Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => navigation.goBack()}
+            style={{
+              position: 'absolute',
+              top: Math.max(insets.top, 16),
+              left: 16,
+              zIndex: 20,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'rgba(255, 255, 255, 0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Icon name="arrow-left" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+
           {/* Logo */}
           <View style={styles.logoBox}>
             <View style={styles.steeringWheel}>
@@ -74,11 +94,11 @@ export const RoleSelectionScreen = ({ navigation }) => {
           </View>
 
           <Text style={styles.brandName}>
-            MTS
+            Moto Taxi
           </Text>
 
           <Text style={styles.heroText}>
-            Your ride, your way
+            {t('common.welcome', 'Welcome to Moto Taxi')}
           </Text>
 
           {/* Subtle skyline */}
@@ -105,11 +125,11 @@ export const RoleSelectionScreen = ({ navigation }) => {
         <View style={[styles.content, { maxWidth: isFoldableOrTablet ? 680 : '100%', alignSelf: 'center', width: '100%' }]}>
 
           <Text style={styles.title}>
-            How do you want to use Aber?
+            {t('auth.chooseRoleTitle', 'Choose Your Role')}
           </Text>
 
           <Text style={styles.subtitle}>
-            Choose your account type to get started.
+            {t('auth.chooseRoleSubtitle', 'How would you like to use Moto Taxi today?')}
           </Text>
 
           <View style={[styles.rolesContainer, (isFoldableOrTablet || isLandscape) && styles.rolesRow]}>
@@ -141,7 +161,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
             <View style={styles.roleContent}>
               <View style={styles.roleTitleRow}>
                 <Text style={styles.roleTitle}>
-                  Rider
+                  {t('auth.riderRoleTitle', 'Rider')}
                 </Text>
 
                 {selectedRole === 'rider' && (
@@ -156,8 +176,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
               </View>
 
               <Text style={styles.roleDescription}>
-                Book a ride and get where you need to go
-                safely and comfortably.
+                {t('auth.riderRoleDesc', 'Book a ride and get where you need to go safely and comfortably.')}
               </Text>
             </View>
 
@@ -189,7 +208,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
           >
             <View style={styles.roleIconContainer}>
               <Icon
-                name="car"
+                name="bike"
                 size={29}
                 color={
                   selectedRole === 'driver'
@@ -202,7 +221,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
             <View style={styles.roleContent}>
               <View style={styles.roleTitleRow}>
                 <Text style={styles.roleTitle}>
-                  Driver
+                  {t('auth.driverRoleTitle', 'Driver')}
                 </Text>
 
                 {selectedRole === 'driver' && (
@@ -217,8 +236,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
               </View>
 
               <Text style={styles.roleDescription}>
-                Drive with Aber, accept trips and earn
-                money on your own schedule.
+                {t('auth.driverRoleDesc', 'Drive with Moto Taxi, accept trips and earn money on your own schedule.')}
               </Text>
             </View>
 
@@ -244,8 +262,8 @@ export const RoleSelectionScreen = ({ navigation }) => {
             <CustomButton
               title={
                 selectedRole === 'rider'
-                  ? 'Continue as Rider'
-                  : 'Continue as Driver'
+                  ? `${t('common.continue', 'Continue')} (${t('auth.riderRoleTitle', 'Rider')})`
+                  : `${t('common.continue', 'Continue')} (${t('auth.driverRoleTitle', 'Driver')})`
               }
               onPress={handleProceed}
               variant="primary"
@@ -264,7 +282,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
             style={styles.previewButton}
           >
             <Text style={styles.previewText}>
-              Explore the app
+              {t('auth.previewDirectly', 'Explore the app')}
             </Text>
 
             <Text style={styles.previewArrow}>
@@ -273,7 +291,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <Text style={styles.previewSubtext}>
-            Continue without creating an account
+            {t('common.skip', 'Continue without creating an account')}
           </Text>
 
         </View>

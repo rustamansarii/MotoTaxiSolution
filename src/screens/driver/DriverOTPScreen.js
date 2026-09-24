@@ -6,18 +6,20 @@ import {
   SafeAreaView,
   StatusBar,
   TouchableOpacity,
-  TextInput,
   ScrollView,
 } from 'react-native';
+import { KeyboardTextInput } from '../../components/keyboard/KeyboardTextInput';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 
 export const DriverOTPScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const phoneNumber = route.params?.phoneNumber || '555-234-5678';
   const { isCompact, isFoldableOrTablet, insets } = useResponsive();
   const [code, setCode] = useState('8924');
@@ -44,7 +46,7 @@ export const DriverOTPScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Driver Verification"
+        title={t('auth.otpVerification')}
         onBack={() => navigation.goBack()}
       />
 
@@ -61,9 +63,9 @@ export const DriverOTPScreen = ({ navigation, route }) => {
             <Icon name="shield" size={32} color={COLORS.primary} />
           </View>
 
-          <Text style={styles.title}>Confirm Phone Number</Text>
+          <Text style={styles.title}>{t('auth.enterOtp')}</Text>
           <Text style={styles.subtitle}>
-            Security code sent to <Text style={styles.phoneText}>+1 {phoneNumber}</Text>
+            {t('auth.otpSentTo')} <Text style={styles.phoneText}>+1 {phoneNumber}</Text>
           </Text>
 
         <View style={styles.otpRow}>
@@ -84,7 +86,8 @@ export const DriverOTPScreen = ({ navigation, route }) => {
           })}
         </View>
 
-        <TextInput
+        <KeyboardTextInput
+          id="driver-otp-input"
           value={code}
           onChangeText={(t) => {
             if (t.length <= 4) setCode(t);
@@ -102,13 +105,13 @@ export const DriverOTPScreen = ({ navigation, route }) => {
             </Text>
           ) : (
             <TouchableOpacity onPress={() => setTimer(30)}>
-              <Text style={styles.resendBtnText}>Resend Code</Text>
+              <Text style={styles.resendBtnText}>{t('auth.resendOtp')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <CustomButton
-          title="Verify & Proceed"
+          title={t('auth.verify')}
           onPress={handleVerify}
           loading={loading}
           disabled={code.length < 4}

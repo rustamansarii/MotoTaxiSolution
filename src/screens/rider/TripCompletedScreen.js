@@ -14,11 +14,13 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 export const TripCompletedScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { insets } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
@@ -51,9 +53,9 @@ export const TripCompletedScreen = ({ navigation, route }) => {
           <Icon name="check" size={36} color={COLORS.primary} />
         </View>
 
-        <Text style={styles.successTitle}>You Have Arrived!</Text>
+        <Text style={styles.successTitle}>{t('rider.tripCompleted')}</Text>
         <Text style={styles.successSubtitle}>
-          Thanks for riding with {driver.name} on RideGo.
+          Thanks for riding with {driver.name} on Moto Taxi.
         </Text>
 
         {/* Fare Highlight */}
@@ -86,7 +88,7 @@ export const TripCompletedScreen = ({ navigation, route }) => {
 
         {/* Route Summary */}
         <View style={styles.card}>
-          <Text style={styles.cardHeader}>Destination Details</Text>
+          <Text style={styles.cardHeader}>{t('rider.destination')}</Text>
           <View style={styles.destinationRow}>
             <View style={styles.destSquare} />
             <Text numberOfLines={2} style={styles.destinationText}>
@@ -116,7 +118,7 @@ export const TripCompletedScreen = ({ navigation, route }) => {
 
         {/* Actions */}
         <CustomButton
-          title="Rate Driver & Trip"
+          title={t('rider.rateDriver')}
           onPress={handleRate}
           variant="primary"
           icon="star"
@@ -125,7 +127,7 @@ export const TripCompletedScreen = ({ navigation, route }) => {
         />
 
         <CustomButton
-          title="Back to Home"
+          title={t('common.home')}
           variant="outline"
           onPress={() => navigation.navigate('RiderHome')}
           style={styles.homeBtn}

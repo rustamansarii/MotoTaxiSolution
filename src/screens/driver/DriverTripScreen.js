@@ -14,11 +14,13 @@ import MapPlaceholder from '../../components/MapPlaceholder';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
 
 export const DriverTripScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
   const destination = route.params?.destination || 'JFK Terminal 4';
   const passengerName = route.params?.passengerName || 'Elena Rostova';
@@ -59,13 +61,13 @@ export const DriverTripScreen = ({ navigation, route }) => {
     >
         <View style={styles.fareEtaRow}>
           <View>
-            <Text style={styles.fareLabel}>Trip Earnings</Text>
+            <Text style={styles.fareLabel}>{t('driver.tripEarnings')}</Text>
             <Text style={styles.fareAmount}>{formatCurrency(estimatedFare)}</Text>
           </View>
 
           <View style={styles.etaBadge}>
-            <Text style={styles.etaVal}>18 min</Text>
-            <Text style={styles.etaDist}>8.4 mi left</Text>
+            <Text style={styles.etaVal}>18 {t('navigation.min')}</Text>
+            <Text style={styles.etaDist}>8.4 mi</Text>
           </View>
         </View>
 
@@ -73,7 +75,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
         <View style={styles.destinationRow}>
           <View style={styles.destSquare} />
           <View style={styles.destCol}>
-            <Text style={styles.destLabel}>Drop-off Location</Text>
+            <Text style={styles.destLabel}>{t('rider.dropoffLocation')}</Text>
             <Text numberOfLines={1} style={styles.destAddress}>
               {destination}
             </Text>
@@ -87,13 +89,13 @@ export const DriverTripScreen = ({ navigation, route }) => {
           </View>
           <Text style={styles.passengerName}>{passengerName}</Text>
           <View style={styles.comfortBadge}>
-            <Text style={styles.comfortText}>RideGo Comfort</Text>
+            <Text style={styles.comfortText}>Moto Taxi Comfort</Text>
           </View>
         </View>
 
         {/* End Trip Button */}
         <CustomButton
-          title="COMPLETE & END TRIP"
+          title={t('driver.completeTrip').toUpperCase()}
           onPress={handleEndTrip}
           variant="primary"
           icon="check"
@@ -124,12 +126,8 @@ export const DriverTripScreen = ({ navigation, route }) => {
         <View style={styles.turnDetails}>
           <Text style={styles.turnDistance}>In 1.2 mi</Text>
           <Text numberOfLines={1} style={styles.turnInstruction}>
-            Keep Left on Grand Central Pkwy East
+            {t('navigation.keepStraight')}
           </Text>
-        </View>
-        <View style={styles.speedGauge}>
-          <Text style={styles.speedNum}>52</Text>
-          <Text style={styles.speedLimit}>LIMIT 55</Text>
         </View>
       </View>
 

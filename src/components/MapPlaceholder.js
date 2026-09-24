@@ -69,7 +69,7 @@ export const MapPlaceholder = ({
             <Text style={styles.driverEtaText}>{driverEta}</Text>
           </View>
           <View style={styles.driverMarker}>
-            <Icon name="car" size={16} color={COLORS.white} />
+            <Icon name="bike" size={16} color={COLORS.white} />
           </View>
         </View>
       )}

@@ -14,11 +14,12 @@ import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import Icon from '../../components/Icon';
 import { useResponsive } from '../../utils/responsive';
+import { useTranslation } from 'react-i18next';
 
 const ONBOARDING_SLIDES = [
   {
     id: 1,
-    icon: 'car',
+    icon: 'bike',
     image: require('../../assets/images/onboarding_ride.jpg'),
     title: 'Ride in Minutes',
     description:
@@ -43,19 +44,44 @@ const ONBOARDING_SLIDES = [
 ];
 
 export const WelcomeScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const { isCompact, isLandscape, isFoldableOrTablet, insets, width, height } =
     useResponsive();
 
+  const slides = [
+    {
+      id: 1,
+      icon: 'bike',
+      image: require('../../assets/images/onboarding_ride.jpg'),
+      title: t('onboarding.slide1Title', 'Ride in Minutes'),
+      description: t('onboarding.slide1Desc', 'Reliable doorstep pickups at the touch of a button, anywhere in your city.'),
+    },
+    {
+      id: 2,
+      icon: 'shield',
+      image: require('../../assets/images/onboarding_safety.jpg'),
+      title: t('onboarding.slide2Title', 'Safe & Verified'),
+      description: t('onboarding.slide2Desc', 'Every driver is background checked with 24/7 in-app emergency assistance.'),
+    },
+    {
+      id: 3,
+      icon: 'wallet',
+      image: require('../../assets/images/onboarding_pricing.jpg'),
+      title: t('onboarding.slide3Title', 'Transparent Pricing'),
+      description: t('onboarding.slide3Desc', 'Upfront rates with zero surprise charges. Multiple convenient payment options.'),
+    },
+  ];
+
   const handleNext = () => {
-    if (currentSlide < ONBOARDING_SLIDES.length - 1) {
+    if (currentSlide < slides.length - 1) {
       setCurrentSlide(currentSlide + 1);
     } else {
       navigation.navigate('RoleSelection');
     }
   };
 
-  const slide = ONBOARDING_SLIDES[currentSlide];
+  const slide = slides[currentSlide];
 
   // Proportional responsive sizing for hero illustration
   const imageSize = isLandscape
@@ -66,9 +92,9 @@ export const WelcomeScreen = ({ navigation }) => {
     ? 300
     : Math.min(width * 0.90, 275);
 
-  const isLastSlide = currentSlide === ONBOARDING_SLIDES.length - 1;
+  const isLastSlide = currentSlide === slides.length - 1;
 
-  // Split title to apply RideGo teal emphasis to the final word
+  // Split title to apply Moto Taxi teal emphasis to the final word
   const renderSlideTitle = (title) => {
     const words = title.split(' ');
     if (words.length <= 1) {
@@ -110,32 +136,34 @@ export const WelcomeScreen = ({ navigation }) => {
           ]}
         >
           {/* =========================================
-              1. TOP BAR (Logo + Skip)
+              1. TOP BAR (Logo + Language + Skip)
           ========================================= */}
           <View style={styles.topBar}>
-            {/* RideGo Logo */}
+            {/* Moto Taxi Logo */}
             <View style={styles.logoRow}>
               <View style={styles.logoIconBadge}>
                 <Icon name="navigation" size={15} color={COLORS.white} />
               </View>
               <Text style={styles.logoText}>
-                Ride<Text style={styles.logoTextAccent}>Go</Text>
+                Moto <Text style={styles.logoTextAccent}>Taxi</Text>
               </Text>
             </View>
 
             {/* Skip Button */}
-            {!isLastSlide ? (
-              <TouchableOpacity
-                onPress={() => navigation.navigate('RoleSelection')}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                style={styles.skipButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.skipText}>Skip</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.skipPlaceholder} />
-            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {!isLastSlide ? (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('RoleSelection')}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  style={styles.skipButton}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.skipText}>{t('common.skip', 'Skip')}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.skipPlaceholder} />
+              )}
+            </View>
           </View>
 
           {/* =========================================
@@ -197,7 +225,7 @@ export const WelcomeScreen = ({ navigation }) => {
 
             {/* 4. PAGINATION INDICATOR (Progress) */}
             <View style={styles.indicatorRow}>
-              {ONBOARDING_SLIDES.map((_, index) => {
+              {slides.map((_, index) => {
                 const isActive = currentSlide === index;
                 return (
                   <TouchableOpacity
@@ -228,7 +256,9 @@ export const WelcomeScreen = ({ navigation }) => {
               ]}
             >
               <Text style={styles.primaryButtonText}>
-                {isLastSlide ? 'Get Started' : 'Continue'}
+                {isLastSlide
+                  ? t('onboarding.getStarted', 'Get Started')
+                  : t('common.continue', 'Continue')}
               </Text>
               <Icon name="arrow-right" size={18} color={COLORS.white} />
             </TouchableOpacity>
@@ -240,7 +270,7 @@ export const WelcomeScreen = ({ navigation }) => {
               hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
             >
               <Text style={styles.secondaryActionText}>
-                Choose role directly{' '}
+                {t('auth.chooseRoleTitle', 'Choose role directly')}{' '}
                 <Text style={styles.secondaryActionChevron}>›</Text>
               </Text>
             </TouchableOpacity>

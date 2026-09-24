@@ -5,3 +5,5 @@ export { DestinationMarker } from './DestinationMarker';
 export { RecenterButton } from './RecenterButton';
 export { MapTopBar } from './MapTopBar';
 export { TripInfoCard } from './TripInfoCard';
+export { RiderLiveMap } from './RiderLiveMap';
+export { RidesRouteMap } from './RidesRouteMap';

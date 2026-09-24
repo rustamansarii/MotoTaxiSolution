@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
-  TextInput,
   Text,
   TouchableOpacity,
   StyleSheet,
@@ -10,8 +9,11 @@ import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
 import Icon from './Icon';
+import { KeyboardTextInput } from './keyboard/KeyboardTextInput';
+import { useKeyboardSafe } from './keyboard/KeyboardContext';
 
 export const CustomInput = ({
+  id,
   label,
   value,
   onChangeText,
@@ -33,18 +35,25 @@ export const CustomInput = ({
   onFocus,
   onBlur,
   maxLength,
+  customKeyboardEnabled = true,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
+  const autoIdRef = useRef(`input_${Math.random().toString(36).substring(2, 9)}`);
+  const effectiveId = id || autoIdRef.current;
 
-  const handleFocus = () => {
+  const keyboard = useKeyboardSafe ? useKeyboardSafe() : null;
+  const isCustomKeyboardActive = keyboard?.keyboardVisible && keyboard?.activeInputId === effectiveId;
+  const isInputActive = isFocused || (customKeyboardEnabled && isCustomKeyboardActive);
+
+  const handleFocus = (e) => {
     setIsFocused(true);
-    if (onFocus) onFocus();
+    if (onFocus) onFocus(e);
   };
 
-  const handleBlur = () => {
+  const handleBlur = (e) => {
     setIsFocused(false);
-    if (onBlur) onBlur();
+    if (onBlur) onBlur(e);
   };
 
   return (
@@ -54,7 +63,7 @@ export const CustomInput = ({
       <View
         style={[
           styles.inputContainer,
-          isFocused && styles.inputFocused,
+          isInputActive && styles.inputFocused,
           error ? styles.inputError : null,
           !editable && styles.inputDisabled,
           multiline && { height: 100, alignItems: 'flex-start', paddingTop: SPACING.md },
@@ -66,12 +75,14 @@ export const CustomInput = ({
             <Icon
               name={leftIcon}
               size={18}
-              color={isFocused ? COLORS.primary : COLORS.iconLight}
+              color={isInputActive ? COLORS.primary : COLORS.iconLight}
             />
           </View>
         )}
 
-        <TextInput
+        <KeyboardTextInput
+          id={effectiveId}
+          customKeyboardEnabled={customKeyboardEnabled}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -100,7 +111,7 @@ export const CustomInput = ({
             <Icon
               name={isPasswordVisible ? 'eye-off' : 'eye'}
               size={18}
-              color={COLORS.iconLight}
+              color={isInputActive ? COLORS.primary : COLORS.iconLight}
             />
           </TouchableOpacity>
         ) : rightIcon ? (

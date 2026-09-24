@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -16,6 +16,7 @@ import CustomButton from '../../components/CustomButton';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -24,6 +25,7 @@ import {
 } from '../../data/mockTransactions';
 
 export const DriverEarningsScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const [balance, setBalance] = useState(MOCK_WALLET.driverBalance);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
@@ -48,7 +50,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
       <Text style={styles.heroSub}>42 completed trips • 28.5 hrs online</Text>
 
       <CustomButton
-        title="Cash Out Instantly"
+        title={t('driver.cashOut')}
         onPress={() => setShowCashoutModal(true)}
         disabled={balance <= 0}
         variant="primary"
@@ -107,7 +109,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
 
       <View style={styles.breakdownRow}>
         <View style={styles.rowLabelGroup}>
-          <Icon name="car" size={16} color={COLORS.primary} />
+          <Icon name="bike" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Standard Trip Fares</Text>
         </View>
         <Text style={styles.rowVal}>$620.00</Text>
@@ -155,7 +157,11 @@ export const DriverEarningsScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ResponsiveContainer maxWidth={960} style={{ flex: 1 }}>
-        <Header title="Driver Earnings" showBack={false} variant="light" />
+        <Header
+          title={t('driver.tripEarnings')}
+          showBack={false}
+          variant="light"
+        />
 
         <ScrollView
           contentContainerStyle={[

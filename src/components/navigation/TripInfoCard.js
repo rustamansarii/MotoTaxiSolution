@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -8,14 +9,6 @@ import { useResponsive } from '../../utils/responsive';
 import CustomButton from '../CustomButton';
 import Icon from '../Icon';
 
-/**
- * TripInfoCard
- * Modern floating bottom trip information card matching the requested ASCII design:
- * - 12 min | 4.8 km
- * - Follow the highlighted route
- * - Destination / 123 Main Street
- * - Action buttons based on simulation state
- */
 export const TripInfoCard = ({
   duration = '12 min',
   distance = '4.8 km',
@@ -29,6 +22,7 @@ export const TripInfoCard = ({
   onResetTrip,
   style,
 }) => {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { isCompact, isFoldableOrTablet, width } = useResponsive();
 
@@ -66,14 +60,14 @@ export const TripInfoCard = ({
         <View style={styles.metricsRow}>
           <View style={styles.metricCol}>
             <Text style={styles.metricVal}>{duration}</Text>
-            <Text style={styles.metricSub}>EST. TIME</Text>
+            <Text style={styles.metricSub}>{t('navigation.eta')}</Text>
           </View>
 
           <View style={styles.metricDivider} />
 
           <View style={[styles.metricCol, styles.metricColRight]}>
             <Text style={styles.metricVal}>{distance}</Text>
-            <Text style={styles.metricSub}>REMAINING</Text>
+            <Text style={styles.metricSub}>{t('navigation.distance')}</Text>
           </View>
         </View>
 
@@ -111,7 +105,7 @@ export const TripInfoCard = ({
         <View style={styles.ctaRow}>
           {tripState === 'IDLE' && (
             <CustomButton
-              title="Start Trip"
+              title={t('driver.startTrip')}
               onPress={onStartTrip}
               variant="secondary"
               icon="navigation"
@@ -131,7 +125,7 @@ export const TripInfoCard = ({
                 style={styles.pauseBtn}
               />
               <CustomButton
-                title="Finish Early"
+                title={t('driver.completeTrip')}
                 onPress={onFinishTrip}
                 variant="secondary"
                 size="medium"
@@ -152,7 +146,7 @@ export const TripInfoCard = ({
                 style={styles.pauseBtn}
               />
               <CustomButton
-                title="Complete & Exit"
+                title={t('driver.completeTrip')}
                 onPress={onFinishTrip}
                 variant="secondary"
                 size="medium"

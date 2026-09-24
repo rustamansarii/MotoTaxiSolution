@@ -8,14 +8,18 @@ import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import OTPScreen from '../screens/auth/OTPScreen';
 import ProfileSetupScreen from '../screens/auth/ProfileSetupScreen';
+import RiderSignupScreen from '../screens/auth/RiderSignupScreen';
+import DriverSignupScreen from '../screens/auth/DriverSignupScreen';
 
 // Driver Onboarding Screens
 import DriverWelcomeScreen from '../screens/driver/DriverWelcomeScreen';
 import DriverLoginScreen from '../screens/driver/DriverLoginScreen';
 import DriverOTPScreen from '../screens/driver/DriverOTPScreen';
 import DriverProfileSetupScreen from '../screens/driver/DriverProfileSetupScreen';
+import DriverLicenseCheckScreen from '../screens/driver/DriverLicenseCheckScreen';
 import VehicleSetupScreen from '../screens/driver/VehicleSetupScreen';
 import DocumentUploadScreen from '../screens/driver/DocumentUploadScreen';
+import VehicleDocumentBulkUploadScreen from '../screens/driver/VehicleDocumentBulkUploadScreen';
 
 // Main Flow Navigators
 import RiderNavigator from './RiderNavigator';
@@ -26,7 +30,7 @@ const Stack = createNativeStackNavigator();
 export const RootNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Splash"
+      initialRouteName="RiderNav"
       screenOptions={{
         headerShown: false,
         animation: 'fade',
@@ -34,11 +38,13 @@ export const RootNavigator = () => {
     >
       {/* Launch & Role Selection */}
       <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      {/* <Stack.Screen name="Welcome" component={WelcomeScreen} /> */}
       <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
 
       {/* Auth */}
       <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="RiderSignup" component={RiderSignupScreen} />
+      <Stack.Screen name="DriverSignup" component={DriverSignupScreen} />
       <Stack.Screen name="OTP" component={OTPScreen} />
       <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
 
@@ -47,8 +53,10 @@ export const RootNavigator = () => {
       <Stack.Screen name="DriverLogin" component={DriverLoginScreen} />
       <Stack.Screen name="DriverOTP" component={DriverOTPScreen} />
       <Stack.Screen name="DriverProfileSetup" component={DriverProfileSetupScreen} />
+      <Stack.Screen name="DriverLicenseCheck" component={DriverLicenseCheckScreen} />
       <Stack.Screen name="VehicleSetup" component={VehicleSetupScreen} />
       <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+      <Stack.Screen name="VehicleDocumentBulkUpload" component={VehicleDocumentBulkUploadScreen} />
 
       {/* Core Role Navigators */}
       <Stack.Screen name="RiderNav" component={RiderNavigator} />

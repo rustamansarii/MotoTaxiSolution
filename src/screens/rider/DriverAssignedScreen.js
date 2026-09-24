@@ -19,10 +19,12 @@ import CustomButton from '../../components/CustomButton';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 export const DriverAssignedScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
@@ -45,7 +47,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         showDestinationMarker={false}
         showDriverMarker={true}
         driverEta="3 min away"
-        pickupLabel="Your Location"
+        pickupLabel={t('rider.currentLocation')}
         height="100%"
       />
 
@@ -53,7 +55,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       <View style={styles.etaFloatingBanner}>
         <View style={styles.pulseDot} />
         <Text style={styles.etaBannerText}>
-          Driver is on the way • Arrives in 3 mins
+          {t('rider.driverArriving')} • 3 {t('navigation.min')}
         </Text>
       </View>
     </View>
@@ -85,7 +87,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
           style={styles.safetyBtn}
         >
           <Icon name="share" size={16} color={COLORS.secondPrimary} />
-          <Text style={styles.safetyBtnText}>Share Status</Text>
+          <Text style={styles.safetyBtnText}>{t('rider.shareTrip')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -95,14 +97,14 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         >
           <Icon name="shield" size={16} color={COLORS.danger} />
           <Text style={[styles.safetyBtnText, styles.emergencyText]}>
-            Emergency SOS
+            {t('rider.safety')} SOS
           </Text>
         </TouchableOpacity>
       </View>
 
       {/* Action CTAs */}
       <CustomButton
-        title="Boarded Vehicle • Start Trip"
+        title={`${t('driver.startTrip')} • Moto Taxi`}
         onPress={handleStartRide}
         variant="primary"
         icon="check-circle"
@@ -111,7 +113,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       />
 
       <CustomButton
-        title="Cancel Ride"
+        title={t('rider.cancelRide')}
         variant="outline"
         onPress={() => setShowCancelModal(true)}
         style={styles.secondaryCancelBtn}
@@ -123,10 +125,8 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Driver Assigned"
+        title={t('rider.driverAssigned')}
         showBack={false}
-        rightIcon="phone"
-        onRightPress={() => {}}
       />
 
       <AdaptiveSplitView
@@ -139,10 +139,10 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       <CustomModal
         visible={showCancelModal}
         onClose={() => setShowCancelModal(false)}
-        title="Cancel Ride?"
-        message="Driver is already en route. A small cancellation fee of $2.50 may apply."
-        confirmText="Confirm Cancel"
-        cancelText="Keep Ride"
+        title={t('rider.cancelRide')}
+        message={t('rider.cancelModalMessage')}
+        confirmText={t('rider.yesCancel')}
+        cancelText={t('rider.keepWaiting')}
         isDanger={true}
         onConfirm={() => {
           setShowCancelModal(false);
@@ -154,9 +154,9 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       <CustomModal
         visible={showEmergencyModal}
         onClose={() => setShowEmergencyModal(false)}
-        title="Emergency Assistance"
-        message="Dial 911 or alert 24/7 RideGo safety response team with your live GPS location?"
-        confirmText="Call 911"
+        title={t('rider.safety')}
+        message="Dial 911 or alert 24/7 Moto Taxi safety response team with your live GPS location?"
+        confirmText="Emergency"
         cancelText="Dismiss"
         isDanger={true}
         onConfirm={() => setShowEmergencyModal(false)}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
@@ -13,6 +14,7 @@ export const DriverCard = ({
   showPin = true,
   style,
 }) => {
+  const { t } = useTranslation();
   if (!driver) return null;
 
   return (
@@ -30,7 +32,7 @@ export const DriverCard = ({
           <View style={styles.ratingRow}>
             <Icon name="star" size={14} color={COLORS.primary} />
             <Text style={styles.ratingText}>{driver.rating}</Text>
-            <Text style={styles.tripsText}>• {driver.totalTrips} trips</Text>
+            <Text style={styles.tripsText}>• {driver.totalTrips} {t('driver.trips').toLowerCase()}</Text>
           </View>
         </View>
 
@@ -46,10 +48,10 @@ export const DriverCard = ({
       <View style={styles.vehicleRow}>
         <View style={styles.vehicleDetails}>
           <Text style={styles.carModel}>
-            {driver.car?.model || 'Electric Sedan'}
+            {driver.car?.model || 'Honda CB500X'}
           </Text>
           <Text style={styles.carColor}>
-            {driver.car?.color || 'Midnight Silver'}
+            {driver.car?.color || 'Midnight Black'}
           </Text>
         </View>
 
@@ -69,7 +71,7 @@ export const DriverCard = ({
             style={styles.actionButton}
           >
             <Icon name="phone" size={16} color={COLORS.secondPrimary} />
-            <Text style={styles.actionText}>Call</Text>
+            <Text style={styles.actionText}>{t('rider.call')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -78,7 +80,7 @@ export const DriverCard = ({
             style={styles.actionButton}
           >
             <Icon name="chat" size={16} color={COLORS.secondPrimary} />
-            <Text style={styles.actionText}>Message</Text>
+            <Text style={styles.actionText}>{t('rider.message')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}

@@ -7,11 +7,11 @@ export const ACTIVE_MOCK_DRIVER = {
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
   phone: '+1 (555) 234-5678',
   car: {
-    model: 'Tesla Model Y',
+    model: 'Honda CB500X',
     year: 2024,
-    color: 'Midnight Silver',
+    color: 'Midnight Black',
     plateNumber: '7XYZ892',
-    category: 'Comfort / Electric',
+    category: 'Moto Taxi Standard',
   },
   currentLocation: {
     lat: 40.7128,
@@ -20,7 +20,7 @@ export const ACTIVE_MOCK_DRIVER = {
     distanceAway: '0.8 mi',
     eta: '3 mins',
   },
-  badges: ['Top Driver', 'Clean Car', 'Smooth Operator', '500+ 5-Star Trips'],
+  badges: ['Top Driver', 'Clean Bike', 'Smooth Operator', '500+ 5-Star Trips'],
   pinCode: '4821',
 };
 

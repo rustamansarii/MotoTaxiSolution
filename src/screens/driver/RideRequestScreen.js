@@ -14,11 +14,13 @@ import MapPlaceholder from '../../components/MapPlaceholder';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
 
 export const RideRequestScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const pickup = route.params?.pickup || 'Corner of 5th Ave & 59th St';
   const destination = route.params?.destination || 'JFK Terminal 4';
@@ -88,7 +90,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
 
         {/* Fare Highlight */}
         <View style={styles.fareSection}>
-          <Text style={styles.fareLabel}>Trip Earnings</Text>
+          <Text style={styles.fareLabel}>{t('driver.tripEarnings')}</Text>
           <Text style={styles.fareAmount}>{formatCurrency(estimatedFare)}</Text>
           <View style={styles.surgeTag}>
             <Text style={styles.surgeText}>Includes +$3.50 Surge Bonus</Text>
@@ -107,7 +109,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
             <View style={styles.ratingRow}>
               <Icon name="star" size={12} color={COLORS.primary} />
               <Text style={styles.ratingText}>{passengerRating}</Text>
-              <Text style={styles.categoryText}>• RideGo Comfort</Text>
+              <Text style={styles.categoryText}>• Moto Taxi Comfort</Text>
             </View>
           </View>
           <View style={styles.pickupDistBadge}>
@@ -140,12 +142,12 @@ export const RideRequestScreen = ({ navigation, route }) => {
             onPress={() => navigation.goBack()}
             style={styles.declineBtn}
           >
-            <Text style={styles.declineText}>Decline</Text>
+            <Text style={styles.declineText}>{t('driver.declineRide')}</Text>
           </TouchableOpacity>
 
           <View style={styles.acceptBtnWrapper}>
             <CustomButton
-              title="ACCEPT TRIP"
+              title={t('driver.acceptRide').toUpperCase()}
               onPress={handleAccept}
               variant="primary"
               icon="check"
@@ -393,6 +395,11 @@ const styles = StyleSheet.create({
   },
   acceptBtn: {
     width: '100%',
+  },
+  langFloating: {
+    position: 'absolute',
+    right: SPACING.md,
+    zIndex: 99,
   },
 });
 

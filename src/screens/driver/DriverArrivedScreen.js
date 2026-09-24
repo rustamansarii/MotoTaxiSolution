@@ -6,8 +6,8 @@ import {
   SafeAreaView,
   StatusBar,
   TouchableOpacity,
-  TextInput,
 } from 'react-native';
+import { KeyboardTextInput } from '../../components/keyboard/KeyboardTextInput';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -15,10 +15,12 @@ import MapPlaceholder from '../../components/MapPlaceholder';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 
 export const DriverArrivedScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const pickup = route.params?.pickup || 'Corner of 5th Ave & 59th St';
   const destination = route.params?.destination || 'JFK Terminal 4';
@@ -112,7 +114,8 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
             })}
           </View>
 
-          <TextInput
+          <KeyboardTextInput
+            id="driver-pin-input"
             value={enteredPin}
             onChangeText={(t) => {
               if (t.length <= 4) setEnteredPin(t);
@@ -125,7 +128,7 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
 
         {/* Start Trip CTA */}
         <CustomButton
-          title="START TRIP"
+          title={t('driver.startTrip').toUpperCase()}
           onPress={handleStartTrip}
           disabled={enteredPin.length < 4}
           variant="primary"
@@ -135,7 +138,7 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
         />
 
         <CustomButton
-          title="START WITH MAPLIBRE NAV"
+          title={t('driver.viewMap').toUpperCase()}
           onPress={() => navigation.replace('DriverMap')}
           disabled={enteredPin.length < 4}
           variant="ghost"
@@ -281,6 +284,11 @@ const styles = StyleSheet.create({
   },
   startBtn: {
     width: '100%',
+  },
+  langFloating: {
+    position: 'absolute',
+    right: SPACING.md,
+    zIndex: 99,
   },
 });
 

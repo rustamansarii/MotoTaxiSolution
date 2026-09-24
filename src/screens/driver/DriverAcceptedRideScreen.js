@@ -14,10 +14,12 @@ import MapPlaceholder from '../../components/MapPlaceholder';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 
 export const DriverAcceptedRideScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
   const pickup = route.params?.pickup || 'Corner of 5th Ave & 59th St';
   const destination = route.params?.destination || 'JFK Terminal 4';
@@ -62,7 +64,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
             <Icon name="map-pin" size={16} color={COLORS.primary} />
           </View>
           <View style={styles.pickupAddressCol}>
-            <Text style={styles.pickupLabel}>Picking up rider at</Text>
+            <Text style={styles.pickupLabel}>{t('driver.pickUpPassenger')}</Text>
             <Text numberOfLines={1} style={styles.pickupAddress}>
               {pickup}
             </Text>
@@ -98,7 +100,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
 
         {/* CTA: Arrived at Pickup */}
         <CustomButton
-          title="I Have Arrived at Pickup"
+          title={t('driver.driverArrivedBtn')}
           onPress={handleArrived}
           variant="primary"
           icon="check-circle"
@@ -127,14 +129,10 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
           <Icon name="arrow-right" size={20} color={COLORS.white} />
         </View>
         <View style={styles.turnInfo}>
-          <Text style={styles.turnDist}>In 250 ft • Turn Right</Text>
+          <Text style={styles.turnDist}>In 250 ft • {t('navigation.turnRight')}</Text>
           <Text numberOfLines={1} style={styles.turnStreet}>
             onto 5th Ave towards pickup
           </Text>
-        </View>
-        <View style={styles.etaBox}>
-          <Text style={styles.etaMin}>3</Text>
-          <Text style={styles.etaUnit}>MIN</Text>
         </View>
       </View>
 

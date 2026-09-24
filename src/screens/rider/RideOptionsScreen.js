@@ -1,211 +1,577 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
-import Header from '../../components/Header';
-import MapPlaceholder from '../../components/MapPlaceholder';
+import { RidesRouteMap } from '../../components/navigation/RidesRouteMap';
 import RideCard from '../../components/RideCard';
-import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useResponsive } from '../../utils/responsive';
+import { formatDuration, formatCurrency } from '../../utils/formatters';
 import { MOCK_RIDES } from '../../data/mockRides';
 import { MOCK_PAYMENT_METHODS } from '../../data/mockTransactions';
+import { useTranslation } from 'react-i18next';
+import {
+  fetchFareEstimate,
+  setSelectedRide as setReduxSelectedRide,
+} from '../../redux/features/rides/ridesSlice';
 
 export const RideOptionsScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
-  const pickup = route.params?.pickup || '5th Ave & 58th St';
-  const destination = route.params?.destination || 'JFK Terminal 4';
+  const dispatch = useDispatch();
 
-  const [selectedRide, setSelectedRide] = useState(MOCK_RIDES[0]);
-  const defaultPayment = MOCK_PAYMENT_METHODS[0];
+  const pickup = route.params?.pickup || 'Pickup Location';
+  const destination = route.params?.destination || 'Destination';
+
+  // Redux rides state
+  const {
+    estimate,
+    availableRides,
+    selectedRide: reduxSelectedRide,
+    isLoadingFares,
+    fareError,
+  } = useSelector((state) => state.rides);
+
+  // Redux location state
+  const {
+    currentCoords,
+    pickupLocation,
+    dropoffLocation,
+  } = useSelector((state) => state.location);
+
+  // Extract coordinates for fare estimate API
+  const pickupLat =
+    route.params?.pickup_lat ??
+    route.params?.pickupData?.latitude ??
+    route.params?.pickupData?.lat ??
+    pickupLocation?.latitude ??
+    pickupLocation?.lat ??
+    currentCoords?.latitude ??
+    30.6946309;
+
+  const pickupLon =
+    route.params?.pickup_lon ??
+    route.params?.pickupData?.longitude ??
+    route.params?.pickupData?.lon ??
+    pickupLocation?.longitude ??
+    pickupLocation?.lon ??
+    currentCoords?.longitude ??
+    76.7834118;
+
+  const dropLat =
+    route.params?.drop_lat ??
+    route.params?.destinationData?.latitude ??
+    route.params?.destinationData?.lat ??
+    dropoffLocation?.latitude ??
+    dropoffLocation?.lat ??
+    30.9090157;
+
+  const dropLon =
+    route.params?.drop_lon ??
+    route.params?.destinationData?.longitude ??
+    route.params?.destinationData?.lon ??
+    dropoffLocation?.longitude ??
+    dropoffLocation?.lon ??
+    75.851601;
+
+  // Local selection fallback
+  const [localSelectedRide, setLocalSelectedRide] = useState(null);
+
+  // Default payment method: platform-aware
+  const defaultPayment = useMemo(() => {
+    if (Platform.OS === 'ios') {
+      return MOCK_PAYMENT_METHODS[0]; // Apple Pay
+    }
+    // On Android, prefer Cash or Card
+    return (
+      MOCK_PAYMENT_METHODS.find((p) => p.type === 'cash') ||
+      MOCK_PAYMENT_METHODS[1] ||
+      MOCK_PAYMENT_METHODS[0]
+    );
+  }, []);
+
+  const [paymentMethod, setPaymentMethod] = useState(defaultPayment);
+
+  // Fetch Fare Estimate API
+  const loadFares = useCallback(() => {
+    if (pickupLat && pickupLon && dropLat && dropLon) {
+      dispatch(
+        fetchFareEstimate({
+          pickup_lat: pickupLat,
+          pickup_lon: pickupLon,
+          drop_lat: dropLat,
+          drop_lon: dropLon,
+        })
+      );
+    }
+  }, [dispatch, pickupLat, pickupLon, dropLat, dropLon]);
+
+  useEffect(() => {
+    loadFares();
+  }, [loadFares]);
+
+  // Use dynamic rides from API or fall back to MOCK_RIDES
+  const displayRides = availableRides.length > 0 ? availableRides : MOCK_RIDES;
+
+  // Selected ride priority: local selection -> redux selection -> first ride
+  const currentSelectedRide =
+    localSelectedRide ||
+    reduxSelectedRide ||
+    displayRides[0];
 
   const handleSelectRide = (ride) => {
-    setSelectedRide(ride);
+    setLocalSelectedRide(ride);
+    dispatch(setReduxSelectedRide(ride));
   };
 
   const handleProceed = () => {
     navigation.navigate('ConfirmRide', {
-      selectedRide,
+      selectedRide: currentSelectedRide,
       pickup,
       destination,
-      paymentMethod: defaultPayment,
+      paymentMethod,
+      fareEstimate: estimate,
+      pickup_lat: pickupLat,
+      pickup_lon: pickupLon,
+      pickup_address: pickup,
+      drop_lat: dropLat,
+      drop_lon: dropLon,
+      drop_address: destination,
+      vehicle_type: currentSelectedRide?.vehicle_type || 'CAR',
     });
   };
 
+  // Map Pane with floating circular back button and floating route pill
   const mapPane = (
-    <View style={isSplitLayout ? styles.mapAreaSplit : styles.mapArea}>
-      <MapPlaceholder
-        showRoute={true}
-        showPickupMarker={true}
-        showDestinationMarker={true}
-        showDriverMarker={true}
+    <View style={styles.mapContainer}>
+      <RidesRouteMap
+        pickupCoords={[pickupLon, pickupLat]}
+        dropCoords={[dropLon, dropLat]}
         pickupLabel={pickup}
         destinationLabel={destination}
-        height="100%"
+        distanceKm={estimate?.distance_km || 92.1}
+        style={StyleSheet.absoluteFillObject}
       />
-    </View>
-  );
 
-  const optionsPane = (
-    <View
-      style={[
-        styles.bottomSection,
-        isSplitLayout && styles.sideSection,
-        !isSplitLayout && {
-          paddingBottom: Math.max(insets.bottom + SPACING.sm, SPACING.lg),
-        },
-      ]}
-    >
-      {!isSplitLayout && <View style={styles.sheetHandle} />}
-
-      <Text style={styles.sectionTitle}>Available Categories</Text>
-
-      <ScrollView
-        style={styles.ridesScroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {MOCK_RIDES.map((ride) => (
-          <RideCard
-            key={ride.id}
-            ride={ride}
-            isSelected={selectedRide.id === ride.id}
-            onSelect={handleSelectRide}
-          />
-        ))}
-      </ScrollView>
-
-      {/* Quick Payment & Confirm CTA */}
-      <View
-        style={[
-          styles.footerRow,
-          isSplitLayout && {
-            paddingBottom: Math.max(insets.bottom + SPACING.xs, SPACING.sm),
-          },
-        ]}
-      >
+      {/* Floating Top Bar (Uber / Lyft style) */}
+      <View style={[styles.floatingTopBar, { top: Math.max(insets.top + 8, 16) }]}>
         <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('Wallet')}
-          style={styles.paymentSelector}
+          activeOpacity={0.85}
+          onPress={() => navigation.goBack()}
+          style={styles.floatingBackBtn}
         >
-          <Icon name="apple" size={18} color={COLORS.text} />
-          <Text style={styles.paymentText}>{defaultPayment.name}</Text>
-          <Icon name="chevron-right" size={14} color={COLORS.iconLight} />
+          <Icon name="arrow-left" size={20} color="#0F172A" />
         </TouchableOpacity>
 
-        <CustomButton
-          title={`Select ${selectedRide.name}`}
-          onPress={handleProceed}
-          variant="primary"
-          style={styles.bookBtn}
-        />
+        <View style={styles.floatingTitlePill}>
+          <Text numberOfLines={1} style={styles.floatingTitleText}>
+            {t('rider.availableRides', 'Available Rides')}
+          </Text>
+        </View>
+
+        <View style={styles.placeholderRight} />
       </View>
     </View>
   );
 
+  // Bottom Options Sheet
+  const optionsPane = (
+    <View
+      style={[
+        styles.bottomSheet,
+        isSplitLayout && styles.sideSheet,
+        { paddingBottom: Math.max(insets.bottom + 8, 16) },
+      ]}
+    >
+      {/* Drag Handle */}
+      {!isSplitLayout && <View style={styles.sheetHandle} />}
+
+      {/* Compact Horizontal Trip Stats Row */}
+      <View style={styles.tripMetaRow}>
+        {estimate ? (
+          <View style={styles.tripChip}>
+            <Icon name="navigation" size={12} color={COLORS.primary} />
+            <Text style={styles.tripChipValue}>
+              {estimate.distance_km ? `${Number(estimate.distance_km).toFixed(1)} km` : '--'}
+            </Text>
+            <Text style={styles.tripChipDot}>•</Text>
+            <Icon name="clock" size={12} color={COLORS.secondPrimary} />
+            <Text style={styles.tripChipValue}>
+              {estimate.duration_min ? formatDuration(estimate.duration_min) : '--'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.tripChip}>
+            <Text style={styles.tripChipValue}>
+              {t('rider.availableRides', 'Select a Category')}
+            </Text>
+          </View>
+        )}
+
+        {isLoadingFares && (
+          <View style={styles.liveEstimatingBadge}>
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginRight: 5 }} />
+            <Text style={styles.liveEstimatingText}>
+              {t('rider.updatingFares', 'Updating fares...')}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Error banner with retry if API failed */}
+      {fareError && availableRides.length === 0 && (
+        <View style={styles.errorBanner}>
+          <Icon name="alert-circle" size={15} color={COLORS.danger} />
+          <Text style={styles.errorText} numberOfLines={1}>
+            {fareError}
+          </Text>
+          <TouchableOpacity onPress={loadFares} style={styles.retryBtn}>
+            <Text style={styles.retryText}>{t('common.retry', 'Retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Category List ScrollView */}
+      <ScrollView
+        style={styles.ridesScroll}
+        contentContainerStyle={styles.ridesListContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {isLoadingFares && availableRides.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.fullLoadingText}>
+              {t('rider.calculatingFares', 'Calculating accurate fare estimate...')}
+            </Text>
+          </View>
+        ) : (
+          displayRides.map((ride) => (
+            <RideCard
+              key={ride.id}
+              ride={ride}
+              isSelected={currentSelectedRide?.id === ride.id}
+              onSelect={handleSelectRide}
+            />
+          ))
+        )}
+      </ScrollView>
+
+      {/* Payment Selector */}
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => navigation.navigate('Wallet')}
+        style={styles.paymentSelector}
+      >
+        <View style={styles.paymentLeft}>
+          <View style={styles.paymentIconBox}>
+            <Icon
+              name={paymentMethod?.type === 'cash' ? 'cash' : paymentMethod?.type === 'apple_pay' ? 'apple' : 'card'}
+              size={16}
+              color={COLORS.text}
+            />
+          </View>
+          <Text style={styles.paymentText}>{paymentMethod?.name || 'Payment Method'}</Text>
+        </View>
+        <View style={styles.paymentRight}>
+          <Text style={styles.changePaymentText}>Change</Text>
+          <Icon name="chevron-right" size={14} color="#94A3B8" />
+        </View>
+      </TouchableOpacity>
+
+      {/* Confirm CTA Button with Price Badge */}
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={handleProceed}
+        disabled={isLoadingFares && availableRides.length === 0}
+        style={[
+          styles.confirmBtn,
+          isLoadingFares && availableRides.length === 0 && styles.confirmBtnDisabled,
+        ]}
+      >
+        <Text numberOfLines={1} style={styles.confirmBtnText}>
+          {`${t('common.confirm', 'Confirm')} ${currentSelectedRide?.name || 'Ride'}`}
+        </Text>
+        {currentSelectedRide?.price ? (
+          <View style={styles.btnPriceBadge}>
+            <Text style={styles.btnPriceText}>
+              {formatCurrency(
+                currentSelectedRide.price,
+                currentSelectedRide.currency === 'INR' ? '₹' : '$'
+              )}
+            </Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
-      <Header
-        title="Choose a Ride"
-        onBack={() => navigation.goBack()}
-      />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
       <AdaptiveSplitView
         primaryPane={mapPane}
         secondaryPane={optionsPane}
-        primaryRatio={0.52}
+        primaryRatio={0.38}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F8FAFC',
   },
-  mapArea: {
-    height: '35%',
-  },
-  mapAreaSplit: {
+  mapContainer: {
     flex: 1,
+    width: '100%',
     height: '100%',
+    position: 'relative',
   },
-  bottomSection: {
+  floatingTopBar: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  floatingBackBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  floatingTitlePill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: RADIUS.round,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  floatingTitleText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  placeholderRight: {
+    width: 42,
+  },
+  bottomSheet: {
     flex: 1,
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.extraLarge,
-    borderTopRightRadius: RADIUS.extraLarge,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.lg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: -4 },
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  sideSection: {
+  sideSheet: {
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     borderLeftWidth: 1,
     borderTopWidth: 0,
-    paddingTop: SPACING.md,
+    paddingTop: 16,
   },
   sheetHandle: {
-    width: 40,
+    width: 36,
     height: 4,
-    borderRadius: RADIUS.round,
-    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
     alignSelf: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
   },
-  sectionTitle: {
-    ...TYPOGRAPHY.bodySmall,
+  tripMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  tripChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.round,
+  },
+  tripChipValue: {
+    fontSize: 12,
     fontWeight: '700',
-    color: COLORS.textLight,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: SPACING.xs,
+    color: '#0F172A',
+    marginLeft: 4,
+  },
+  tripChipDot: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginHorizontal: 6,
+  },
+  liveEstimatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(23, 186, 161, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+  },
+  liveEstimatingText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.small,
+    marginBottom: 6,
+  },
+  errorText: {
+    fontSize: 11,
+    color: COLORS.danger,
+    flex: 1,
+    marginLeft: 6,
+  },
+  retryBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: '#FEE2E2',
+    borderRadius: RADIUS.small,
+    marginLeft: 6,
+  },
+  retryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.danger,
   },
   ridesScroll: {
     flex: 1,
   },
-  footerRow: {
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+  ridesListContent: {
+    paddingBottom: 6,
+  },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullLoadingText: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 10,
   },
   paymentSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.inputBg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: RADIUS.medium,
-    marginBottom: SPACING.sm,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  paymentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   paymentText: {
-    ...TYPOGRAPHY.bodySmall,
+    fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
-    flex: 1,
-    marginLeft: SPACING.sm,
+    color: '#0F172A',
   },
-  bookBtn: {
-    width: '100%',
+  paymentRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  changePaymentText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginRight: 2,
+  },
+  confirmBtn: {
+    backgroundColor: COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  confirmBtnDisabled: {
+    backgroundColor: '#94A3B8',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  confirmBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.white,
+    letterSpacing: -0.2,
+  },
+  btnPriceBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.small,
+    marginLeft: 8,
+  },
+  btnPriceText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.white,
   },
 });
 

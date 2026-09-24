@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -16,9 +16,11 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import Icon from '../../components/Icon';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 
 export const DriverProfileSetupScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
   const [fullName, setFullName] = useState('Marcus Vance');
   const [licenseNumber, setLicenseNumber] = useState('DL-90823411-NY');
@@ -31,15 +33,15 @@ export const DriverProfileSetupScreen = ({ navigation }) => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      navigation.navigate('VehicleSetup');
-    }, 600);
+      navigation.navigate('DriverLicenseCheck', { licenseNumber });
+    }, 400);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Driver Profile"
+        title={t('driver.driverProfile')}
         onBack={() => navigation.goBack()}
       />
 
@@ -58,7 +60,7 @@ export const DriverProfileSetupScreen = ({ navigation }) => {
 
         <View style={styles.form}>
           <CustomInput
-            label="Full Legal Name"
+            label={t('auth.fullName')}
             value={fullName}
             onChangeText={setFullName}
             placeholder="As on driver license"
@@ -106,13 +108,13 @@ export const DriverProfileSetupScreen = ({ navigation }) => {
               {consentChecked && <Icon name="check" size={14} color={COLORS.white} />}
             </View>
             <Text style={styles.consentText}>
-              I authorize RideGo to run a background check and DMV driving record
+              I authorize Moto Taxi to run a background check and DMV driving record
               verification.
             </Text>
           </TouchableOpacity>
 
           <CustomButton
-            title="Next: Vehicle Setup"
+            title={`${t('common.next')}: ${t('driver.licenseVerification', 'License Verification')}`}
             onPress={handleProceed}
             loading={loading}
             disabled={!consentChecked}

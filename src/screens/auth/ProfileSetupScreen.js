@@ -15,8 +15,10 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import { useResponsive } from '../../utils/responsive';
+import { useTranslation } from 'react-i18next';
 
 export const ProfileSetupScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const role = route.params?.role || 'rider';
   const isDriver = role === 'driver';
   const { isFoldableOrTablet, insets } = useResponsive();
@@ -42,7 +44,7 @@ export const ProfileSetupScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Set Up Profile"
+        title={t('auth.profileSetupTitle', 'Set Up Profile')}
         onBack={() => navigation.goBack()}
       />
 
@@ -66,25 +68,25 @@ export const ProfileSetupScreen = ({ navigation, route }) => {
 
         <View style={styles.formSection}>
           <CustomInput
-            label="Full Name"
+            label={t('auth.fullName', 'Full Name')}
             value={fullName}
             onChangeText={setFullName}
-            placeholder="First and last name"
+            placeholder={t('auth.fullNamePlaceholder', 'First and last name')}
             leftIcon="user"
           />
 
           <CustomInput
-            label="Email Address"
+            label={t('auth.emailAddress', 'Email Address')}
             value={email}
             onChangeText={setEmail}
-            placeholder="name@example.com"
+            placeholder={t('auth.emailPlaceholder', 'name@example.com')}
             keyboardType="email-address"
             autoCapitalize="none"
             leftIcon="message"
           />
 
           <CustomInput
-            label="Home City"
+            label={t('rider.currentLocation', 'Home City')}
             value={city}
             onChangeText={setCity}
             placeholder="e.g. New York, NY"
@@ -93,7 +95,11 @@ export const ProfileSetupScreen = ({ navigation, route }) => {
         </View>
 
           <CustomButton
-            title={isDriver ? 'Continue to Vehicle Setup' : 'Start Riding'}
+            title={
+              isDriver
+                ? `${t('common.continue', 'Continue')} (${t('driver.vehicleSetup', 'Vehicle Setup')})`
+                : t('rider.bookRide', 'Start Riding')
+            }
             onPress={handleComplete}
             loading={loading}
             icon="arrow-right"

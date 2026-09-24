@@ -53,11 +53,6 @@ export const MapTopBar = ({
           <Text style={styles.title}>{title}</Text>
         </TouchableOpacity>
 
-        {/* Demo Status Chip */}
-        <View style={styles.demoChip}>
-          <Text style={styles.demoChipText}>DEMO UI</Text>
-        </View>
-
         {/* Menu button */}
         <TouchableOpacity
           activeOpacity={0.7}

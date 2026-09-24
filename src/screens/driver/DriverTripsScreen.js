@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   FlatList,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -15,6 +15,7 @@ import Header from '../../components/Header';
 import StatusBadge from '../../components/StatusBadge';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -74,6 +75,7 @@ const DRIVER_PAST_TRIPS = [
 ];
 
 export const DriverTripsScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
   const [filter, setFilter] = useState('all'); // 'all' | 'today'
 
@@ -130,7 +132,11 @@ export const DriverTripsScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ResponsiveContainer maxWidth={880} style={{ flex: 1 }}>
-        <Header title="Trip History" showBack={false} variant="light" />
+        <Header
+          title={t('driver.tripHistory')}
+          showBack={false}
+          variant="light"
+        />
 
         {/* Filter Tabs */}
         <View style={styles.filterBar}>
@@ -144,13 +150,16 @@ export const DriverTripsScreen = ({ navigation }) => {
                 filter === 'all' && styles.activeFilterText,
               ]}
             >
-              All Completed Trips
+              {t('rider.allTrips')}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => setFilter('today')}
-            style={[styles.filterBtn, filter === 'today' && styles.activeFilterBtn]}
+            style={[
+              styles.filterBtn,
+              filter === 'today' && styles.activeFilterBtn,
+            ]}
           >
             <Text
               style={[
@@ -158,7 +167,7 @@ export const DriverTripsScreen = ({ navigation }) => {
                 filter === 'today' && styles.activeFilterText,
               ]}
             >
-              Today's Trips
+              {t('driver.todayEarnings')}
             </Text>
           </TouchableOpacity>
         </View>

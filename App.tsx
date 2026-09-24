@@ -1,21 +1,89 @@
-import React from 'react';
-import {  StatusBar } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { StatusBar, Animated, View, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import RootNavigator from './src/navigation/RootNavigator';
+import './src/i18n/i18n';
+import { Provider } from 'react-redux';
+import { store } from './src/redux/app/store';
+import { AppProvider } from './src/context/AppContext';
+import { PopupProvider } from './src/context/PopupContext';
+import { KeyboardProvider, CustomKeyboard, useKeyboard } from './src/components/keyboard';
+import SpInAppUpdates, { IAUUpdateKind } from 'sp-react-native-in-app-updates';
+
+// Set isDebug to __DEV__ to enable logs in development environment
+const inAppUpdates = new SpInAppUpdates(__DEV__);
+
+function AppNavigationContent(): React.JSX.Element {
+  const { keyboardVisible, keyboardHeight } = useKeyboard();
+  const bottomOffsetAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(bottomOffsetAnim, {
+      toValue: keyboardVisible ? keyboardHeight : 0,
+      duration: 250,
+      useNativeDriver: false,
+    }).start();
+  }, [keyboardVisible, keyboardHeight]);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Animated.View style={{ flex: 1, marginBottom: bottomOffsetAnim }}>
+        <NavigationContainer>
+          <RootNavigator />
+        </NavigationContainer>
+      </Animated.View>
+      <CustomKeyboard />
+    </View>
+  );
+}
 
 function App(): React.JSX.Element {
-  return (
-    <SafeAreaView style={{flex:1}}>
+  useEffect(() => {
+    checkForUpdates();
+  }, []);
 
-    
-    <SafeAreaProvider>
-      <StatusBar barStyle="light-content" />
-      <NavigationContainer>
-        <RootNavigator />
-      </NavigationContainer>
-    </SafeAreaProvider>
-    </SafeAreaView>
+  const checkForUpdates = async () => {
+    try {
+      const result = await inAppUpdates.checkNeedsUpdate();
+      console.log('Update Result:', result);
+
+      if (result?.shouldUpdate) {
+        if (Platform.OS === 'android') {
+          await inAppUpdates.startUpdate({
+            updateType: IAUUpdateKind.IMMEDIATE,
+          });
+        } else {
+          // Provide customized alert options for iOS
+          await inAppUpdates.startUpdate({
+            title: 'Update Available',
+            message:
+              'A new version of the app is available. Please update to get the latest features and improvements.',
+            buttonUpgradeText: 'Update Now',
+            buttonCancelText: 'Later',
+          });
+        }
+      }
+    } catch (error) {
+      console.log('Update Error:', error);
+    }
+  };
+
+  return (
+    <Provider store={store}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar barStyle="light-content" />
+          <AppProvider>
+            <PopupProvider>
+              <KeyboardProvider>
+                <AppNavigationContent />
+              </KeyboardProvider>
+            </PopupProvider>
+          </AppProvider>
+        </SafeAreaProvider>
+      </SafeAreaView>
+    </Provider>
   );
 }
 

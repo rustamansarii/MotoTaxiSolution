@@ -13,9 +13,11 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 
 export const DriverLoginScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
   const [phoneNumber, setPhoneNumber] = useState('5552345678');
   const [driverId, setDriverId] = useState('DRV-8942');
@@ -33,7 +35,7 @@ export const DriverLoginScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Driver Sign In"
+        title={t('driver.driverLoginTitle')}
         onBack={() => navigation.goBack()}
       />
 
@@ -46,15 +48,15 @@ export const DriverLoginScreen = ({ navigation }) => {
       >
         <View style={[styles.innerWrapper, { maxWidth: isFoldableOrTablet ? 500 : '100%' }]}>
           <View style={styles.headerInfo}>
-          <Text style={styles.title}>Welcome, Driver Partner</Text>
+          <Text style={styles.title}>{t('driver.welcomeDriver')}</Text>
           <Text style={styles.subtitle}>
-            Enter your registered driver phone number to receive your OTP security code.
+            {t('driver.driverLoginSubtitle')}
           </Text>
         </View>
 
         <View style={styles.form}>
           <CustomInput
-            label="Phone Number"
+            label={t('auth.phoneNumber')}
             value={phoneNumber}
             onChangeText={setPhoneNumber}
             placeholder="e.g. 555-234-5678"
@@ -63,7 +65,7 @@ export const DriverLoginScreen = ({ navigation }) => {
           />
 
           <CustomInput
-            label="Driver Partner ID (Optional)"
+            label="Driver Partner ID"
             value={driverId}
             onChangeText={setDriverId}
             placeholder="e.g. DRV-8942"
@@ -77,7 +79,7 @@ export const DriverLoginScreen = ({ navigation }) => {
           </Text>
 
           <CustomButton
-            title="Continue"
+            title={t('common.continue')}
             onPress={handleNext}
             loading={loading}
             variant="primary"

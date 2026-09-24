@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -16,10 +16,13 @@ import ProfileAvatar from '../../components/ProfileAvatar';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import LanguageButton from '../../components/LanguageButton';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 export const DriverProfileScreen = ({ navigation }) => {
+  const { t } = useTranslation();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const driver = ACTIVE_MOCK_DRIVER;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -91,7 +94,7 @@ export const DriverProfileScreen = ({ navigation }) => {
         style={styles.logoutBtn}
       >
         <Icon name="close" size={16} color={COLORS.danger} />
-        <Text style={styles.logoutText}>Sign Out as Driver</Text>
+        <Text style={styles.logoutText}>{t('rider.logout')}</Text>
       </TouchableOpacity>
     </>
   );
@@ -112,7 +115,7 @@ export const DriverProfileScreen = ({ navigation }) => {
 
         <View style={styles.vehicleRow}>
           <View style={styles.vehicleIconCircle}>
-            <Icon name="car" size={22} color={COLORS.secondPrimary} />
+            <Icon name="bike" size={22} color={COLORS.secondPrimary} />
           </View>
           <View style={styles.vehicleInfo}>
             <Text style={styles.carName}>{driver.car.model}</Text>
@@ -176,7 +179,12 @@ export const DriverProfileScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ResponsiveContainer maxWidth={920} style={{ flex: 1 }}>
-        <Header title="Driver Account" showBack={false} variant="light" />
+        <Header
+          title={t('driver.driverProfile')}
+          showBack={false}
+          variant="light"
+          rightComponent={<LanguageButton />}
+        />
 
         <ScrollView
           contentContainerStyle={[
@@ -207,10 +215,10 @@ export const DriverProfileScreen = ({ navigation }) => {
       <CustomModal
         visible={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
-        title="Sign Out?"
+        title={t('rider.logout')}
         message="You will go offline and will not receive any ride requests while signed out."
-        confirmText="Sign Out"
-        cancelText="Cancel"
+        confirmText={t('rider.logout')}
+        cancelText={t('common.cancel')}
         isDanger={true}
         onConfirm={handleLogout}
         icon="alert-triangle"

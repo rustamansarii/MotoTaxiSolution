@@ -18,12 +18,13 @@ import CustomButton from '../../components/CustomButton';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 const COMPLIMENTS = [
   'Smooth driving',
-  'Spotless clean car',
+  'Spotless clean bike',
   'Great conversation',
   'Polite & helpful',
   'Perfect route',
@@ -33,12 +34,13 @@ const COMPLIMENTS = [
 const TIP_OPTIONS = [0, 1, 3, 5];
 
 export const RatingScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { insets } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
 
   const [rating, setRating] = useState(5);
   const [selectedTip, setSelectedTip] = useState(3);
-  const [selectedCompliments, setSelectedCompliments] = useState(['Smooth driving', 'Spotless clean car']);
+  const [selectedCompliments, setSelectedCompliments] = useState(['Smooth driving', 'Spotless clean bike']);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -63,10 +65,8 @@ export const RatingScreen = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={540} style={{ flex: 1 }}>
         <Header
-          title="Rate Your Trip"
+          title={t('rider.rateDriver')}
           showBack={false}
-          rightIcon="close"
-          onRightPress={() => navigation.navigate('RiderHome')}
         />
 
         <ScrollView
@@ -87,7 +87,7 @@ export const RatingScreen = ({ navigation, route }) => {
 
         {/* Star Rating Section */}
         <View style={styles.starsCard}>
-          <Text style={styles.rateQuestion}>How was your ride?</Text>
+          <Text style={styles.rateQuestion}>{t('rider.howWasTrip')}</Text>
           <RatingStars
             rating={rating}
             size={36}
@@ -108,7 +108,7 @@ export const RatingScreen = ({ navigation, route }) => {
 
         {/* Tip Selector */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Add a Tip for {driver.name}</Text>
+          <Text style={styles.sectionTitle}>{t('rider.tipPrompt')}</Text>
           <Text style={styles.sectionSubtitle}>
             100% of your tip goes directly to your driver.
           </Text>
@@ -139,7 +139,7 @@ export const RatingScreen = ({ navigation, route }) => {
 
         {/* Compliment Tags */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Give Compliments</Text>
+          <Text style={styles.sectionTitle}>{t('rider.rateExperience')}</Text>
           <View style={styles.complimentsGrid}>
             {COMPLIMENTS.map((comp) => {
               const isSelected = selectedCompliments.includes(comp);
@@ -177,17 +177,17 @@ export const RatingScreen = ({ navigation, route }) => {
 
         {/* Feedback Input */}
         <CustomInput
-          label="Additional Comments (Optional)"
+          label="Comments"
           value={comment}
           onChangeText={setComment}
-          placeholder="Leave feedback for driver or support"
+          placeholder={t('rider.ratingFeedbackPlaceholder')}
           multiline={true}
           containerStyle={styles.commentInput}
         />
 
         {/* Submit Button */}
         <CustomButton
-          title="Submit Rating & Tip"
+          title={t('rider.submitRating')}
           onPress={handleSubmit}
           loading={loading}
           variant="primary"

@@ -15,11 +15,13 @@ import CustomButton from '../../components/CustomButton';
 import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 
 export const SearchingDriverScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const selectedRide = route.params?.selectedRide;
   const totalFare = route.params?.totalFare || 18.5;
@@ -84,7 +86,7 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
           ]}
         />
         <View style={styles.radarCore}>
-          <Icon name="car" size={24} color={COLORS.white} />
+          <Icon name="bike" size={24} color={COLORS.white} />
         </View>
       </View>
     </View>
@@ -101,9 +103,9 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
       ]}
     >
       <View style={styles.statusHeader}>
-        <Text style={styles.statusTitle}>Connecting with Driver...</Text>
+        <Text style={styles.statusTitle}>{t('rider.searchingDriversTitle')}</Text>
         <Text style={styles.statusSubtitle}>
-          Matching you with the nearest highly-rated driver
+          {t('rider.searchingSubtitle')}
         </Text>
       </View>
 
@@ -115,20 +117,20 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
       {/* Ride specs info */}
       <View style={styles.infoRow}>
         <View style={styles.infoCol}>
-          <Text style={styles.infoLabel}>Vehicle</Text>
+          <Text style={styles.infoLabel}>{t('driver.vehicleInfo')}</Text>
           <Text style={styles.infoValue}>
-            {selectedRide?.name || 'RideGo Standard'}
+            {selectedRide?.name || 'Moto Taxi Standard'}
           </Text>
         </View>
         <View style={styles.infoColRight}>
-          <Text style={styles.infoLabel}>Estimated Price</Text>
+          <Text style={styles.infoLabel}>{t('rider.estimatedFare')}</Text>
           <Text style={styles.infoValue}>{formatCurrency(totalFare)}</Text>
         </View>
       </View>
 
       {/* Cancel Button */}
       <CustomButton
-        title="Cancel Request"
+        title={t('rider.cancelRequest')}
         variant="outline"
         onPress={() => setShowCancelModal(true)}
         style={styles.cancelBtn}
@@ -150,10 +152,10 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
       <CustomModal
         visible={showCancelModal}
         onClose={() => setShowCancelModal(false)}
-        title="Cancel Ride Request?"
-        message="Are you sure you want to cancel? No cancellation fees apply when cancelling within 2 minutes."
-        confirmText="Yes, Cancel"
-        cancelText="Keep Waiting"
+        title={t('rider.cancelModalTitle')}
+        message={t('rider.cancelModalMessage')}
+        confirmText={t('rider.yesCancel')}
+        cancelText={t('rider.keepWaiting')}
         isDanger={true}
         onConfirm={handleConfirmCancel}
         icon="alert-triangle"
@@ -275,6 +277,11 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     width: '100%',
+  },
+  langFloating: {
+    position: 'absolute',
+    right: SPACING.md,
+    zIndex: 99,
   },
 });
 

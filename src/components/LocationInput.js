@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
 import Icon from './Icon';
+import { KeyboardTextInput } from './keyboard/KeyboardTextInput';
 
 export const LocationInput = ({
   pickupValue,
@@ -37,7 +38,8 @@ export const LocationInput = ({
           style={styles.inputWrapper}
         >
           {editable ? (
-            <TextInput
+            <KeyboardTextInput
+              id="pickup-location-input"
               value={pickupValue}
               onChangeText={onPickupChange}
               placeholder={pickupPlaceholder}
@@ -76,7 +78,8 @@ export const LocationInput = ({
           style={styles.inputWrapper}
         >
           {editable ? (
-            <TextInput
+            <KeyboardTextInput
+              id="destination-location-input"
               value={destinationValue}
               onChangeText={onDestinationChange}
               placeholder={destinationPlaceholder}

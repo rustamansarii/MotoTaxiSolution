@@ -26,3 +26,14 @@ export const COLORS = {
   disabledText: '#A5A9B0',
   star: '#FFB800',
 };
+
+export const colors = {
+  ...COLORS,
+  text: {
+    primary: COLORS.text,
+    secondary: COLORS.textLight,
+    muted: COLORS.textMuted,
+  },
+};
+
+export default colors;

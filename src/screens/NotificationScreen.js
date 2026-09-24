@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../../theme/ThemeContext";
 import CustomFooter from "../components/CustomFooter";
 import {
@@ -51,14 +52,15 @@ const formatNotificationDate = (dateString) => {
 };
 
 export default function NotificationScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const {
-    themeColor = COLORS.primary,
-    bgColor = COLORS.background,
-    textColor = COLORS.text,
-    borderColor = COLORS.border,
-    iconColor = COLORS.text,
-    subTextColor = COLORS.textLight,
+    themeColor = "#000",
+    bgColor = "#fff",
+    textColor = "#111",
+    borderColor = "#eee",
+    iconColor = "#111",
+    subTextColor = "#666",
   } = useTheme ? useTheme() : {};
 
   const [notifications, setNotifications] = useState([]);
@@ -118,8 +120,6 @@ export default function NotificationScreen() {
       markNotificationAsRead(item.id);
     }
 
-    // Navigation based on payload:
-    // Only one of property_id / conversation_id is ever set; the other is null.
     if (item.property_id) {
       navigation.navigate("PropertyDetails", {
         propertyId: item.property_id,
@@ -214,22 +214,24 @@ export default function NotificationScreen() {
             color={iconColor}
           />
           <Text style={[styles.headerTitle, { color: textColor }]}>
-            Notifications
+            {t('notifications.title')}
           </Text>
         </TouchableOpacity>
 
-        {/* Mark All Read Button */}
-        {notifications.some((n) => !n.is_read) ? (
-          <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllBtn}>
-            <Text style={[styles.markAllText, { color: themeColor }]}>
-              Mark all read
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity>
-            <Feather name="search" size={moderateScale(18)} color={iconColor} />
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* Mark All Read Button */}
+          {notifications.some((n) => !n.is_read) ? (
+            <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllBtn}>
+              <Text style={[styles.markAllText, { color: themeColor }]}>
+                {t('notifications.markAllRead')}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity>
+              <Feather name="search" size={moderateScale(18)} color={iconColor} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Content */}
@@ -271,7 +273,7 @@ export default function NotificationScreen() {
                 color={subTextColor}
               />
               <Text style={[styles.emptyTitle, { color: textColor }]}>
-                No notifications
+                {t('notifications.noNotifications')}
               </Text>
               <Text style={[styles.emptySubtitle, { color: subTextColor }]}>
                 When you get likes on properties or messages, they will appear here.

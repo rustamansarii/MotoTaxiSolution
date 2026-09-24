@@ -7,7 +7,9 @@ import {
   StatusBar,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -16,13 +18,20 @@ import CustomButton from '../../components/CustomButton';
 import CustomInput from '../../components/CustomInput';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
+import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { MOCK_RIDES } from '../../data/mockRides';
 import { MOCK_PAYMENT_METHODS } from '../../data/mockTransactions';
+import { bookRide } from '../../redux/features/rides/ridesSlice';
 
 export const ConfirmRideScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
+  const dispatch = useDispatch();
+
+  const { isBooking, bookingError } = useSelector((state) => state.rides);
+
   const selectedRide = route.params?.selectedRide || MOCK_RIDES[0];
   const pickup = route.params?.pickup || '5th Ave & 58th St';
   const destination = route.params?.destination || 'JFK International Airport';
@@ -30,7 +39,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
   const [paymentMethod, setPaymentMethod] = useState(
     route.params?.paymentMethod || MOCK_PAYMENT_METHODS[0]
   );
-  const [promoCode, setPromoCode] = useState('RIDEGO20');
+  const [promoCode, setPromoCode] = useState('MOTOTAXI20');
   const [promoApplied, setPromoApplied] = useState(true);
 
   const baseFare = selectedRide.price;
@@ -38,22 +47,79 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
   const bookingFee = 2.0;
   const totalFare = Math.max(0, baseFare + bookingFee - discount);
 
-  const handleConfirm = () => {
-    navigation.navigate('SearchingDriver', {
-      selectedRide,
-      pickup,
-      destination,
-      totalFare,
-    });
+  const handleConfirm = async () => {
+    const pLat =
+      route.params?.pickup_lat ??
+      route.params?.pickupData?.latitude ??
+      route.params?.pickupData?.lat ??
+      30.7046;
+
+    const pLon =
+      route.params?.pickup_lon ??
+      route.params?.pickupData?.longitude ??
+      route.params?.pickupData?.lon ??
+      76.8016;
+
+    const dLat =
+      route.params?.drop_lat ??
+      route.params?.destinationData?.latitude ??
+      route.params?.destinationData?.lat ??
+      30.7333;
+
+    const dLon =
+      route.params?.drop_lon ??
+      route.params?.destinationData?.longitude ??
+      route.params?.destinationData?.lon ??
+      76.7794;
+
+    const vehicleType =
+      selectedRide?.vehicle_type ||
+      (selectedRide?.name?.toUpperCase().includes('CAR') || selectedRide?.name?.toUpperCase().includes('CAB')
+        ? 'CAR'
+        : selectedRide?.name?.toUpperCase().includes('AUTO')
+        ? 'AUTO'
+        : 'BIKE');
+
+    const bookingPayload = {
+      pickup_lat: pLat,
+      pickup_lon: pLon,
+      pickup_address: pickup || 'Elante Mall, Chandigarh',
+      drop_lat: dLat,
+      drop_lon: dLon,
+      drop_address: destination || 'Sector 17, Chandigarh',
+      vehicle_type: vehicleType,
+    };
+
+    try {
+      const bookingResult = await dispatch(bookRide(bookingPayload)).unwrap();
+      navigation.navigate('SearchingDriver', {
+        selectedRide,
+        pickup,
+        destination,
+        totalFare,
+        booking: bookingResult,
+        bookingPayload,
+      });
+    } catch (err) {
+      console.warn('[ConfirmRide] Booking API call result:', err);
+      navigation.navigate('SearchingDriver', {
+        selectedRide,
+        pickup,
+        destination,
+        totalFare,
+        bookingError: err,
+        bookingPayload,
+      });
+    }
   };
 
   const routeCard = (
     <View style={styles.card}>
-      <Text style={styles.cardHeader}>Trip Route</Text>
+      <Text style={styles.cardHeader}>{t('rider.tripRoute')}</Text>
       <View style={styles.routeRow}>
         <View style={styles.dotPickup} />
         <View style={styles.routeDetails}>
-          <Text style={styles.routeLabel}>Pickup</Text>
+          <Text style={styles.routeLabel}>{t('rider.pickup')}</Text>
           <Text numberOfLines={1} style={styles.routeAddress}>
             {pickup}
           </Text>
@@ -65,7 +131,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
       <View style={styles.routeRow}>
         <View style={styles.squareDest} />
         <View style={styles.routeDetails}>
-          <Text style={styles.routeLabel}>Destination</Text>
+          <Text style={styles.routeLabel}>{t('rider.destination')}</Text>
           <Text numberOfLines={1} style={styles.routeAddress}>
             {destination}
           </Text>
@@ -77,7 +143,11 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
   const vehicleCard = (
     <View style={styles.vehicleOverviewCard}>
       <View style={styles.vehicleIconCircle}>
-        <Icon name="car" size={26} color={COLORS.secondPrimary} />
+        <Icon
+          name={selectedRide.iconType || selectedRide.icon || 'bike'}
+          size={26}
+          color={COLORS.secondPrimary}
+        />
       </View>
       <View style={styles.vehicleDetailsCol}>
         <Text style={styles.vehicleName}>{selectedRide.name}</Text>
@@ -93,10 +163,10 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
     <View style={styles.promoSection}>
       <View style={styles.promoInputCol}>
         <CustomInput
-          label="Promo Code"
+          label={t('rider.promoCode')}
           value={promoCode}
           onChangeText={setPromoCode}
-          placeholder="Enter discount code"
+          placeholder={t('rider.promoPlaceholder')}
           leftIcon="tag"
           containerStyle={styles.noMargin}
         />
@@ -111,11 +181,11 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
       >
         {promoApplied ? (
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={styles.appliedBtnText}>Applied </Text>
+            <Text style={styles.appliedBtnText}>{t('rider.applied')} </Text>
             <Icon name="check" size={12} color={COLORS.primary} />
           </View>
         ) : (
-          <Text style={styles.applyBtnText}>Apply</Text>
+          <Text style={styles.applyBtnText}>{t('rider.apply')}</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -123,22 +193,22 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
 
   const fareCard = (
     <View style={styles.card}>
-      <Text style={styles.cardHeader}>Fare Breakdown</Text>
+      <Text style={styles.cardHeader}>{t('rider.fareBreakdown')}</Text>
 
       <View style={styles.fareRow}>
-        <Text style={styles.fareLabel}>Trip Fare ({selectedRide.name})</Text>
+        <Text style={styles.fareLabel}>{t('rider.tripFare')} ({selectedRide.name})</Text>
         <Text style={styles.fareValue}>{formatCurrency(baseFare)}</Text>
       </View>
 
       <View style={styles.fareRow}>
-        <Text style={styles.fareLabel}>Booking & Platform Fee</Text>
+        <Text style={styles.fareLabel}>{t('rider.bookingFee')}</Text>
         <Text style={styles.fareValue}>{formatCurrency(bookingFee)}</Text>
       </View>
 
       {promoApplied && (
         <View style={styles.fareRow}>
           <Text style={[styles.fareLabel, styles.discountText]}>
-            Promo Code Discount
+            {t('rider.promoDiscount')}
           </Text>
           <Text style={[styles.fareValue, styles.discountText]}>
             -{formatCurrency(discount)}
@@ -149,7 +219,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
       <View style={styles.divider} />
 
       <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Estimated Total</Text>
+        <Text style={styles.totalLabel}>{t('rider.estimatedTotal')}</Text>
         <Text style={styles.totalValue}>{formatCurrency(totalFare)}</Text>
       </View>
     </View>
@@ -166,7 +236,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
       </View>
       <View style={styles.paymentInfo}>
         <Text style={styles.paymentTitle}>{paymentMethod.name}</Text>
-        <Text style={styles.paymentSubtitle}>Tap to change payment method</Text>
+        <Text style={styles.paymentSubtitle}>{t('rider.tapToChangePayment')}</Text>
       </View>
       <Icon name="chevron-right" size={18} color={COLORS.iconLight} />
     </TouchableOpacity>
@@ -174,11 +244,13 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
 
   const confirmButton = (
     <CustomButton
-      title={`Confirm & Request ${selectedRide.name}`}
+      title={`${t('rider.confirmAndRequest')} ${selectedRide.name}`}
       onPress={handleConfirm}
       variant="primary"
       icon="arrow-right"
       iconPosition="right"
+      loading={isBooking}
+      disabled={isBooking}
       style={styles.confirmButton}
     />
   );
@@ -188,7 +260,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={960} style={{ flex: 1 }}>
         <Header
-          title="Confirm Ride"
+          title={t('rider.confirmRide')}
           onBack={() => navigation.goBack()}
         />
 

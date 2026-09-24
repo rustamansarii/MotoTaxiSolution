@@ -25,7 +25,7 @@ export const VehicleCard = ({
     >
       <View style={styles.headerRow}>
         <View style={styles.iconCircle}>
-          <Icon name="car" size={22} color={COLORS.secondPrimary} />
+          <Icon name="bike" size={22} color={COLORS.secondPrimary} />
         </View>
         <View style={styles.infoCol}>
           <Text style={styles.nameText}>{vehicle.name}</Text>

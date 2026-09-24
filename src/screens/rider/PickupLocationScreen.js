@@ -17,8 +17,10 @@ import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useResponsive } from '../../utils/responsive';
 import { CURRENT_LOCATION } from '../../data/mockLocations';
+import { useTranslation } from 'react-i18next';
 
 export const PickupLocationScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const [pickupAddress, setPickupAddress] = useState(
     route.params?.pickup || CURRENT_LOCATION.address
@@ -45,7 +47,7 @@ export const PickupLocationScreen = ({ navigation, route }) => {
       {/* Floating Center Pin Helper */}
       <View style={styles.centerPinNotice}>
         <Text style={styles.centerPinText}>
-          Drag map to adjust pickup pin
+          {t('rider.setPinOnMap', 'Drag map to adjust pickup pin')}
         </Text>
       </View>
     </View>
@@ -64,7 +66,9 @@ export const PickupLocationScreen = ({ navigation, route }) => {
           <Icon name="map-pin" size={18} color={COLORS.white} />
         </View>
         <View style={styles.pickupInfo}>
-          <Text style={styles.pickupHeading}>Pickup Location</Text>
+          <Text style={styles.pickupHeading}>
+            {t('rider.pickupLocation', 'Pickup Location')}
+          </Text>
           <Text numberOfLines={2} style={styles.addressText}>
             {pickupAddress}
           </Text>
@@ -75,12 +79,12 @@ export const PickupLocationScreen = ({ navigation, route }) => {
           }
           style={styles.refineBtn}
         >
-          <Text style={styles.refineText}>Refine</Text>
+          <Text style={styles.refineText}>{t('common.edit', 'Refine')}</Text>
         </TouchableOpacity>
       </View>
 
       <CustomButton
-        title="Confirm Pickup Spot"
+        title={t('common.confirm', 'Confirm Pickup Spot')}
         onPress={handleConfirm}
         icon="check"
         iconPosition="right"
@@ -93,7 +97,7 @@ export const PickupLocationScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Set Pickup Location"
+        title={t('rider.pickupLocation', 'Set Pickup Location')}
         onBack={() => navigation.goBack()}
       />
       <AdaptiveSplitView

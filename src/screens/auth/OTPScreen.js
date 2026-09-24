@@ -6,9 +6,9 @@ import {
   SafeAreaView,
   StatusBar,
   TouchableOpacity,
-  TextInput,
   ScrollView,
 } from 'react-native';
+import { KeyboardTextInput } from '../../components/keyboard/KeyboardTextInput';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -16,8 +16,10 @@ import Header from '../../components/Header';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useResponsive } from '../../utils/responsive';
+import { useTranslation } from 'react-i18next';
 
 export const OTPScreen = ({ navigation, route }) => {
+  const { t } = useTranslation();
   const role = route.params?.role || 'rider';
   const identifier = route.params?.identifier || '+1 555-234-5678';
   const isDriver = role === 'driver';
@@ -49,7 +51,7 @@ export const OTPScreen = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <Header
-        title="Verification Code"
+        title={t('auth.otpTitle', 'Verification Code')}
         onBack={() => navigation.goBack()}
       />
 
@@ -66,9 +68,9 @@ export const OTPScreen = ({ navigation, route }) => {
             <Icon name="shield" size={32} color={COLORS.primary} />
           </View>
 
-          <Text style={styles.title}>Enter 4-digit code</Text>
+          <Text style={styles.title}>{t('auth.enterCodePrompt', 'Enter 4-digit code')}</Text>
           <Text style={styles.subtitle}>
-            We sent a verification code to{' '}
+            {t('auth.otpSubtitle', 'We sent a verification code to')}{' '}
             <Text style={styles.boldIdentifier}>{identifier}</Text>
           </Text>
 
@@ -92,7 +94,8 @@ export const OTPScreen = ({ navigation, route }) => {
         </View>
 
         {/* Hidden or direct input */}
-        <TextInput
+        <KeyboardTextInput
+          id="auth-otp-input"
           value={code}
           onChangeText={(text) => {
             if (text.length <= 4) setCode(text);
@@ -107,20 +110,20 @@ export const OTPScreen = ({ navigation, route }) => {
         <View style={styles.resendRow}>
           {timer > 0 ? (
             <Text style={styles.timerText}>
-              Resend code in <Text style={styles.timerCount}>{timer}s</Text>
+              {t('auth.resendOtp', 'Resend code')} in <Text style={styles.timerCount}>{timer}s</Text>
             </Text>
           ) : (
             <TouchableOpacity
               onPress={() => setTimer(45)}
               style={styles.resendBtn}
             >
-              <Text style={styles.resendBtnText}>Resend Code</Text>
+              <Text style={styles.resendBtnText}>{t('auth.resendOtp', 'Resend Code')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         <CustomButton
-          title="Verify & Continue"
+          title={t('auth.verifyAndContinue', 'Verify & Continue')}
           onPress={handleVerify}
           loading={loading}
           disabled={code.length < 4}
