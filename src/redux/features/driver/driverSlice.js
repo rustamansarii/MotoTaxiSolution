@@ -124,7 +124,7 @@ let isListenerAttached = false;
  */
 export const connectDriverWebSocket = createAsyncThunk(
   'driver/connectWebSocket',
-  async (customUrl, { dispatch, rejectWithValue }) => {
+  async (customUrl, { dispatch, getState, rejectWithValue }) => {
     try {
       const token = await getAccessToken();
       if (!token) {
@@ -143,8 +143,15 @@ export const connectDriverWebSocket = createAsyncThunk(
           } else if (event === 'error') {
             dispatch(setSocketError(payload));
           } else if (event === 'offline_error') {
-            console.log('[DriverWS] Offline error received from server, auto-syncing driverGoOnline...');
-            dispatch(driverGoOnline());
+            const currentDriverState = getState()?.driver;
+            if (currentDriverState?.rideStatus === 'idle' && !currentDriverState?.activeRide) {
+              console.log('[DriverWS] Offline error received while idle, auto-syncing driverGoOnline...');
+              dispatch(driverGoOnline());
+            } else {
+              console.log(
+                `[DriverWS] Offline error received but driver is currently active (${currentDriverState?.rideStatus}), skipping driverGoOnline.`
+              );
+            }
           } else if (event === 'message') {
             dispatch(handleIncomingSocketMessage(payload));
           } else if (event === 'location_sent') {
@@ -355,11 +362,19 @@ export const driverSlice = createSlice({
           }
           break;
 
-        case 'ride_request':
-          // {"type": "ride_request", "ride_id": .., "vehicle_type": .., "pickup_address": .., "pickup_lat": .., "pickup_lon": .., "drop_address": .., "distance_km": .., "driver_payout": .., "currency": ..}
+        case 'ride_request': {
+          // {"type": "ride_request", "ride_id": .., "vehicle_type": .., ...}
+          // If driver is already engaged in an active trip, ignore duplicate/new ride offers
+          if (state.rideStatus !== 'idle' || state.activeRide) {
+            console.warn(
+              `[DriverSlice] ⚠️ Ignored ride_request for ride #${msg.ride_id} because driver is currently active (status: ${state.rideStatus}, activeRideId: ${state.activeRide?.ride_id})`
+            );
+            break;
+          }
           state.incomingRideRequest = msg;
           state.rideStatus = 'requested';
           break;
+        }
 
         case 'ride_taken':
         case 'ride_expired':

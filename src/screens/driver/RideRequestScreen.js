@@ -217,9 +217,13 @@ export const RideRequestScreen = ({ navigation, route }) => {
     }
   }, [incomingRideRequest, rideStatus, activeRide, dismissToHome]);
 
-  // Listen for accept success from WebSocket
+  // Listen for accept success from WebSocket or already active ride
   useEffect(() => {
-    if (rideStatus === 'accepted') {
+    if (
+      rideStatus === 'accepted' ||
+      rideStatus === 'arrived' ||
+      rideStatus === 'in_progress'
+    ) {
       navigateToAccepted();
     }
   }, [rideStatus, navigateToAccepted]);

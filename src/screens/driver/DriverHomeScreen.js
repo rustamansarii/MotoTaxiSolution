@@ -73,16 +73,16 @@ export const DriverHomeScreen = ({ navigation }) => {
     driverLocationRef.current = driverLocation;
   }, [driverLocation]);
 
-  // Synchronize driver online status with backend and connect WebSocket
+  // Synchronize driver online status with backend and connect WebSocket (only when idle and no active ride)
   useEffect(() => {
-    if (isOnline) {
+    if (isOnline && rideStatus === 'idle' && !activeRide) {
       const loc = driverLocationRef.current;
       const coords = loc
         ? { lat: loc[1], lng: loc[0] }
         : null;
       dispatch(driverGoOnline(coords));
     }
-  }, [dispatch, isOnline]);
+  }, [dispatch, isOnline, rideStatus, activeRide]);
 
   // When real-time location_ack is received from server, update map driver location in real time
   useEffect(() => {
@@ -153,9 +153,9 @@ export const DriverHomeScreen = ({ navigation }) => {
     }
   }, [dispatch, isOnline]);
 
-  // Stream location_update every 10 seconds automatically while online and WebSocket is connected
+  // Stream location_update every 10 seconds automatically while online, idle, and WebSocket is connected
   useEffect(() => {
-    if (!socketConnected || !isOnline) return;
+    if (!socketConnected || !isOnline || rideStatus !== 'idle' || activeRide) return;
 
     const pushPeriodicLocation = () => {
       const loc = driverLocationRef.current;
@@ -172,10 +172,14 @@ export const DriverHomeScreen = ({ navigation }) => {
     const intervalId = setInterval(pushPeriodicLocation, 10000);
 
     return () => clearInterval(intervalId);
-  }, [socketConnected, isOnline, dispatch]);
+  }, [socketConnected, isOnline, rideStatus, activeRide, dispatch]);
 
-  // Listen for WebSocket incoming ride requests
+  // Listen for WebSocket incoming ride requests (only when driver is idle and has no active ride)
   useEffect(() => {
+    if (rideStatus !== 'idle' || activeRide) {
+      return;
+    }
+
     if (incomingRideRequest) {
       console.log('[DriverHome] Real-time ride request received:', incomingRideRequest);
       if (handledRideIdRef.current !== incomingRideRequest.ride_id) {
@@ -183,6 +187,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         setRequestCountdown(15);
 
         const req = incomingRideRequest;
+        const curLoc = driverLocationRef.current || driverLocation;
         const params = {
           ride_id: req.ride_id,
           tripId: req.ride_id,
@@ -199,8 +204,8 @@ export const DriverHomeScreen = ({ navigation }) => {
           pickupCoordinates:
             req.pickup_lat && req.pickup_lon
               ? [req.pickup_lon, req.pickup_lat]
-              : [driverLocation[0] + 0.003, driverLocation[1] + 0.002],
-          driverCoordinates: driverLocation,
+              : [curLoc[0] + 0.003, curLoc[1] + 0.002],
+          driverCoordinates: curLoc,
         };
 
         const parentNav = navigation.getParent();
@@ -213,7 +218,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     } else {
       handledRideIdRef.current = null;
     }
-  }, [incomingRideRequest, navigation, driverLocation]);
+  }, [incomingRideRequest, navigation, rideStatus, activeRide, driverLocation]);
 
   // Handle ride taken by another driver or offer expired
   useEffect(() => {
@@ -739,7 +744,9 @@ export const DriverHomeScreen = ({ navigation }) => {
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
-            {incomingRideRequest ? incomingRideSheet : summaryPanel}
+            {incomingRideRequest && rideStatus === 'requested' && !activeRide
+              ? incomingRideSheet
+              : summaryPanel}
           </ScrollView>
         }
         primaryRatio={0.55}
