@@ -21,6 +21,7 @@ import DriverAssignedScreen from '../screens/rider/DriverAssignedScreen';
 import RideInProgressScreen from '../screens/rider/RideInProgressScreen';
 import TripCompletedScreen from '../screens/rider/TripCompletedScreen';
 import RatingScreen from '../screens/rider/RatingScreen';
+import SavedPlacesScreen from '../screens/rider/SavedPlacesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -97,6 +98,7 @@ export const RiderNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="RiderTabs" component={RiderTabs} />
+      <Stack.Screen name="RiderHome" component={RiderTabs} />
       <Stack.Screen name="DestinationSearch" component={DestinationSearchScreen} />
       <Stack.Screen name="PickupLocation" component={PickupLocationScreen} />
       <Stack.Screen name="RideOptions" component={RideOptionsScreen} />
@@ -106,6 +108,7 @@ export const RiderNavigator = () => {
       <Stack.Screen name="RideInProgress" component={RideInProgressScreen} />
       <Stack.Screen name="TripCompleted" component={TripCompletedScreen} />
       <Stack.Screen name="Rating" component={RatingScreen} />
+      <Stack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
     </Stack.Navigator>
   );
 };

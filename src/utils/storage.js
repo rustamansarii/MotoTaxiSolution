@@ -6,13 +6,14 @@ export const STORAGE_KEYS = {
   TOKEN: 'token',
   API_TOKEN: 'api_token',
   USER: 'user',
+  ROLE: 'user_role',
 };
 
 /**
  * Store JWT access & refresh tokens in AsyncStorage
- * @param {Object} tokens - { access, refresh, token, api_token }
+ * @param {Object} tokens - { access, refresh, token, api_token, role }
  */
-export const saveTokens = async ({ access, refresh, token, api_token }) => {
+export const saveTokens = async ({ access, refresh, token, api_token, role }) => {
   try {
     const accessToken = access || token || api_token;
     const promises = [];
@@ -25,9 +26,12 @@ export const saveTokens = async ({ access, refresh, token, api_token }) => {
     if (refresh && typeof AsyncStorage?.setItem === 'function') {
       promises.push(AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refresh));
     }
+    if (role && typeof AsyncStorage?.setItem === 'function') {
+      promises.push(AsyncStorage.setItem(STORAGE_KEYS.ROLE, String(role).trim().toUpperCase()));
+    }
     if (promises.length > 0) {
       await Promise.all(promises);
-      console.log('[Storage] Saved access token to AsyncStorage ("access_token", "api_token", "token")');
+      console.log('[Storage] Saved tokens to AsyncStorage ("access_token", "api_token", "token")');
     }
   } catch (error) {
     console.error('Error saving tokens to AsyncStorage:', error);
@@ -40,6 +44,45 @@ export const saveTokens = async ({ access, refresh, token, api_token }) => {
  */
 export const saveAccessToken = async (accessToken) => {
   return saveTokens({ access: accessToken });
+};
+
+/**
+ * Save user role directly to AsyncStorage
+ * @param {string} role - 'DRIVER' or 'RIDER'
+ */
+export const saveRole = async (role) => {
+  try {
+    if (role && typeof AsyncStorage?.setItem === 'function') {
+      const normalizedRole = String(role).trim().toUpperCase();
+      await AsyncStorage.setItem(STORAGE_KEYS.ROLE, normalizedRole);
+      console.log(`[Storage] Saved role: "${normalizedRole}" to AsyncStorage ("${STORAGE_KEYS.ROLE}")`);
+    }
+  } catch (error) {
+    console.error('Error saving role to AsyncStorage:', error);
+  }
+};
+
+/**
+ * Retrieve saved user role from AsyncStorage
+ */
+export const getRole = async () => {
+  try {
+    if (typeof AsyncStorage?.getItem === 'function') {
+      const storedRole = await AsyncStorage.getItem(STORAGE_KEYS.ROLE);
+      if (storedRole) {
+        return storedRole.trim().toUpperCase();
+      }
+      // Fallback: check saved user object
+      const user = await getUser();
+      if (user?.role) {
+        return String(user.role).trim().toUpperCase();
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting role from AsyncStorage:', error);
+    return null;
+  }
 };
 
 /**
@@ -87,6 +130,9 @@ export const saveUser = async (user) => {
   try {
     if (user && typeof AsyncStorage?.setItem === 'function') {
       await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      if (user.role) {
+        await saveRole(user.role);
+      }
     }
   } catch (error) {
     console.error('Error saving user to AsyncStorage:', error);
@@ -122,8 +168,9 @@ export const clearTokens = async () => {
         AsyncStorage.removeItem(STORAGE_KEYS.API_TOKEN),
         AsyncStorage.removeItem('apiToken'),
         AsyncStorage.removeItem(STORAGE_KEYS.USER),
+        AsyncStorage.removeItem(STORAGE_KEYS.ROLE),
       ]);
-      console.log('[Storage] Cleared tokens from AsyncStorage');
+      console.log('[Storage] Cleared tokens & role from AsyncStorage');
     }
   } catch (error) {
     console.error('Error clearing tokens from AsyncStorage:', error);
@@ -137,6 +184,8 @@ export const authStorage = {
   saveTokens,
   saveAccessToken,
   getRefreshToken,
+  saveRole,
+  getRole,
   saveUser,
   getUser,
   clearTokens,
@@ -145,9 +194,12 @@ export const authStorage = {
 export default {
   STORAGE_KEYS,
   saveTokens,
+  saveAccessToken,
   getAccessToken,
   getaccessToken,
   getRefreshToken,
+  saveRole,
+  getRole,
   saveUser,
   getUser,
   clearTokens,

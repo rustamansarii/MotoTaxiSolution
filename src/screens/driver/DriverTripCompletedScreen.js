@@ -3,10 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector, useDispatch } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -17,13 +18,19 @@ import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
+import { resetActiveRideState } from '../../redux/features/driver/driverSlice';
 
 export const DriverTripCompletedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { insets } = useResponsive();
-  const fare = route.params?.fare || 28.5;
-  const passengerName = route.params?.passengerName || 'Elena Rostova';
-  const distance = route.params?.distance || '16.4 mi';
+  const dispatch = useDispatch();
+  const { completedRide, activeRide } = useSelector((state) => state.driver);
+  const ride = completedRide || activeRide;
+
+  const fare = route.params?.fare ?? ride?.driver_payout ?? ride?.fare ?? 28.5;
+  const currency = route.params?.currency || ride?.currency || 'USD';
+  const passengerName = route.params?.passengerName || ride?.rider_name || ride?.passengerName || 'Rider';
+  const distance = route.params?.distance || (ride?.distance_km !== undefined ? `${ride.distance_km} km` : '16.4 mi');
   const duration = route.params?.duration || '32 mins';
 
   const [rating, setRating] = useState(5);
@@ -32,6 +39,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
   const totalEarned = fare + surgeBonus + tipBonus;
 
   const handleFinish = () => {
+    dispatch(resetActiveRideState());
     navigation.navigate('DriverHome');
   };
 
@@ -60,20 +68,26 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
         <View style={styles.earningsCard}>
           <Text style={styles.earningsLabel}>{t('driver.totalEarnings')}</Text>
           <Text style={styles.earningsAmount}>
-            {formatCurrency(totalEarned)}
+            {formatCurrency(totalEarned, currency === 'USD' ? '$' : currency)}
           </Text>
 
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Base Ride Fare</Text>
-            <Text style={styles.breakdownVal}>{formatCurrency(fare)}</Text>
+            <Text style={styles.breakdownVal}>
+              {formatCurrency(fare, currency === 'USD' ? '$' : currency)}
+            </Text>
           </View>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Surge Zone Bonus</Text>
-            <Text style={styles.surgeVal}>+{formatCurrency(surgeBonus)}</Text>
+            <Text style={styles.surgeVal}>
+              +{formatCurrency(surgeBonus, currency === 'USD' ? '$' : currency)}
+            </Text>
           </View>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Passenger Tip</Text>
-            <Text style={styles.tipVal}>+{formatCurrency(tipBonus)}</Text>
+            <Text style={styles.tipVal}>
+              +{formatCurrency(tipBonus, currency === 'USD' ? '$' : currency)}
+            </Text>
           </View>
         </View>
 

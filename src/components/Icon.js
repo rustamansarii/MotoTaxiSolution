@@ -30,7 +30,12 @@ const ICON_MAP = {
   'chevron-up': { family: 'Ionicons', name: 'chevron-up' },
   'navigation': { family: 'Ionicons', name: 'navigate' },
   'crosshair': { family: 'Ionicons', name: 'locate' },
+  'crosshairs': { family: 'Ionicons', name: 'locate' },
+  'locate': { family: 'Ionicons', name: 'locate' },
   'location': { family: 'Ionicons', name: 'location-sharp' },
+  'location-pin': { family: 'Ionicons', name: 'location-sharp' },
+  'my-location': { family: 'MaterialIcons', name: 'my-location' },
+  'gps': { family: 'MaterialIcons', name: 'my-location' },
   'map-pin': { family: 'Ionicons', name: 'location-sharp' },
   'flag': { family: 'Ionicons', name: 'flag' },
   'more-vertical': { family: 'Ionicons', name: 'ellipsis-vertical' },
@@ -97,6 +102,8 @@ const ICON_MAP = {
   'caps-lock': { family: 'Ionicons', name: 'arrow-up-circle' },
   'enter-key': { family: 'Ionicons', name: 'return-down-back' },
   'keyboard-hide': { family: 'Ionicons', name: 'chevron-down' },
+  'pencil': { family: 'Ionicons', name: 'pencil' },
+  'edit': { family: 'Ionicons', name: 'pencil' },
 
   // Security & Authentication
   'lock': { family: 'Ionicons', name: 'lock-closed' },

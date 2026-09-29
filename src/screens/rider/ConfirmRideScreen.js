@@ -3,12 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
@@ -24,13 +23,20 @@ import { formatCurrency } from '../../utils/formatters';
 import { MOCK_RIDES } from '../../data/mockRides';
 import { MOCK_PAYMENT_METHODS } from '../../data/mockTransactions';
 import { bookRide } from '../../redux/features/rides/ridesSlice';
+import {
+  connectRiderWebSocket,
+  clearRiderTripState,
+  setActiveRideId,
+  setRideOtp,
+  setTripStatus,
+} from '../../redux/features/rider/riderSlice';
 
 export const ConfirmRideScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const dispatch = useDispatch();
 
-  const { isBooking, bookingError } = useSelector((state) => state.rides);
+  const { isBooking } = useSelector((state) => state.rides);
 
   const selectedRide = route.params?.selectedRide || MOCK_RIDES[0];
   const pickup = route.params?.pickup || '5th Ave & 58th St';
@@ -90,8 +96,31 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
       vehicle_type: vehicleType,
     };
 
+    // Clear previous trip state and ensure Rider WebSocket connects
+    dispatch(clearRiderTripState());
+    dispatch(connectRiderWebSocket());
+
     try {
       const bookingResult = await dispatch(bookRide(bookingPayload)).unwrap();
+      const rideId =
+        bookingResult?.ride_id ||
+        bookingResult?.id ||
+        bookingResult?.data?.ride_id ||
+        bookingResult?.data?.id ||
+        bookingResult?.ride?.id;
+      const otp =
+        bookingResult?.otp ||
+        bookingResult?.data?.otp ||
+        bookingResult?.ride?.otp;
+
+      if (rideId) {
+        dispatch(setActiveRideId(rideId));
+      }
+      if (otp) {
+        dispatch(setRideOtp(otp));
+      }
+      dispatch(setTripStatus('searching'));
+
       navigation.navigate('SearchingDriver', {
         selectedRide,
         pickup,
@@ -99,9 +128,16 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
         totalFare,
         booking: bookingResult,
         bookingPayload,
+        rideId,
+        otp,
+        pickup_lat: pLat,
+        pickup_lon: pLon,
+        drop_lat: dLat,
+        drop_lon: dLon,
       });
     } catch (err) {
       console.warn('[ConfirmRide] Booking API call result:', err);
+      dispatch(setTripStatus('searching'));
       navigation.navigate('SearchingDriver', {
         selectedRide,
         pickup,
@@ -109,6 +145,10 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
         totalFare,
         bookingError: err,
         bookingPayload,
+        pickup_lat: pLat,
+        pickup_lon: pLon,
+        drop_lat: dLat,
+        drop_lon: dLon,
       });
     }
   };
@@ -228,7 +268,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
   const paymentCard = (
     <TouchableOpacity
       activeOpacity={0.7}
-      onPress={() => navigation.navigate('Wallet')}
+      onPress={() => navigation.navigate('RiderTabs', { screen: 'Wallet' })}
       style={styles.paymentCard}
     >
       <View style={styles.paymentIconBox}>

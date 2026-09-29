@@ -30,7 +30,7 @@ const Stack = createNativeStackNavigator();
 export const RootNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="RiderNav"
+      initialRouteName="Splash"
       screenOptions={{
         headerShown: false,
         animation: 'fade',

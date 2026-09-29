@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
@@ -59,6 +59,11 @@ export const DestinationSearchScreen = ({ navigation }) => {
 
   const searchTimeoutRef = useRef(null);
 
+  const pickupRef = useRef(pickup);
+  useEffect(() => {
+    pickupRef.current = pickup;
+  }, [pickup]);
+
   // Pre-fetch live GPS on mount and reverse geocode via backend API
   useEffect(() => {
     getCurrentLocation()
@@ -69,7 +74,7 @@ export const DestinationSearchScreen = ({ navigation }) => {
             const res = await dispatch(
               reverseGeocodeLocation({ latitude: loc.latitude, longitude: loc.longitude })
             ).unwrap();
-            if (res?.display_name && !pickup) {
+            if (res?.display_name && !pickupRef.current) {
               setPickup(res.display_name);
             }
           } catch (e) {
@@ -86,11 +91,11 @@ export const DestinationSearchScreen = ({ navigation }) => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, []);
+  }, [dispatch]);
 
   // Update pickup text if currentAddress updates and pickup was not manually filled
   useEffect(() => {
-    if (currentAddress?.display_name && !pickup) {
+    if (currentAddress?.display_name && !pickupRef.current) {
       setPickup(currentAddress.display_name);
     }
   }, [currentAddress]);

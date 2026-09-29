@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector, useDispatch } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
-import MapPlaceholder from '../../components/MapPlaceholder';
+import { RidesRouteMap } from '../../components/navigation';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
@@ -18,32 +20,116 @@ import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
+import {
+  clearActionNotices,
+  clearRiderTripState,
+} from '../../redux/features/rider/riderSlice';
 
 export const RideInProgressScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
 
+  const {
+    tripStatus,
+    completedTrip,
+    cancellationNotice,
+    driverLocation,
+  } = useSelector((state) => state.rider);
+
+  const pickupCoords = useMemo(() => {
+    const p = route.params?.pickup;
+    if (p?.coordinates && p.coordinates.length === 2) {
+      return [Number(p.coordinates[0]), Number(p.coordinates[1])];
+    }
+    if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
+      return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
+    }
+    return [76.7835809, 30.6948328];
+  }, [route.params]);
+
+  const dropCoords = useMemo(() => {
+    const d = route.params?.destination;
+    if (d?.coordinates && d.coordinates.length === 2) {
+      return [Number(d.coordinates[0]), Number(d.coordinates[1])];
+    }
+    if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
+      return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
+    }
+    return [75.8573, 30.9005];
+  }, [route.params]);
+
+  const destinationLabel = useMemo(() => {
+    const d = route.params?.destination;
+    if (typeof d === 'string') return d;
+    return d?.shortAddress || d?.name || d?.address || 'Destination';
+  }, [route.params?.destination]);
+
+  const pickupLabel = useMemo(() => {
+    const p = route.params?.pickup;
+    if (typeof p === 'string') return p;
+    return p?.shortAddress || p?.name || p?.address || 'Pick-up';
+  }, [route.params?.pickup]);
+
+  // Listen for driver cancelling the ride
+  useEffect(() => {
+    if (cancellationNotice) {
+      Alert.alert(
+        'Ride Cancelled',
+        `This ride was cancelled by the ${cancellationNotice.cancelled_by?.toLowerCase() || 'driver'}.`
+      );
+      dispatch(clearActionNotices());
+      dispatch(clearRiderTripState());
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      } else {
+        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+      }
+    }
+  }, [cancellationNotice, dispatch, navigation]);
+
+  // Listen for trip completed from server
+  useEffect(() => {
+    if (tripStatus === 'completed' || completedTrip) {
+      navigation.replace('TripCompleted', {
+        driver,
+        totalFare: completedTrip?.final_fare || totalFare,
+        paymentStatus: completedTrip?.payment_status || 'PAID',
+        tripDistance: '5.8 mi',
+        tripDuration: '18 mins',
+        destination: destinationLabel,
+      });
+    }
+  }, [tripStatus, completedTrip, driver, totalFare, destinationLabel, navigation]);
+
   const handleCompleteTrip = () => {
     navigation.replace('TripCompleted', {
       driver,
-      totalFare,
+      totalFare: completedTrip?.final_fare || totalFare,
       tripDistance: '5.8 mi',
       tripDuration: '18 mins',
-      destination: 'JFK International Airport',
+      destination: destinationLabel,
     });
   };
 
+  const currentCoords = useMemo(() => {
+    if (driverLocation?.lng && driverLocation?.lat) {
+      return [Number(driverLocation.lng), Number(driverLocation.lat)];
+    }
+    return pickupCoords;
+  }, [driverLocation, pickupCoords]);
+
   const mapPane = (
     <View style={styles.mapArea}>
-      <MapPlaceholder
-        showRoute={true}
-        showPickupMarker={false}
-        showDestinationMarker={true}
-        showDriverMarker={true}
-        destinationLabel="JFK Terminal 4"
-        height="100%"
+      <RidesRouteMap
+        pickupCoords={currentCoords}
+        dropCoords={dropCoords}
+        pickupLabel={pickupLabel}
+        destinationLabel={destinationLabel}
+        distanceKm={91.56}
+        style={{ flex: 1, width: '100%', height: '100%' }}
       />
     </View>
   );
@@ -75,7 +161,7 @@ export const RideInProgressScreen = ({ navigation, route }) => {
         <View style={styles.destInfo}>
           <Text style={styles.destLabel}>{t('rider.destination')}</Text>
           <Text numberOfLines={1} style={styles.destTitle}>
-            JFK International Airport, Terminal 4
+            {destinationLabel}
           </Text>
         </View>
       </View>

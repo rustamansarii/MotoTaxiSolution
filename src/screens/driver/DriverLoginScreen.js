@@ -3,10 +3,10 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -19,8 +19,8 @@ import { useResponsive } from '../../utils/responsive';
 export const DriverLoginScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
-  const [phoneNumber, setPhoneNumber] = useState('5552345678');
-  const [driverId, setDriverId] = useState('DRV-8942');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [driverId, setDriverId] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleNext = () => {

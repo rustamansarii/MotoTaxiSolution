@@ -25,6 +25,7 @@ import { LanguageButton } from '../../components/LanguageButton';
 import { KeyboardTextInput, useKeyboardSafe } from '../../components/keyboard';
 import { CountryPickerModal } from '../../components/CountryPickerModal';
 import { usePopup } from '../../context/PopupContext';
+import { saveRole, saveTokens } from '../../utils/storage';
 
 const GREEN = '#17baa1';
 
@@ -90,17 +91,17 @@ export const LoginScreen = ({ navigation, route }) => {
 
     if (!trimmedInput) {
       const msg = isPhone
-        ? t('auth.phonePlaceholder', 'Please enter your mobile number')
-        : t('auth.emailPlaceholder', 'Please enter your email');
+        ? t('auth.phoneRequired', 'Please enter your mobile number')
+        : t('auth.emailRequiredMsg', 'Please enter your email');
       setValidationError(msg);
-      showError(msg, 'Required Field');
+      showError(msg, t('common.requiredField', 'Required Field'));
       return;
     }
 
     if (!trimmedPassword) {
-      const msg = t('auth.passwordPlaceholder', 'Please enter your password');
+      const msg = t('auth.passwordRequired', 'Please enter your password');
       setValidationError(msg);
-      showError(msg, 'Required Field');
+      showError(msg, t('common.requiredField', 'Required Field'));
       return;
     }
 
@@ -121,31 +122,65 @@ export const LoginScreen = ({ navigation, route }) => {
     }
 
     // Show custom loading popup
-    showLoading(t('auth.signingIn', 'Signing in...'), 'Connecting to Moto Taxi server');
+    showLoading(
+      t('auth.signingIn', 'Signing in...'),
+      t('auth.connectingServer', 'Connecting to Moto Taxi server')
+    );
 
     try {
       const actionResult = await dispatch(loginUser(payload));
       hideLoading();
 
       if (loginUser.fulfilled.match(actionResult)) {
+        const responseData = actionResult.payload || {};
+        const accessToken = responseData.access || responseData.token;
+        const returnedRole = (
+          responseData.role ||
+          responseData.user?.role ||
+          route.params?.role ||
+          ''
+        ).toUpperCase();
+
+        const isDriverUser = returnedRole === 'DRIVER';
+        const targetNav = isDriverUser ? 'DriverNav' : 'RiderNav';
+
+        // Explicitly guarantee role and access token persistence in AsyncStorage
+        if (returnedRole) {
+          await saveRole(returnedRole);
+        }
+        if (accessToken) {
+          await saveTokens({
+            access: accessToken,
+            refresh: responseData.refresh || '',
+            role: returnedRole,
+          });
+        }
+
+        console.log(
+          `[Login] Success! Access Token: ${accessToken ? 'Received' : 'None'} | Role: "${returnedRole}" | Navigating to: ${targetNav}`
+        );
+
         showSuccess(
           t('auth.loginSuccessMessage', 'Logged in successfully! Redirecting...'),
           t('auth.welcomeBack', 'Welcome Back'),
           () => {
-            if (isDriver) {
-              navigation.replace('DriverNav');
-            } else {
-              navigation.replace('RiderNav');
-            }
+            navigation.replace(targetNav);
           }
         );
+
+        // Auto-navigate after brief moment so user doesn't have to wait or press OK
+        setTimeout(() => {
+          navigation.replace(targetNav);
+        }, 1200);
       } else {
-        const errorMsg = actionResult.payload || 'Login failed. Please check your credentials.';
+        const errorMsg =
+          actionResult.payload ||
+          t('auth.loginFailedMsg', 'Login failed. Please check your credentials.');
         showError(errorMsg, t('auth.loginFailed', 'Login Failed'));
       }
     } catch (err) {
       hideLoading();
-      showError(err.message || 'An unexpected error occurred', 'Error');
+      showError(err.message || t('common.error', 'An unexpected error occurred'), t('common.error', 'Error'));
     }
   };
 
@@ -197,7 +232,7 @@ export const LoginScreen = ({ navigation, route }) => {
         >
 
           {/* Language Selector in Header */}
-          <View style={{ position: 'absolute', top: Math.max(insets.top, 16), right: 16, zIndex: 20 }}>
+          <View style={{ position: 'absolute', top: 14, right: 14, zIndex: 20 }}>
             <LanguageButton variant="dark" />
           </View>
 
@@ -284,15 +319,18 @@ export const LoginScreen = ({ navigation, route }) => {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.kycBannerTitle}>
-                      KYC Verification Under Review
+                      {t('auth.kycUnderReview', 'KYC Verification Under Review')}
                     </Text>
                     <Text style={styles.kycBannerStatus}>
-                      Status: PENDING
+                      {t('auth.statusPending', 'Status: PENDING')}
                     </Text>
                   </View>
                 </View>
                 <Text style={styles.kycBannerText}>
-                  Your vehicle documents (RC, Insurance, PUC, Permit) have been submitted and are under review. Once approved by the administration, please log in below to access your driver dashboard and start accepting rides.
+                  {t(
+                    'auth.kycPendingDesc',
+                    'Your vehicle documents (RC, Insurance, PUC, Permit) have been submitted and are under review. Once approved by the administration, please log in below to access your driver dashboard and start accepting rides.'
+                  )}
                 </Text>
               </View>
             )}
@@ -377,9 +415,9 @@ export const LoginScreen = ({ navigation, route }) => {
             ===================================== */}
 
             <Text style={styles.terms}>
-              By clicking continue, you agree to our{' '}
+              {t('auth.termsPrefix', 'By clicking continue, you agree to our')}{' '}
               <Text style={styles.termsLink}>
-                Terms & Conditions
+                {t('auth.termsAndConditions', 'Terms & Conditions')}
               </Text>
               .
             </Text>
@@ -443,6 +481,8 @@ export const LoginScreen = ({ navigation, route }) => {
         <View style={styles.bottomSpace} />
 
       </ScrollView>
+
+      {console.log("countryCodes",countryCodes)}
 
       <CountryPickerModal
         visible={showCountryPicker}

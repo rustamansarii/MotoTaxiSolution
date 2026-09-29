@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import i18next from '../i18n/i18n';
 
-export type AppLanguage = 'en' | 'fr';
+export type AppLanguage = 'en' | 'hi' | 'fr';
 export type AppTheme = 'light' | 'dark';
 
 export interface AppContextType {
@@ -25,7 +25,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleLanguage = () => {
-    const nextLang = language === 'en' ? 'fr' : 'en';
+    const nextLang: AppLanguage = language === 'en' ? 'fr' : 'en';
     setLanguage(nextLang);
   };
 

@@ -3,11 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -23,10 +24,16 @@ import {
   watchLocation,
   clearLocationWatch,
 } from '../../utils/locationService';
+import { fetchRiderProfile } from '../../redux/features/auth/authSlice';
+import { connectRiderWebSocket } from '../../redux/features/rider/riderSlice';
 
 export const RiderHomeScreen = ({ navigation }) => {
   const { t } = useTranslation();
-  const { isSplitLayout, isFoldableOrTablet, insets, width } = useResponsive();
+  const { isSplitLayout, insets } = useResponsive();
+  const dispatch = useDispatch();
+
+  const { riderProfile, user: authUser } = useSelector((state) => state.auth);
+  const { socketConnected } = useSelector((state) => state.rider);
 
   // User GPS coordinates [longitude, latitude]
   const [userLocation, setUserLocation] = useState([
@@ -36,6 +43,11 @@ export const RiderHomeScreen = ({ navigation }) => {
   const [locationLabel, setLocationLabel] = useState(
     CURRENT_LOCATION.shortAddress || 'My Location'
   );
+
+  // Connect to Rider WebSocket (ws/rider/?token=...) on mount
+  useEffect(() => {
+    dispatch(connectRiderWebSocket());
+  }, [dispatch]);
 
   // Fetch real GPS location on mount
   useEffect(() => {
@@ -70,6 +82,11 @@ export const RiderHomeScreen = ({ navigation }) => {
       }
     };
   }, []);
+
+  // Fetch rider profile (Home & Work saved places) on mount
+  useEffect(() => {
+    dispatch(fetchRiderProfile());
+  }, [dispatch]);
 
   // Compute nearby dynamic drivers around current GPS location
   const nearbyDrivers = useMemo(() => {
@@ -119,30 +136,83 @@ export const RiderHomeScreen = ({ navigation }) => {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.savedPlacesRow}
       >
-        {SAVED_PLACES.map((place) => (
-          <TouchableOpacity
-            key={place.id}
-            activeOpacity={0.7}
-            onPress={() =>
-              navigation.navigate('RideOptions', { destination: place })
-            }
-            style={styles.placePill}
-          >
-            <View style={styles.placeIconCircle}>
+        {/* Home Place Card */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() =>
+            navigation.navigate('SavedPlaces', { initialFocus: 'home' })
+          }
+          style={[
+            styles.placePill,
+            riderProfile?.home_address ? styles.placePillConfigured : null,
+          ]}
+        >
+          <View style={[styles.placeIconCircle, { backgroundColor: COLORS.primaryLight }]}>
+            <Icon
+              name="home"
+              size={15}
+              color={COLORS.primary}
+            />
+          </View>
+          <View style={styles.placeTextCol}>
+            <View style={styles.placeTitleRow}>
+              <Text style={styles.placeTitle}>Home</Text>
               <Icon
-                name={place.icon || 'map-pin'}
-                size={14}
-                color={COLORS.secondPrimary}
+                name={riderProfile?.home_address ? "pencil" : "plus"}
+                size={11}
+                color={COLORS.primary}
+                style={{ marginLeft: 4 }}
               />
             </View>
-            <View style={styles.placeTextCol}>
-              <Text style={styles.placeTitle}>{place.title}</Text>
-              <Text numberOfLines={1} style={styles.placeAddress}>
-                {place.address}
-              </Text>
+            <Text numberOfLines={1} style={styles.placeAddress}>
+              {riderProfile?.home_address || 'Tap to set address'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Work / Office Place Card */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() =>
+            navigation.navigate('SavedPlaces', { initialFocus: 'work' })
+          }
+          style={[
+            styles.placePill,
+            riderProfile?.work_address ? styles.placePillConfigured : null,
+          ]}
+        >
+          <View style={[styles.placeIconCircle, { backgroundColor: COLORS.secondPrimaryLight }]}>
+            <Icon
+              name="briefcase"
+              size={15}
+              color={COLORS.secondPrimary}
+            />
+          </View>
+          <View style={styles.placeTextCol}>
+            <View style={styles.placeTitleRow}>
+              <Text style={styles.placeTitle}>Work</Text>
+              <Icon
+                name={riderProfile?.work_address ? "pencil" : "plus"}
+                size={11}
+                color={COLORS.secondPrimary}
+                style={{ marginLeft: 4 }}
+              />
             </View>
-          </TouchableOpacity>
-        ))}
+            <Text numberOfLines={1} style={styles.placeAddress}>
+              {riderProfile?.work_address || 'Tap to set address'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Manage / Add More Button */}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() => navigation.navigate('SavedPlaces', { initialFocus: 'home' })}
+          style={styles.managePlacesPill}
+        >
+          <Icon name="settings" size={13} color={COLORS.primary} />
+          <Text style={styles.managePlacesText}>Manage</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Promotion Highlight Banner */}
@@ -173,6 +243,42 @@ export const RiderHomeScreen = ({ navigation }) => {
         pickupLabel={locationLabel}
         onRecenter={handleRecenterLocation}
       />
+
+      {/* Floating Top Header */}
+      <View style={[styles.topHeader, { top: Math.max(insets.top + 8, 16) }]}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('RiderProfile')}
+          style={styles.profileBtn}
+        >
+          <ProfileAvatar
+            imageUri={authUser?.profile_photo}
+            name={authUser?.first_name || 'Rider'}
+            size={38}
+          />
+          <View style={styles.greetingCol}>
+            <Text style={styles.greetingText}>
+              {t('rider.goodMorning', 'Hello')},
+            </Text>
+            <Text style={styles.userName} numberOfLines={1}>
+              {authUser?.first_name || 'Rider'}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Live Socket Connection Badge */}
+        <View style={styles.roleBadge}>
+          <View
+            style={[
+              styles.socketDot,
+              { backgroundColor: socketConnected ? COLORS.primary : '#F59E0B' },
+            ]}
+          />
+          <Text style={styles.roleBadgeText}>
+            {socketConnected ? 'LIVE' : 'CONNECTING'}
+          </Text>
+        </View>
+      </View>
     </View>
   );
 
@@ -273,11 +379,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: RADIUS.round,
   },
+  socketDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 4,
+  },
   roleBadgeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.secondPrimary,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   mapArea: {
     flex: 1,
@@ -375,6 +487,32 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontSize: 10,
     color: COLORS.textLight,
+  },
+  placePillConfigured: {
+    borderColor: COLORS.primaryLight,
+    backgroundColor: '#FAFCFB',
+  },
+  placeTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  managePlacesPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: RADIUS.medium,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
+    gap: 4,
+  },
+  managePlacesText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontSize: 11,
   },
   promoBanner: {
     backgroundColor: COLORS.white,

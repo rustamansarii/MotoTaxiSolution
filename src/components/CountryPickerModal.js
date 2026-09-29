@@ -15,6 +15,7 @@ import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
 import Icon from './Icon';
+import { useTranslation } from 'react-i18next';
 
 export const CountryPickerModal = ({
   visible,
@@ -24,6 +25,7 @@ export const CountryPickerModal = ({
   onSelectCountry,
   loading = false,
 }) => {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter countries by name, iso2, or dial_code
@@ -106,7 +108,9 @@ export const CountryPickerModal = ({
             <Icon name="arrow-left" size={22} color={COLORS.text} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Select Country Code</Text>
+          <Text style={styles.headerTitle}>
+            {t('auth.selectCountryCode', 'Select Country Code')}
+          </Text>
 
           <View style={{ width: 36 }} />
         </View>
@@ -116,7 +120,7 @@ export const CountryPickerModal = ({
           <Icon name="search" size={18} color={COLORS.textLight} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search country name or code (+91, India)..."
+            placeholder={t('auth.searchCountryPlaceholder', 'Search country name or code (+91, India)...')}
             placeholderTextColor={COLORS.textLight}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -138,7 +142,9 @@ export const CountryPickerModal = ({
         {loading && countries.length === 0 ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading country codes...</Text>
+            <Text style={styles.loadingText}>
+              {t('common.loading', 'Loading country codes...')}
+            </Text>
           </View>
         ) : (
           <FlatList
@@ -151,9 +157,11 @@ export const CountryPickerModal = ({
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Icon name="alert-circle" size={32} color={COLORS.textLight} />
-                <Text style={styles.emptyText}>No country codes found</Text>
+                <Text style={styles.emptyText}>
+                  {t('auth.noCountriesFound', 'No country codes found')}
+                </Text>
                 <Text style={styles.emptySubText}>
-                  Try searching for another country name or dial code
+                  {t('auth.trySearchingAnother', 'Try searching for another country name or dial code')}
                 </Text>
               </View>
             }

@@ -11,6 +11,7 @@ import {
 
 import { APP_NAME } from '../../utils/constants';
 import { useResponsive } from '../../utils/responsive';
+import { getAccessToken, getUser, getRole } from '../../utils/storage';
 
 const GREEN = '#17baa1';
 const WHITE = '#FFFFFF';
@@ -20,6 +21,35 @@ export const SplashScreen = ({ navigation }) => {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const cityAnim = useRef(new Animated.Value(0)).current;
+
+  const navigateByAuth = async () => {
+    try {
+      const token = await getAccessToken();
+      const role = await getRole();
+      const user = await getUser();
+      const effectiveRole = (role || user?.role || '').toUpperCase();
+
+      console.log(
+        `[Splash] Checking saved session: Token = ${token ? 'Found' : 'None'} | Role = "${effectiveRole}"`
+      );
+
+      if (token) {
+        if (effectiveRole === 'DRIVER') {
+          console.log('[Splash] Navigating to DriverNav');
+          navigation.replace('DriverNav');
+          return;
+        } else {
+          console.log('[Splash] Navigating to RiderNav');
+          navigation.replace('RiderNav');
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[Splash] Error checking auth:', e);
+    }
+    console.log('[Splash] No active session found. Navigating to Login');
+    navigation.replace('Login');
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -45,14 +75,15 @@ export const SplashScreen = ({ navigation }) => {
     ]).start();
 
     const timer = setTimeout(() => {
-      navigation.replace('Login');
+      navigateByAuth();
     }, 2200);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
 
   const handleContinue = () => {
-    navigation.replace('Login');
+    navigateByAuth();
   };
 
   return (
@@ -206,12 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: WHITE,
     borderRadius: 24,
     alignItems: 'center',
-
-    borderRadius: 25,
-
-    alignItems: 'center',
     justifyContent: 'center',
-
     marginBottom: 18,
 
     shadowColor: '#000',

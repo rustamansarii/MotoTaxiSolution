@@ -15,8 +15,18 @@ import { TYPOGRAPHY } from '../theme/typography';
 import Icon from './Icon';
 
 export const SUPPORTED_LANGUAGES = [
-  { code: 'en', nameKey: 'settings.english', defaultName: 'English', flag: '🇺🇸' },
-  { code: 'fr', nameKey: 'settings.french', defaultName: 'Français', flag: '🇫🇷' },
+  {
+    code: 'en',
+    nativeName: 'English',
+    englishName: 'English',
+    flag: '🇺🇸',
+  },
+  {
+    code: 'fr',
+    nativeName: 'Français',
+    englishName: 'French',
+    flag: '🇫🇷',
+  },
 ];
 
 export const LanguageModal = ({ visible, onClose }) => {
@@ -69,18 +79,20 @@ export const LanguageModal = ({ visible, onClose }) => {
                   ]}
                 >
                   <View style={styles.langLeft}>
-                    <Text style={styles.flag}>{lang.flag}</Text>
-                    <View>
+                    <View style={styles.flagBadge}>
+                      <Text style={styles.flag}>{lang.flag}</Text>
+                    </View>
+                    <View style={styles.nameCol}>
                       <Text
                         style={[
-                          styles.langName,
-                          isSelected && styles.selectedLangName,
+                          styles.langNativeName,
+                          isSelected && styles.selectedLangNativeName,
                         ]}
                       >
-                        {t(lang.nameKey, lang.defaultName)}
+                        {lang.nativeName}
                       </Text>
-                      <Text style={styles.langCode}>
-                        {lang.code.toUpperCase()}
+                      <Text style={styles.langSublabel}>
+                        {lang.englishName} ({lang.code.toUpperCase()})
                       </Text>
                     </View>
                   </View>
@@ -91,9 +103,9 @@ export const LanguageModal = ({ visible, onClose }) => {
                       isSelected && styles.selectedRadioCircle,
                     ]}
                   >
-                    {isSelected && (
-                      <View style={styles.radioDot} />
-                    )}
+                    {isSelected ? (
+                      <Icon name="check" size={13} color={COLORS.white} />
+                    ) : null}
                   </View>
                 </TouchableOpacity>
               );
@@ -172,41 +184,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.md,
   },
-  flag: {
-    fontSize: 26,
-    marginRight: 4,
+  flagBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  langName: {
+  flag: {
+    fontSize: 24,
+    lineHeight: 28,
+  },
+  nameCol: {
+    justifyContent: 'center',
+  },
+  langNativeName: {
     ...TYPOGRAPHY.body,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: COLORS.text,
   },
-  selectedLangName: {
+  selectedLangNativeName: {
     color: COLORS.primaryDark,
-    fontWeight: '700',
   },
-  langCode: {
+  langSublabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textLight,
+    marginTop: 1,
   },
   radioCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: COLORS.white,
   },
   selectedRadioCircle: {
     borderColor: COLORS.primary,
-  },
-  radioDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
     backgroundColor: COLORS.primary,
   },
 });

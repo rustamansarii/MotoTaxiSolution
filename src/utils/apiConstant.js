@@ -9,6 +9,9 @@ const ApiConstant = {
   LocationSearch: 'location/search/',
   FareEstimate: 'rides/fare-estimate/',
   BookRide: 'rides/book/',
+  RiderProfile: 'auth/rider-profile/',
+  DriverGoOnline: 'drivers/go-online/',
+  DriverGoOffline: 'drivers/go-offline/',
 };
 
 export const SUCCESS = "success";

@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
-import MapPlaceholder from '../../components/MapPlaceholder';
+import { RidesRouteMap } from '../../components/navigation';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
@@ -18,54 +20,249 @@ import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
+import {
+  driverAcceptRide,
+  driverRejectRide,
+  clearIncomingRideRequest,
+  clearActionNotices,
+} from '../../redux/features/driver/driverSlice';
 
 export const RideRequestScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
-  const pickup = route.params?.pickup || 'Corner of 5th Ave & 59th St';
-  const destination = route.params?.destination || 'JFK Terminal 4';
-  const passengerName = route.params?.passengerName || 'Elena Rostova';
-  const passengerRating = route.params?.passengerRating || '4.95';
-  const estimatedFare = route.params?.estimatedFare || 28.5;
-  const distanceToPickup = route.params?.distanceToPickup || '0.6 mi';
-  const timeToPickup = route.params?.timeToPickup || '3 mins';
-  const tripDistance = route.params?.tripDistance || '16.4 mi';
+  const dispatch = useDispatch();
+
+  const {
+    rideStatus,
+    rideTakenNotice,
+    actionError,
+    actionLoading,
+    incomingRideRequest,
+    activeRide,
+  } = useSelector((state) => state.driver);
+
+  const incomingReq = incomingRideRequest;
+
+  const rideId =
+    route.params?.ride_id ||
+    route.params?.tripId ||
+    incomingReq?.ride_id ||
+    incomingReq?.trip_id ||
+    activeRide?.ride_id ||
+    1;
+  const pickup =
+    route.params?.pickup ||
+    incomingReq?.pickup_address ||
+    incomingReq?.pickup ||
+    activeRide?.pickup_address ||
+    'Pickup Location';
+  const destination =
+    route.params?.destination ||
+    incomingReq?.drop_address ||
+    incomingReq?.destination_address ||
+    incomingReq?.destination ||
+    activeRide?.drop_address ||
+    'Destination';
+  const passengerName =
+    route.params?.passengerName ||
+    incomingReq?.rider_name ||
+    incomingReq?.passengerName ||
+    activeRide?.rider_name ||
+    'Rider';
+  const passengerRating =
+    route.params?.passengerRating ||
+    (incomingReq?.rider_rating ? String(incomingReq.rider_rating) : '4.95');
+  const estimatedFare =
+    route.params?.estimatedFare ??
+    incomingReq?.driver_payout ??
+    incomingReq?.fare ??
+    activeRide?.driver_payout ??
+    28.5;
+  const currency =
+    route.params?.currency ||
+    incomingReq?.currency ||
+    activeRide?.currency ||
+    'USD';
+  const distanceToPickup =
+    route.params?.distanceToPickup || incomingReq?.distance_to_pickup || 'Nearby';
+  const timeToPickup =
+    route.params?.timeToPickup || incomingReq?.time_to_pickup || '3 mins';
+  const tripDistance =
+    route.params?.tripDistance ||
+    (incomingReq?.distance_km !== undefined
+      ? `${incomingReq.distance_km} km`
+      : incomingReq?.trip_distance || '16.4 mi');
+  const vehicleType =
+    route.params?.vehicleType ||
+    incomingReq?.vehicle_type ||
+    activeRide?.vehicle_type ||
+    'CAR';
+
+  const pickupCoords = useMemo(() => {
+    if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
+      return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
+    }
+    const pLon = route.params?.pickup_lon ?? incomingReq?.pickup_lon;
+    const pLat = route.params?.pickup_lat ?? incomingReq?.pickup_lat;
+    if (pLon && pLat) {
+      return [Number(pLon), Number(pLat)];
+    }
+    return [76.7835809, 30.6948328];
+  }, [route.params, incomingReq]);
+
+  const dropCoords = useMemo(() => {
+    if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
+      return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
+    }
+    const dLon = route.params?.drop_lon ?? incomingReq?.drop_lon;
+    const dLat = route.params?.drop_lat ?? incomingReq?.drop_lat;
+    if (dLon && dLat) {
+      return [Number(dLon), Number(dLat)];
+    }
+    // Default coordinates for Ludhiana / Punjab
+    return [75.8573, 30.9005];
+  }, [route.params, incomingReq]);
+
+  const numDistanceKm = useMemo(() => {
+    const raw = route.params?.distance_km ?? incomingReq?.distance_km;
+    if (raw !== undefined && raw !== null) return Number(raw);
+    const parsed = parseFloat(String(tripDistance).replace(/[^\d.]/g, ''));
+    return !isNaN(parsed) && parsed > 0 ? parsed : 91.56;
+  }, [route.params, incomingReq, tripDistance]);
 
   const [countdown, setCountdown] = useState(15);
+  const hasNavigatedRef = useRef(false);
+
+  const navigateToAccepted = useCallback(() => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    navigation.replace('DriverAcceptedRide', {
+      ride_id: rideId,
+      pickup,
+      destination,
+      passengerName,
+      passengerRating,
+      estimatedFare,
+      currency,
+      tripDistance,
+      vehicleType,
+      distanceToPickup,
+      timeToPickup,
+      pickupCoordinates: pickupCoords,
+      dropCoordinates: dropCoords,
+    });
+  }, [
+    rideId,
+    pickup,
+    destination,
+    passengerName,
+    passengerRating,
+    estimatedFare,
+    currency,
+    tripDistance,
+    vehicleType,
+    distanceToPickup,
+    timeToPickup,
+    pickupCoords,
+    dropCoords,
+    navigation,
+  ]);
+
+  const dismissToHome = useCallback((alertMsg = null) => {
+    dispatch(clearActionNotices());
+    dispatch(clearIncomingRideRequest());
+    if (alertMsg) {
+      Alert.alert('Ride Notice', alertMsg);
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      const parent = navigation.getParent();
+      if (parent && parent.canGoBack()) {
+        parent.goBack();
+      } else {
+        navigation.navigate('DriverTabs', { screen: 'DriverHome' });
+      }
+    }
+  }, [dispatch, navigation]);
 
   useEffect(() => {
     if (countdown <= 0) {
-      navigation.goBack();
+      if (incomingRideRequest && String(incomingRideRequest.ride_id) === String(rideId)) {
+        dispatch(driverRejectRide({ rideId }));
+      }
+      dismissToHome();
       return;
     }
     const interval = setInterval(() => {
       setCountdown((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [countdown, navigation]);
+  }, [countdown, incomingRideRequest, rideId, dismissToHome, dispatch]);
+
+  // Listen for ride taken by another driver or offer expired
+  useEffect(() => {
+    if (rideTakenNotice) {
+      const takenId = rideTakenNotice.ride_id || rideTakenNotice.id;
+      if (!takenId || String(takenId) === String(rideId)) {
+        dismissToHome('This ride has already been accepted by another driver.');
+      }
+    }
+  }, [rideTakenNotice, rideId, dismissToHome]);
+
+  // If the incoming ride was cleared and driver is back to idle, dismiss screen
+  useEffect(() => {
+    if (!incomingRideRequest && rideStatus === 'idle' && !activeRide) {
+      dismissToHome();
+    }
+  }, [incomingRideRequest, rideStatus, activeRide, dismissToHome]);
+
+  // Listen for accept success from WebSocket
+  useEffect(() => {
+    if (rideStatus === 'accepted') {
+      navigateToAccepted();
+    }
+  }, [rideStatus, navigateToAccepted]);
+
+  useEffect(() => {
+    if (actionError) {
+      const errLower = String(actionError).toLowerCase();
+      if (
+        errLower.includes('already') ||
+        errLower.includes('expired') ||
+        errLower.includes('not found') ||
+        errLower.includes('taken')
+      ) {
+        dismissToHome('This ride is no longer available.');
+      } else {
+        Alert.alert('Request Notice', actionError);
+        dispatch(clearActionNotices());
+      }
+    }
+  }, [actionError, dispatch, dismissToHome]);
 
   const handleAccept = () => {
-    navigation.replace('DriverAcceptedRide', {
-      pickup,
-      destination,
-      passengerName,
-      passengerRating,
-      estimatedFare,
-      distanceToPickup,
-      timeToPickup,
-    });
+    // Send {"type": "accept_ride", "ride_id": rideId}
+    dispatch(driverAcceptRide({ rideId }));
+  };
+
+  const handleDecline = () => {
+    // Send {"type": "reject_ride", "ride_id": rideId} only if still active
+    if (incomingRideRequest && String(incomingRideRequest.ride_id) === String(rideId)) {
+      dispatch(driverRejectRide({ rideId }));
+    }
+    dismissToHome();
   };
 
   const mapPane = (
     <View style={isSplitLayout ? styles.mapAreaSplit : styles.mapArea}>
-      <MapPlaceholder
-        showRoute={true}
-        showPickupMarker={true}
-        showDestinationMarker={true}
-        showDriverMarker={true}
+      <RidesRouteMap
+        pickupCoords={pickupCoords}
+        dropCoords={dropCoords}
         pickupLabel={pickup}
         destinationLabel={destination}
-        height="100%"
+        distanceKm={numDistanceKm}
+        style={{ flex: 1, width: '100%', height: '100%' }}
       />
     </View>
   );
@@ -91,9 +288,13 @@ export const RideRequestScreen = ({ navigation, route }) => {
         {/* Fare Highlight */}
         <View style={styles.fareSection}>
           <Text style={styles.fareLabel}>{t('driver.tripEarnings')}</Text>
-          <Text style={styles.fareAmount}>{formatCurrency(estimatedFare)}</Text>
+          <Text style={styles.fareAmount}>
+            {formatCurrency(estimatedFare, currency === 'USD' ? '$' : currency)}
+          </Text>
           <View style={styles.surgeTag}>
-            <Text style={styles.surgeText}>Includes +$3.50 Surge Bonus</Text>
+            <Text style={styles.surgeText}>
+              {vehicleType ? `${vehicleType} • Guaranteed Payout` : 'Guaranteed Payout'}
+            </Text>
           </View>
         </View>
 
@@ -109,7 +310,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
             <View style={styles.ratingRow}>
               <Icon name="star" size={12} color={COLORS.primary} />
               <Text style={styles.ratingText}>{passengerRating}</Text>
-              <Text style={styles.categoryText}>• Moto Taxi Comfort</Text>
+              <Text style={styles.categoryText}>• Moto Taxi {vehicleType || 'Comfort'}</Text>
             </View>
           </View>
           <View style={styles.pickupDistBadge}>
@@ -139,7 +340,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
         <View style={styles.actionsRow}>
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.goBack()}
+            onPress={handleDecline}
             style={styles.declineBtn}
           >
             <Text style={styles.declineText}>{t('driver.declineRide')}</Text>
@@ -149,6 +350,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
             <CustomButton
               title={t('driver.acceptRide').toUpperCase()}
               onPress={handleAccept}
+              loading={actionLoading}
               variant="primary"
               icon="check"
               iconPosition="right"
@@ -176,7 +378,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
             requestSheetPane
           )
         }
-        primaryRatio={0.52}
+        primaryRatio={0.46}
       />
     </SafeAreaView>
   );
@@ -188,7 +390,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   mapArea: {
-    height: '38%',
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   mapAreaSplit: {
     flex: 1,

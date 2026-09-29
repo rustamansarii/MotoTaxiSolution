@@ -36,10 +36,10 @@ export const DriverCard = ({
           </View>
         </View>
 
-        {showPin && driver.pinCode ? (
+        {showPin && (driver.otp || driver.pinCode) ? (
           <View style={styles.pinBadge}>
-            <Text style={styles.pinLabel}>PIN</Text>
-            <Text style={styles.pinValue}>{driver.pinCode}</Text>
+            <Text style={styles.pinLabel}>{driver.otp ? 'OTP' : 'PIN'}</Text>
+            <Text style={styles.pinValue}>{driver.otp || driver.pinCode}</Text>
           </View>
         ) : null}
       </View>

@@ -96,6 +96,7 @@ export const DriverNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="DriverTabs" component={DriverTabs} />
+      <Stack.Screen name="DriverHome" component={DriverTabs} />
       <Stack.Screen name="RideRequest" component={RideRequestScreen} />
       <Stack.Screen name="DriverAcceptedRide" component={DriverAcceptedRideScreen} />
       <Stack.Screen name="DriverArrived" component={DriverArrivedScreen} />

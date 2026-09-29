@@ -32,7 +32,7 @@ export const Header = ({
         style,
       ]}
     >
-      <View style={[styles.leftSlot, isCompact && { width: 36 }]}>
+      <View style={[styles.leftSlot, (!showBack || !onBack) && styles.leftSlotHidden, isCompact && { width: 36 }]}>
         {showBack && onBack ? (
           <TouchableOpacity
             activeOpacity={0.7}
@@ -49,7 +49,9 @@ export const Header = ({
       </View>
 
       <View style={styles.titleSlot}>
-        {title ? (
+        {React.isValidElement(title) ? (
+          title
+        ) : title ? (
           <Text
             numberOfLines={1}
             style={[
@@ -71,7 +73,12 @@ export const Header = ({
         ) : null}
       </View>
 
-      <View style={[styles.rightSlot, isCompact && { width: 36 }]}>
+      <View
+        style={[
+          styles.rightSlot,
+          rightComponent ? styles.rightSlotFlexible : (isCompact ? { width: 36 } : { width: 44 }),
+        ]}
+      >
         {rightComponent ? (
           rightComponent
         ) : rightIcon && onRightPress ? (
@@ -113,9 +120,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   leftSlot: {
-    width: 44,
+    minWidth: 44,
     alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+  leftSlotHidden: {
+    minWidth: 0,
+    width: 0,
   },
   titleSlot: {
     flex: 1,
@@ -124,9 +135,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
   },
   rightSlot: {
-    width: 44,
+    minWidth: 44,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  rightSlotFlexible: {
+    width: 'auto',
+    minWidth: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   backButton: {
     width: 40,

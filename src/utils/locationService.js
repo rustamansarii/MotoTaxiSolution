@@ -100,8 +100,8 @@ export const watchLocation = async (onUpdate, onError, options = {}) => {
     {
       enableHighAccuracy: true,
       distanceFilter: 10, // Updates every 10 meters
-      interval: 5000,
-      fastestInterval: 2000,
+      interval: 10000,
+      fastestInterval: 5000,
       ...options,
     }
   );

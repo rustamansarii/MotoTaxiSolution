@@ -271,7 +271,7 @@ export const RideOptionsScreen = ({ navigation, route }) => {
       {/* Payment Selector */}
       <TouchableOpacity
         activeOpacity={0.75}
-        onPress={() => navigation.navigate('Wallet')}
+        onPress={() => navigation.navigate('RiderTabs', { screen: 'Wallet' })}
         style={styles.paymentSelector}
       >
         <View style={styles.paymentLeft}>

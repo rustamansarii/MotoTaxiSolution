@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -19,6 +19,7 @@ import ResponsiveContainer from '../../components/ResponsiveContainer';
 import LanguageButton from '../../components/LanguageButton';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
+import { clearTokens, saveRole } from '../../utils/storage';
 
 const MENU_ITEMS = [
   {
@@ -58,13 +59,15 @@ export const RiderProfileScreen = ({ navigation }) => {
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowLogoutModal(false);
+    await clearTokens();
     navigation.replace('RoleSelection');
   };
 
-  const handleSwitchToDriver = () => {
-    navigation.navigate('DriverNav');
+  const handleSwitchToDriver = async () => {
+    await saveRole('DRIVER');
+    navigation.replace('DriverNav');
   };
 
   const isMultiColumn = isFoldableOrTablet || isSplitLayout;
@@ -122,6 +125,11 @@ export const RiderProfileScreen = ({ navigation }) => {
         <TouchableOpacity
           key={item.id}
           activeOpacity={0.7}
+          onPress={() => {
+            if (item.id === 'places') {
+              navigation.navigate('SavedPlaces');
+            }
+          }}
           style={[
             styles.menuItem,
             index === MENU_ITEMS.length - 1 && styles.noBorder,

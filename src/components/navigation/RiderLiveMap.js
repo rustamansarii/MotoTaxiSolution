@@ -8,6 +8,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
+import { TYPOGRAPHY } from '../../theme/typography';
 import Icon from '../Icon';
 import DriverMarker from './DriverMarker';
 import MapPlaceholder from '../MapPlaceholder';
@@ -46,6 +47,10 @@ export const RiderLiveMap = ({
   pickupLabel = 'My Location',
   onRecenter,
   style,
+  isDriverMode = false,
+  driverHeading = 0,
+  driverStatus = 'Online',
+  nearbyRequests = [],
 }) => {
   const cameraRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -90,11 +95,12 @@ export const RiderLiveMap = ({
       <View style={[styles.container, style]}>
         <MapPlaceholder
           showRoute={false}
-          showPickupMarker={true}
+          showPickupMarker={!isDriverMode}
           showDestinationMarker={false}
           showDriverMarker={true}
+          isDriverMode={isDriverMode}
           pickupLabel={pickupLabel}
-          driverEta="3 min"
+          driverEta={driverStatus || 'Active'}
           height="100%"
           onRecenter={handleRecenter}
         />
@@ -128,45 +134,75 @@ export const RiderLiveMap = ({
         {/* Native animated GPS Location Puck */}
         <UserLocation animated={true} />
 
-        {/* Custom User GPS Marker Pin */}
+        {/* Center GPS Marker: Driver Marker in driver mode, Rider Marker otherwise */}
         {userCoordinate && userCoordinate.length === 2 && (
           <Marker
-            id="userCurrentLocationPin"
+            id="centerLocationPin"
             lngLat={userCoordinate}
             coordinate={userCoordinate}
             anchor="center"
           >
-            <View style={styles.userMarkerContainer}>
-              <View style={styles.userHalo} />
-              <View style={styles.userDot}>
-                <View style={styles.userInnerDot} />
+            {isDriverMode ? (
+              <View style={styles.driverCenterMarker}>
+                <DriverMarker
+                  heading={driverHeading}
+                  eta={pickupLabel || driverStatus || 'Online'}
+                />
               </View>
-              {pickupLabel ? (
-                <View style={styles.pickupPill}>
-                  <Text style={styles.pickupPillText} numberOfLines={1}>
-                    {pickupLabel}
-                  </Text>
+            ) : (
+              <View style={styles.userMarkerContainer}>
+                <View style={styles.userHalo} />
+                <View style={styles.userDot}>
+                  <View style={styles.userInnerDot} />
                 </View>
-              ) : null}
-            </View>
+                {pickupLabel ? (
+                  <View style={styles.pickupPill}>
+                    <Text style={styles.pickupPillText} numberOfLines={1}>
+                      {pickupLabel}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
           </Marker>
         )}
 
-        {/* Nearby Drivers on Map */}
-        {nearbyDrivers.map((driver) => (
-          <Marker
-            key={driver.id || `driver_${driver.coordinate[0]}`}
-            id={`driver_${driver.id}`}
-            lngLat={driver.coordinate}
-            coordinate={driver.coordinate}
-            anchor="center"
-          >
-            <DriverMarker
-              heading={driver.heading || 0}
-              eta={driver.eta || '3 min'}
-            />
-          </Marker>
-        ))}
+        {/* Nearby Drivers on Map (Rider Mode) */}
+        {!isDriverMode &&
+          nearbyDrivers.map((driver) => (
+            <Marker
+              key={driver.id || `driver_${driver.coordinate[0]}`}
+              id={`driver_${driver.id}`}
+              lngLat={driver.coordinate}
+              coordinate={driver.coordinate}
+              anchor="center"
+            >
+              <DriverMarker
+                heading={driver.heading || 0}
+                eta={driver.eta || '3 min'}
+              />
+            </Marker>
+          ))}
+
+        {/* Nearby Passenger Trip Requests (Driver Mode) */}
+        {isDriverMode &&
+          nearbyRequests.map((req) => (
+            <Marker
+              key={req.id || `req_${req.coordinate[0]}`}
+              id={`req_${req.id}`}
+              lngLat={req.coordinate}
+              coordinate={req.coordinate}
+              anchor="center"
+            >
+              <View style={styles.requestPin}>
+                <View style={styles.requestPinBadge}>
+                  <Icon name="user" size={12} color={COLORS.white} />
+                  <Text style={styles.requestPinFare}>{req.fare || '$18.50'}</Text>
+                </View>
+                <View style={styles.requestPinPulse} />
+              </View>
+            </Marker>
+          ))}
       </MapLibreMap>
 
       {/* Floating Re-center GPS Button */}
@@ -175,7 +211,7 @@ export const RiderLiveMap = ({
         onPress={handleRecenter}
         style={styles.recenterBtn}
       >
-        <Icon name="crosshairs" size={20} color={COLORS.primary} />
+        <Icon name="location" size={20} color={COLORS.primary} />
       </TouchableOpacity>
     </View>
   );
@@ -252,6 +288,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
+  driverCenterMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestPin: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestPinBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondPrimary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+    borderWidth: 1.5,
+    borderColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    gap: 4,
+    zIndex: 2,
+  },
+  requestPinFare: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  requestPinPulse: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(65, 84, 254, 0.22)',
+  },
 });
+
+export const LiveMap = RiderLiveMap;
 
 export default RiderLiveMap;

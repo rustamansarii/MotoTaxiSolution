@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -27,7 +27,18 @@ import {
 export const DriverEarningsScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
-  const [balance, setBalance] = useState(MOCK_WALLET.driverBalance);
+  const { completedRide, activeRide } = useSelector((state) => state.driver);
+
+  const currency = activeRide?.currency || completedRide?.currency || 'USD';
+  const currencySymbol = currency === 'USD' ? '$' : currency;
+
+  const extraEarned = useMemo(() => {
+    let extra = 0;
+    if (completedRide?.driver_payout) extra += Number(completedRide.driver_payout);
+    return extra;
+  }, [completedRide]);
+
+  const [balance, setBalance] = useState(MOCK_WALLET.driverBalance + extraEarned);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
   const [cashoutSuccess, setCashoutSuccess] = useState(false);
 
@@ -46,7 +57,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
   const heroBanner = (
     <View style={styles.earningsHero}>
       <Text style={styles.heroPeriod}>This Week • Sep 14 - Sep 20</Text>
-      <Text style={styles.heroAmount}>{formatCurrency(balance)}</Text>
+      <Text style={styles.heroAmount}>{formatCurrency(balance, currencySymbol)}</Text>
       <Text style={styles.heroSub}>42 completed trips • 28.5 hrs online</Text>
 
       <CustomButton
@@ -77,7 +88,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
           return (
             <View key={index} style={styles.barCol}>
               <Text style={styles.barValText}>
-                {item.amount > 0 ? `$${Math.round(item.amount)}` : ''}
+                {item.amount > 0 ? `${currencySymbol}${Math.round(item.amount)}` : ''}
               </Text>
               <View style={styles.barTrack}>
                 <View
@@ -109,10 +120,10 @@ export const DriverEarningsScreen = ({ navigation }) => {
 
       <View style={styles.breakdownRow}>
         <View style={styles.rowLabelGroup}>
-          <Icon name="bike" size={16} color={COLORS.primary} />
+          <Icon name="car" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Standard Trip Fares</Text>
         </View>
-        <Text style={styles.rowVal}>$620.00</Text>
+        <Text style={styles.rowVal}>{formatCurrency(620 + extraEarned, currencySymbol)}</Text>
       </View>
 
       <View style={styles.breakdownRow}>
@@ -120,7 +131,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
           <Icon name="trending-up" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Surge & Zone Bonuses</Text>
         </View>
-        <Text style={[styles.rowVal, styles.positiveVal]}>+$134.50</Text>
+        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(134.5, currencySymbol)}</Text>
       </View>
 
       <View style={styles.breakdownRow}>
@@ -128,14 +139,14 @@ export const DriverEarningsScreen = ({ navigation }) => {
           <Icon name="star" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Passenger Tips (100%)</Text>
         </View>
-        <Text style={[styles.rowVal, styles.positiveVal]}>+$88.00</Text>
+        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(88.0, currencySymbol)}</Text>
       </View>
 
       <View style={styles.divider} />
 
       <View style={styles.breakdownRow}>
         <Text style={styles.totalLabel}>Total Payout Balance</Text>
-        <Text style={styles.totalVal}>{formatCurrency(balance)}</Text>
+        <Text style={styles.totalVal}>{formatCurrency(balance, currencySymbol)}</Text>
       </View>
     </View>
   );

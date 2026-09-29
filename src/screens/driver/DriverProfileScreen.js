@@ -20,6 +20,7 @@ import LanguageButton from '../../components/LanguageButton';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
+import { clearTokens, saveRole } from '../../utils/storage';
 
 export const DriverProfileScreen = ({ navigation }) => {
   const { t } = useTranslation();
@@ -27,12 +28,14 @@ export const DriverProfileScreen = ({ navigation }) => {
   const driver = ACTIVE_MOCK_DRIVER;
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowLogoutModal(false);
+    await clearTokens();
     navigation.replace('RoleSelection');
   };
 
-  const handleSwitchToRider = () => {
+  const handleSwitchToRider = async () => {
+    await saveRole('RIDER');
     navigation.replace('RiderNav');
   };
 

@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardTextInput } from '../../components/keyboard/KeyboardTextInput';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
@@ -22,7 +22,7 @@ export const DriverOTPScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const phoneNumber = route.params?.phoneNumber || '555-234-5678';
   const { isCompact, isFoldableOrTablet, insets } = useResponsive();
-  const [code, setCode] = useState('8924');
+  const [code, setCode] = useState('');
   const [timer, setTimer] = useState(30);
   const [loading, setLoading] = useState(false);
 

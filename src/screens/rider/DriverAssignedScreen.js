@@ -1,19 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
-import MapPlaceholder from '../../components/MapPlaceholder';
+import { RidesRouteMap } from '../../components/navigation';
 import DriverCard from '../../components/DriverCard';
 import CustomButton from '../../components/CustomButton';
 import CustomModal from '../../components/CustomModal';
@@ -22,41 +23,191 @@ import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
+import {
+  riderCancelRide,
+  clearActionNotices,
+  clearRiderTripState,
+  setRideOtp,
+} from '../../redux/features/rider/riderSlice';
 
 export const DriverAssignedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
-  const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
+  const dispatch = useDispatch();
+
+  const {
+    tripStatus,
+    driverDetails: wsDriverDetails,
+    cancellationNotice,
+    activeRideId,
+    driverLocation,
+    rideOtp,
+  } = useSelector((state) => state.rider);
+
+  const reduxBookingOtp = useSelector((state) => state.rides?.currentBooking?.otp);
+
+  const otp =
+    route.params?.otp ||
+    route.params?.booking?.otp ||
+    route.params?.booking?.data?.otp ||
+    rideOtp ||
+    reduxBookingOtp;
+
+  const rideId =
+    route.params?.ride_id ||
+    route.params?.rideId ||
+    route.params?.tripId ||
+    activeRideId ||
+    1;
+  const driver = wsDriverDetails || route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
+  const pickupLabel = useMemo(() => {
+    const p = route.params?.pickup;
+    if (typeof p === 'string') return p;
+    return p?.shortAddress || p?.name || p?.address || t('rider.currentLocation', 'Current Location');
+  }, [route.params?.pickup, t]);
+
+  const destinationLabel = useMemo(() => {
+    const d = route.params?.destination;
+    if (typeof d === 'string') return d;
+    return d?.shortAddress || d?.name || d?.address || 'Destination';
+  }, [route.params?.destination]);
+
+  const pickupCoords = useMemo(() => {
+    const p = route.params?.pickup;
+    if (p?.coordinates && p.coordinates.length === 2) {
+      return [Number(p.coordinates[0]), Number(p.coordinates[1])];
+    }
+    if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
+      return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
+    }
+    const pLon = route.params?.pickup_lon;
+    const pLat = route.params?.pickup_lat;
+    if (pLon && pLat) {
+      return [Number(pLon), Number(pLat)];
+    }
+    return [76.7835809, 30.6948328];
+  }, [route.params]);
+
+  const dropCoords = useMemo(() => {
+    const d = route.params?.destination;
+    if (d?.coordinates && d.coordinates.length === 2) {
+      return [Number(d.coordinates[0]), Number(d.coordinates[1])];
+    }
+    if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
+      return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
+    }
+    const dLon = route.params?.drop_lon;
+    const dLat = route.params?.drop_lat;
+    if (dLon && dLat) {
+      return [Number(dLon), Number(dLat)];
+    }
+    return [75.8573, 30.9005];
+  }, [route.params]);
+
+  const driverCoords = useMemo(() => {
+    if (driverLocation?.lng && driverLocation?.lat) {
+      return [Number(driverLocation.lng), Number(driverLocation.lat)];
+    }
+    // Realistic initial driver distance (~600m from pickup)
+    return [pickupCoords[0] + 0.0052, pickupCoords[1] + 0.0038];
+  }, [driverLocation, pickupCoords]);
+
+  // Listen for driver cancelling the ride
+  useEffect(() => {
+    if (cancellationNotice) {
+      Alert.alert(
+        'Ride Cancelled',
+        `This ride was cancelled by the ${cancellationNotice.cancelled_by?.toLowerCase() || 'driver'}.`
+      );
+      dispatch(clearActionNotices());
+      dispatch(clearRiderTripState());
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      } else {
+        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+      }
+    }
+  }, [cancellationNotice, dispatch, navigation]);
+
+  // Listen for trip started by driver
+  useEffect(() => {
+    if (otp && !rideOtp) {
+      dispatch(setRideOtp(otp));
+    }
+  }, [otp, rideOtp, dispatch]);
+
+  useEffect(() => {
+    if (tripStatus === 'in_progress') {
+      navigation.replace('RideInProgress', {
+        driver,
+        totalFare,
+        ride_id: rideId,
+        otp,
+        pickup: route.params?.pickup,
+        destination: route.params?.destination,
+        pickupCoordinates: pickupCoords,
+        dropCoordinates: dropCoords,
+      });
+    }
+  }, [tripStatus, driver, totalFare, rideId, otp, navigation, route.params, pickupCoords, dropCoords]);
+
   const handleStartRide = () => {
     navigation.navigate('RideInProgress', {
       driver,
       totalFare,
+      ride_id: rideId,
+      otp,
+      pickup: route.params?.pickup,
+      destination: route.params?.destination,
+      pickupCoordinates: pickupCoords,
+      dropCoordinates: dropCoords,
     });
+  };
+
+  const handleConfirmCancel = () => {
+    // Send {"type": "cancel_ride", "ride_id": 1, "reason": "Changed my mind"}
+    dispatch(riderCancelRide({ rideId, reason: 'Changed my mind' }));
+    dispatch(clearRiderTripState());
+    setShowCancelModal(false);
+    if (navigation.canGoBack()) {
+      navigation.popToTop();
+    } else {
+      navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+    }
   };
 
   const mapPane = (
     <View style={isSplitLayout ? styles.mapAreaSplit : styles.mapArea}>
-      <MapPlaceholder
-        showRoute={true}
-        showPickupMarker={true}
-        showDestinationMarker={false}
-        showDriverMarker={true}
-        driverEta="3 min away"
-        pickupLabel={t('rider.currentLocation')}
-        height="100%"
+      <RidesRouteMap
+        pickupCoords={driverCoords}
+        dropCoords={pickupCoords}
+        pickupLabel={driver?.name ? `${driver.name} (Driver)` : 'Driver'}
+        destinationLabel={pickupLabel}
+        distanceKm={1.4}
+        style={{ flex: 1, width: '100%', height: '100%' }}
       />
 
       {/* ETA Floating Notification */}
       <View style={styles.etaFloatingBanner}>
-        <View style={styles.pulseDot} />
-        <Text style={styles.etaBannerText}>
-          {t('rider.driverArriving')} • 3 {t('navigation.min')}
-        </Text>
+        <View style={styles.etaBannerLeft}>
+          <View style={styles.pulseDot} />
+          <Text style={styles.etaBannerText}>
+            {tripStatus === 'driver_arrived'
+              ? 'Driver has arrived at pickup!'
+              : `${t('rider.driverArriving')} • 3 ${t('navigation.min')}`}
+          </Text>
+        </View>
+        {otp ? (
+          <View style={styles.etaOtpBadge}>
+            <Text style={styles.etaOtpLabel}>OTP: </Text>
+            <Text style={styles.etaOtpValue}>{otp}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -73,11 +224,24 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       showsVerticalScrollIndicator={false}
     >
       <DriverCard
-        driver={driver}
+        driver={{
+          ...driver,
+          pinCode: otp || driver?.pinCode,
+          otp: otp || driver?.otp,
+        }}
         onCall={() => {}}
         onChat={() => {}}
         showPin={true}
       />
+
+      {/* Destination address strip */}
+      <View style={styles.routeSummaryBox}>
+        <View style={styles.dropSquare} />
+        <View style={styles.routeCol}>
+          <Text style={styles.routeSub}>{t('rider.headingTo', 'Heading to')}</Text>
+          <Text numberOfLines={1} style={styles.routeMain}>{destinationLabel}</Text>
+        </View>
+      </View>
 
       {/* Safety & Action Tools */}
       <View style={styles.safetyRow}>
@@ -127,12 +291,20 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       <Header
         title={t('rider.driverAssigned')}
         showBack={false}
+        rightComponent={
+          otp ? (
+            <View style={styles.headerOtpBadge}>
+              <Text style={styles.headerOtpLabel}>OTP: </Text>
+              <Text style={styles.headerOtpValue}>{otp}</Text>
+            </View>
+          ) : null
+        }
       />
 
       <AdaptiveSplitView
         primaryPane={mapPane}
         secondaryPane={driverDetailsPane}
-        primaryRatio={0.55}
+        primaryRatio={0.48}
       />
 
       {/* Modals */}
@@ -144,10 +316,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         confirmText={t('rider.yesCancel')}
         cancelText={t('rider.keepWaiting')}
         isDanger={true}
-        onConfirm={() => {
-          setShowCancelModal(false);
-          navigation.navigate('RiderHome');
-        }}
+        onConfirm={handleConfirmCancel}
         icon="alert-triangle"
       />
 
@@ -172,7 +341,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   mapArea: {
-    height: '42%',
+    flex: 1,
+    width: '100%',
+    height: '100%',
     position: 'relative',
   },
   mapAreaSplit: {
@@ -191,7 +362,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     borderWidth: 1.5,
     borderColor: COLORS.border,
     shadowColor: COLORS.text,
@@ -199,6 +370,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 4,
+  },
+  etaBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   pulseDot: {
     width: 8,
@@ -211,6 +387,53 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  etaOtpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '18',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 2,
+    borderRadius: RADIUS.round,
+    marginLeft: SPACING.xs,
+  },
+  etaOtpLabel: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontSize: 11,
+  },
+  etaOtpValue: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontSize: 12,
+    letterSpacing: 1.2,
+  },
+  headerOtpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary + '18',
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+  },
+  headerOtpLabel: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primary,
+    fontSize: 12,
+  },
+  headerOtpValue: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '800',
+    color: COLORS.primary,
+    fontSize: 13,
+    letterSpacing: 1.2,
   },
   sheetContainer: {
     flex: 1,
@@ -261,6 +484,39 @@ const styles = StyleSheet.create({
   },
   secondaryCancelBtn: {
     marginTop: SPACING.sm,
+  },
+  routeSummaryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.large,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  dropSquare: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: COLORS.secondPrimary,
+    marginRight: SPACING.sm,
+  },
+  routeCol: {
+    flex: 1,
+  },
+  routeSub: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 10,
+    color: COLORS.textLight,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  routeMain: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 1,
   },
 });
 

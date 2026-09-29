@@ -25,7 +25,7 @@ export const OTPScreen = ({ navigation, route }) => {
   const isDriver = role === 'driver';
   const { isCompact, isFoldableOrTablet, insets } = useResponsive();
 
-  const [code, setCode] = useState('4821');
+  const [code, setCode] = useState('');
   const [timer, setTimer] = useState(45);
   const [loading, setLoading] = useState(false);
 

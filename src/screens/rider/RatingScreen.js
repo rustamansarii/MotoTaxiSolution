@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -56,7 +56,11 @@ export const RatingScreen = ({ navigation, route }) => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      navigation.navigate('RiderHome');
+      if (navigation.canGoBack()) {
+        navigation.popToTop();
+      } else {
+        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+      }
     }, 600);
   };
 

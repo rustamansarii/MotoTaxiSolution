@@ -61,7 +61,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
           {/* Back to Login Button */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("Login")}
             style={{
               position: 'absolute',
               top: Math.max(insets.top, 16),

@@ -3,9 +3,9 @@ import {
   View,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { SPACING } from '../../theme/spacing';
 import { useResponsive } from '../../utils/responsive';
