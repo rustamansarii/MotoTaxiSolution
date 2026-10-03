@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,11 +19,6 @@ import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useResponsive } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
-import {
-  CURRENT_LOCATION,
-  POPULAR_DESTINATIONS,
-  SAVED_PLACES,
-} from '../../data/mockLocations';
 import { getCurrentLocation } from '../../utils/locationService';
 import {
   reverseGeocodeLocation,
@@ -33,9 +28,11 @@ import {
   setDropoffLocation,
   clearSearchResults,
   swapLocations,
+  loadRecentSearches,
+  addRecentSearch,
 } from '../../redux/features/location/locationSlice';
 
-export const DestinationSearchScreen = ({ navigation }) => {
+export const DestinationSearchScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
   const dispatch = useDispatch();
@@ -51,11 +48,54 @@ export const DestinationSearchScreen = ({ navigation }) => {
     dropoffLocation,
     recentSearches,
   } = useSelector((state) => state.location);
+  const authRiderProfile = useSelector((state) => state.auth?.riderProfile);
+
+  const userSavedPlaces = useMemo(() => {
+    const list = [];
+    if (authRiderProfile?.home_address) {
+      list.push({
+        id: 'user_saved_home',
+        title: 'Home',
+        address: authRiderProfile.home_address,
+        display_name: authRiderProfile.home_address,
+        latitude: authRiderProfile.home_lat,
+        longitude: authRiderProfile.home_lon,
+        lat: authRiderProfile.home_lat,
+        lon: authRiderProfile.home_lon,
+        icon: 'home',
+      });
+    }
+    if (authRiderProfile?.work_address) {
+      list.push({
+        id: 'user_saved_work',
+        title: 'Work / Office',
+        address: authRiderProfile.work_address,
+        display_name: authRiderProfile.work_address,
+        latitude: authRiderProfile.work_lat,
+        longitude: authRiderProfile.work_lon,
+        lat: authRiderProfile.work_lat,
+        lon: authRiderProfile.work_lon,
+        icon: 'briefcase',
+      });
+    }
+    return list;
+  }, [authRiderProfile]);
 
   // Field actively being edited ('pickup' | 'destination')
   const [activeField, setActiveField] = useState('destination');
-  const [pickup, setPickup] = useState(pickupLocation?.address || '');
-  const [destination, setDestination] = useState(dropoffLocation?.address || '');
+  const [pickup, setPickup] = useState(
+    route?.params?.pickup || route?.params?.initialPickup || pickupLocation?.address || ''
+  );
+  const [destination, setDestination] = useState(
+    route?.params?.destination ||
+      route?.params?.initialDestination ||
+      dropoffLocation?.address ||
+      ''
+  );
+
+  const [userTypedPickup, setUserTypedPickup] = useState(false);
+  const [userTypedDestination, setUserTypedDestination] = useState(false);
+  const hasUserEditedPickup = useRef(false);
 
   const searchTimeoutRef = useRef(null);
 
@@ -63,6 +103,11 @@ export const DestinationSearchScreen = ({ navigation }) => {
   useEffect(() => {
     pickupRef.current = pickup;
   }, [pickup]);
+
+  // Load recent searches from AsyncStorage on screen mount
+  useEffect(() => {
+    dispatch(loadRecentSearches());
+  }, [dispatch]);
 
   // Pre-fetch live GPS on mount and reverse geocode via backend API
   useEffect(() => {
@@ -74,7 +119,7 @@ export const DestinationSearchScreen = ({ navigation }) => {
             const res = await dispatch(
               reverseGeocodeLocation({ latitude: loc.latitude, longitude: loc.longitude })
             ).unwrap();
-            if (res?.display_name && !pickupRef.current) {
+            if (res?.display_name && !hasUserEditedPickup.current && !pickupRef.current) {
               setPickup(res.display_name);
             }
           } catch (e) {
@@ -95,13 +140,51 @@ export const DestinationSearchScreen = ({ navigation }) => {
 
   // Update pickup text if currentAddress updates and pickup was not manually filled
   useEffect(() => {
-    if (currentAddress?.display_name && !pickupRef.current) {
+    if (currentAddress?.display_name && !hasUserEditedPickup.current && !pickup) {
       setPickup(currentAddress.display_name);
     }
   }, [currentAddress]);
 
+  // Formatted Recent Searches available for both pickup and destination selection
+  const formattedRecentSearches = useMemo(() => {
+    if (!recentSearches || recentSearches.length === 0) {
+      return [];
+    }
+    return recentSearches.map((item, idx) => ({
+      ...item,
+      id: item.id || `recent_${idx}`,
+      title:
+        item.title ||
+        item.city ||
+        (typeof item.display_name === 'string' ? item.display_name.split(',')[0].trim() : '') ||
+        (typeof item.address === 'string' ? item.address.split(',')[0].trim() : '') ||
+        'Recent Place',
+      address: item.address || item.display_name || '',
+      display_name: item.display_name || item.address || '',
+      latitude: item.latitude ?? (item.lat ? parseFloat(item.lat) : undefined),
+      longitude: item.longitude ?? (item.lon ? parseFloat(item.lon) : undefined),
+      icon: item.icon || 'clock',
+    }));
+  }, [recentSearches]);
+
+  const handlePickupPress = () => {
+    setActiveField('pickup');
+    if (!userTypedPickup) {
+      dispatch(clearSearchResults());
+    }
+  };
+
+  const handleDestinationPress = () => {
+    setActiveField('destination');
+    if (!userTypedDestination) {
+      dispatch(clearSearchResults());
+    }
+  };
+
   // Handle clicking the Live Location button
   const handleUseLiveLocation = async () => {
+    hasUserEditedPickup.current = false;
+    setUserTypedPickup(false);
     if (currentAddress?.display_name) {
       setPickup(currentAddress.display_name);
       dispatch(setPickupLocation(currentAddress));
@@ -131,6 +214,7 @@ export const DestinationSearchScreen = ({ navigation }) => {
 
   // Debounced search for Pickup
   const handlePickupChange = (text) => {
+    hasUserEditedPickup.current = true;
     setPickup(text);
     setActiveField('pickup');
 
@@ -140,10 +224,12 @@ export const DestinationSearchScreen = ({ navigation }) => {
 
     const trimmed = text.trim();
     if (trimmed.length >= 2) {
+      setUserTypedPickup(true);
       searchTimeoutRef.current = setTimeout(() => {
         dispatch(searchLocation({ query: trimmed }));
       }, 350);
     } else {
+      setUserTypedPickup(false);
       dispatch(clearSearchResults());
     }
   };
@@ -159,6 +245,7 @@ export const DestinationSearchScreen = ({ navigation }) => {
 
     const trimmed = text.trim();
     if (trimmed.length >= 2) {
+      setUserTypedDestination(true);
       searchTimeoutRef.current = setTimeout(() => {
         const params = { query: trimmed };
         // Reference coordinates for distance calculation
@@ -171,15 +258,19 @@ export const DestinationSearchScreen = ({ navigation }) => {
         dispatch(searchLocation(params));
       }, 350);
     } else {
+      setUserTypedDestination(false);
       dispatch(clearSearchResults());
     }
   };
 
   // Swap pickup & destination
   const handleSwap = () => {
+    hasUserEditedPickup.current = true;
     const tempPickup = pickup;
     setPickup(destination);
     setDestination(tempPickup);
+    setUserTypedPickup(false);
+    setUserTypedDestination(false);
     dispatch(swapLocations());
     dispatch(clearSearchResults());
   };
@@ -187,33 +278,37 @@ export const DestinationSearchScreen = ({ navigation }) => {
   // Handle selecting an address suggestion or search result
   const handleSelectLocation = (loc) => {
     const selectedAddress = loc.address || loc.display_name || loc.title;
+    dispatch(addRecentSearch(loc));
 
     if (activeField === 'pickup') {
+      hasUserEditedPickup.current = true;
       setPickup(selectedAddress);
+      setUserTypedPickup(false);
       dispatch(setPickupLocation(loc));
       dispatch(clearSearchResults());
       setActiveField('destination');
     } else {
       setDestination(selectedAddress);
+      setUserTypedDestination(false);
       dispatch(setDropoffLocation(loc));
       dispatch(clearSearchResults());
 
-      const activePickup = pickup || currentAddress?.display_name || CURRENT_LOCATION.address;
+      const activePickup = pickup || currentAddress?.display_name || 'Current Location';
       const activePickupData =
-        pickupLocation || (currentCoords ? { ...currentAddress, ...currentCoords } : CURRENT_LOCATION);
+        pickupLocation || (currentCoords ? { ...currentAddress, ...currentCoords } : null);
 
       const pLat =
         pickupLocation?.latitude ??
         pickupLocation?.lat ??
         currentCoords?.latitude ??
-        CURRENT_LOCATION.latitude;
+        30.6948;
       const pLon =
         pickupLocation?.longitude ??
         pickupLocation?.lon ??
         currentCoords?.longitude ??
-        CURRENT_LOCATION.longitude;
-      const dLat = loc?.latitude ?? loc?.lat;
-      const dLon = loc?.longitude ?? loc?.lon;
+        76.7834;
+      const dLat = loc?.latitude ?? loc?.lat ?? 30.7055;
+      const dLon = loc?.longitude ?? loc?.lon ?? 76.8013;
 
       navigation.navigate('RideOptions', {
         pickup: activePickup,
@@ -233,16 +328,17 @@ export const DestinationSearchScreen = ({ navigation }) => {
     pickup === 'Current Location (GPS)'
   );
 
-  const activeQuery = (activeField === 'pickup' ? pickup : destination).trim();
-  const isQueryActive = activeQuery.length >= 2;
+  const isQueryActive =
+    activeField === 'pickup'
+      ? userTypedPickup && pickup.trim().length >= 2
+      : userTypedDestination && destination.trim().length >= 2;
 
   // Decide what data list to render
   const listData = isQueryActive
     ? searchResults
     : [
-        ...(recentSearches || []).map((s) => ({ ...s, icon: 'clock' })),
-        ...SAVED_PLACES,
-        ...POPULAR_DESTINATIONS,
+        ...userSavedPlaces,
+        ...formattedRecentSearches,
       ];
 
   const renderDestinationItem = ({ item }) => (
@@ -260,7 +356,7 @@ export const DestinationSearchScreen = ({ navigation }) => {
       </View>
       <View style={styles.resultDetails}>
         <Text numberOfLines={1} style={styles.resultTitle}>
-          {item.title || item.city || item.display_name?.split(',')[0]}
+          {item.title || item.city || item.display_name?.split(',')[0] || item.address?.split(',')[0] || 'Recent Place'}
         </Text>
         <Text numberOfLines={1} style={styles.resultAddress}>
           {item.address || item.display_name}
@@ -287,7 +383,11 @@ export const DestinationSearchScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={680} style={{ flex: 1 }}>
         <Header
-          title={t('rider.dropoffLocation', 'Choose Destination')}
+          title={
+            activeField === 'pickup'
+              ? t('rider.pickupLocation', 'Choose Pickup')
+              : t('rider.dropoffLocation', 'Choose Destination')
+          }
           onBack={() => navigation.goBack()}
         />
 
@@ -298,41 +398,32 @@ export const DestinationSearchScreen = ({ navigation }) => {
             destinationValue={destination}
             onPickupChange={handlePickupChange}
             onDestinationChange={handleDestinationChange}
-            onPickupPress={() => setActiveField('pickup')}
-            onDestinationPress={() => setActiveField('destination')}
+            onPickupPress={handlePickupPress}
+            onDestinationPress={handleDestinationPress}
             onSwap={handleSwap}
             pickupPlaceholder={t('rider.pickupLocation', 'Pickup address')}
             destinationPlaceholder={t('rider.whereTo', 'Where are you going?')}
           />
         </View>
 
-        {/* Set on map button */}
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('PickupLocation')}
-          style={styles.setPinBtn}
-        >
-          <View style={styles.pinIconCircle}>
-            <Icon name="map-pin" size={16} color={COLORS.primary} />
-          </View>
-          <Text style={styles.setPinText}>
-            {t('rider.setPinOnMap', 'Set location on map')}
-          </Text>
-          <Icon name="chevron-right" size={16} color={COLORS.textLight} />
-        </TouchableOpacity>
+     
 
         {/* Dynamic List Section */}
         <View style={styles.listSection}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>
-              {isQueryActive
-                ? t('rider.searchResults', 'Search Results')
-                : t('rider.recentPlaces', 'Saved & Popular Destinations')}
-            </Text>
-            {isSearching && (
-              <ActivityIndicator size="small" color={COLORS.primary} style={styles.headerSpinner} />
-            )}
-          </View>
+          {isQueryActive || listData.length > 0 ? (
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>
+                {isQueryActive
+                  ? t('rider.searchResults', 'Search Results')
+                  : activeField === 'pickup'
+                  ? t('rider.recentPickups', 'Recent & Saved Pickups')
+                  : t('rider.recentPlaces', 'Saved & Recent Places')}
+              </Text>
+              {isSearching && (
+                <ActivityIndicator size="small" color={COLORS.primary} style={styles.headerSpinner} />
+              )}
+            </View>
+          ) : null}
 
           <FlatList
             ListHeaderComponent={

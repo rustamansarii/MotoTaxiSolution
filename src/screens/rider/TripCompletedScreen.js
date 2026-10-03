@@ -15,12 +15,15 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
+import { useDispatch } from 'react-redux';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
+import { clearRiderTripState } from '../../redux/features/rider/riderSlice';
 
 export const TripCompletedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const { insets } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
@@ -127,9 +130,10 @@ export const TripCompletedScreen = ({ navigation, route }) => {
         />
 
         <CustomButton
-          title={t('common.home')}
+          title={'Done'}
           variant="outline"
           onPress={() => {
+            dispatch(clearRiderTripState());
             if (navigation.canGoBack()) {
               navigation.popToTop();
             } else {

@@ -12,11 +12,14 @@ import {
 import { APP_NAME } from '../../utils/constants';
 import { useResponsive } from '../../utils/responsive';
 import { getAccessToken, getUser, getRole } from '../../utils/storage';
+import { useDispatch } from 'react-redux';
+import { setAuthUser } from '../../redux/features/auth/authSlice';
 
 const GREEN = '#17baa1';
 const WHITE = '#FFFFFF';
 
 export const SplashScreen = ({ navigation }) => {
+  const dispatch = useDispatch();
   const { width, height, isCompact } = useResponsive();
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -27,6 +30,9 @@ export const SplashScreen = ({ navigation }) => {
       const token = await getAccessToken();
       const role = await getRole();
       const user = await getUser();
+      if (user) {
+        dispatch(setAuthUser(user));
+      }
       const effectiveRole = (role || user?.role || '').toUpperCase();
 
       console.log(

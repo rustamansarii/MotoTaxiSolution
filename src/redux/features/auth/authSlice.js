@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiGet, apiPost, apiPut, apiPatch } from '../../../utils/apiClient';
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from '../../../utils/apiClient';
 import ApiConstant from '../../../utils/apiConstant';
 import { saveTokens, saveUser, saveRole, clearTokens } from '../../../utils/storage';
 import { apiPostAuth, apiGetAuth } from '../../../utils/apiClientAuth';
@@ -19,6 +19,8 @@ const initialState = {
   isRiderProfileLoading: false,
   isRiderProfileUpdating: false,
   riderProfileError: null,
+  isProfileLoading: false,
+  profileError: null,
 };
 
 // API call: GET https://.../api/v1/auth/country-codes/
@@ -170,6 +172,38 @@ export const registerUser = createAsyncThunk(
   }
 );
 
+// API call: GET https://.../api/v1/auth/profile/ or http://127.0.0.1:8000/api/v1/auth/profile/
+export const fetchUserProfile = createAsyncThunk(
+  'auth/fetchUserProfile',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('[AuthAPI] Fetching authenticated user profile from auth/profile/...');
+      let data;
+      try {
+        data = await apiGet(ApiConstant.UserProfile || 'auth/profile/');
+      } catch (err) {
+        // Fallback to local URL if main URL network error occurs
+        if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network Error')) {
+          console.log('[AuthAPI] Network error on default API_URL, attempting local http://127.0.0.1:8000/api/v1/auth/profile/...');
+          data = await apiGet('http://127.0.0.1:8000/api/v1/auth/profile/');
+        } else {
+          throw err;
+        }
+      }
+      console.log('[AuthAPI] User profile received successfully:', data);
+      return data;
+    } catch (error) {
+      const errorMsg =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to fetch user profile';
+      console.warn('[AuthAPI] Failed to fetch user profile:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
 // API call: GET https://.../api/v1/auth/rider-profile/
 export const fetchRiderProfile = createAsyncThunk(
   'auth/fetchRiderProfile',
@@ -243,6 +277,39 @@ export const updateRiderProfile = createAsyncThunk(
   }
 );
 
+// API call: DELETE/POST https://.../api/v1/auth/delete-account/
+export const deleteUserAccount = createAsyncThunk(
+  'auth/deleteUserAccount',
+  async (payload = {}, { rejectWithValue }) => {
+    try {
+      console.log('[AuthAPI] Deleting user account with payload:', payload);
+      let response;
+      try {
+        response = await apiDelete(ApiConstant.DeleteAccount, { data: payload });
+      } catch (delErr) {
+        if (delErr?.status === 405) {
+          response = await apiPost(ApiConstant.DeleteAccount, payload);
+        } else {
+          throw delErr;
+        }
+      }
+      console.log('[AuthAPI] Account deleted successfully:', response);
+      await clearTokens();
+      return response?.data || response;
+    } catch (error) {
+      const errorData = error.data || {};
+      const errorMsg =
+        errorData.message ||
+        errorData.detail ||
+        (errorData.non_field_errors && errorData.non_field_errors[0]) ||
+        error.message ||
+        'Failed to delete account';
+      console.warn('[AuthAPI] Delete account error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -265,6 +332,33 @@ const authSlice = createSlice({
         ...action.payload,
       };
     },
+    setAuthUser: (state, action) => {
+      const u = action.payload || {};
+      let fName = u.first_name || '';
+      let lName = u.last_name || '';
+      const fullName = u.full_name || u.name || '';
+      if (!fName && fullName) {
+        const parts = fullName.trim().split(/\s+/);
+        fName = parts[0] || '';
+        lName = parts.slice(1).join(' ') || '';
+      }
+      state.user = {
+        ...(state.user || {}),
+        ...u,
+        full_name: fullName || fName || 'Rider',
+        first_name: fName,
+        last_name: lName,
+        name: fullName || fName,
+        phone: u.phone_number || u.phone || state.user?.phone,
+        phone_number: u.phone_number || u.phone || state.user?.phone_number,
+      };
+      if (u.rider_profile) {
+        state.riderProfile = {
+          ...(state.riderProfile || {}),
+          ...u.rider_profile,
+        };
+      }
+    },
   },
 
   extraReducers: builder => {
@@ -277,7 +371,24 @@ const authSlice = createSlice({
 
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user || action.payload;
+        const u = action.payload.user || action.payload;
+        let fName = u.first_name || '';
+        let lName = u.last_name || '';
+        const fullName = u.full_name || u.name || '';
+        if (!fName && fullName) {
+          const parts = fullName.trim().split(/\s+/);
+          fName = parts[0] || '';
+          lName = parts.slice(1).join(' ') || '';
+        }
+        state.user = {
+          ...u,
+          full_name: fullName || fName || 'Rider',
+          first_name: fName,
+          last_name: lName,
+          name: fullName || fName,
+          phone: u.phone_number || u.phone,
+          phone_number: u.phone_number || u.phone,
+        };
         state.tokens = {
           access: action.payload.access || action.payload.token,
           refresh: action.payload.refresh,
@@ -353,10 +464,90 @@ const authSlice = createSlice({
       .addCase(updateRiderProfile.rejected, (state, action) => {
         state.isRiderProfileUpdating = false;
         state.riderProfileError = action.payload;
+      })
+
+      // fetchUserProfile
+      .addCase(fetchUserProfile.pending, state => {
+        state.isProfileLoading = true;
+        state.profileError = null;
+      })
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.isProfileLoading = false;
+        const payload = action.payload || {};
+        const rawUser = payload.user || (payload.id ? payload : {});
+        const activeRole =
+          payload.active_role || rawUser.active_role || state.user?.active_role || 'RIDER';
+        const riderProf = payload.rider_profile || rawUser.rider_profile || null;
+        const driverProf = payload.driver_profile || rawUser.driver_profile || null;
+
+        // Normalize first_name and last_name from full_name if not provided
+        let fName = rawUser.first_name || '';
+        let lName = rawUser.last_name || '';
+        const fullName = rawUser.full_name || rawUser.name || '';
+        if (!fName && fullName) {
+          const parts = fullName.trim().split(/\s+/);
+          fName = parts[0] || '';
+          lName = parts.slice(1).join(' ') || '';
+        }
+
+        const consolidatedUser = {
+          ...(state.user || {}),
+          ...rawUser,
+          full_name: fullName || fName || 'Rider',
+          first_name: fName,
+          last_name: lName,
+          name: fullName || fName,
+          phone: rawUser.phone_number || rawUser.phone || state.user?.phone,
+          phone_number: rawUser.phone_number || rawUser.phone || state.user?.phone_number,
+          email: rawUser.email || state.user?.email,
+          active_role: activeRole,
+          rating: riderProf?.rating_avg || driverProf?.rating_avg || rawUser.rating || '5.00',
+          total_rides:
+            riderProf?.total_rides !== undefined
+              ? riderProf.total_rides
+              : (rawUser.total_rides || 0),
+          rider_profile: riderProf || state.riderProfile,
+          driver_profile: driverProf || state.user?.driver_profile,
+        };
+
+        state.user = consolidatedUser;
+
+        if (riderProf) {
+          state.riderProfile = {
+            ...(state.riderProfile || {}),
+            ...riderProf,
+          };
+        }
+
+        state.profileError = null;
+
+        saveUser(consolidatedUser).catch((err) =>
+          console.warn('[AuthSlice] Failed to save user to storage:', err)
+        );
+      })
+      .addCase(fetchUserProfile.rejected, (state, action) => {
+        state.isProfileLoading = false;
+        state.profileError = action.payload;
+      })
+
+      // deleteUserAccount
+      .addCase(deleteUserAccount.pending, state => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteUserAccount.fulfilled, state => {
+        state.loading = false;
+        state.user = null;
+        state.tokens = null;
+        state.riderProfile = null;
+      })
+      .addCase(deleteUserAccount.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
 
-export const { logout, clearError, setRiderProfile } = authSlice.actions;
+export const { logout, clearError, setRiderProfile, setAuthUser } = authSlice.actions;
 
 export default authSlice.reducer;

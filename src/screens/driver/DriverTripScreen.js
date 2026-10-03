@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,11 @@ import {
   sendDriverLocationUpdate,
   clearActionNotices,
 } from '../../redux/features/driver/driverSlice';
-import { getCurrentLocation } from '../../utils/locationService';
+import {
+  getCurrentLocation,
+  watchLocation,
+  clearLocationWatch,
+} from '../../utils/locationService';
 
 export const DriverTripScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -37,6 +41,10 @@ export const DriverTripScreen = ({ navigation, route }) => {
     actionLoading,
     activeRide,
     rideCancelledNotice,
+    distanceRemainingKm,
+    etaMin,
+    lastLocationAck,
+    currentLocation,
   } = useSelector((state) => state.driver);
 
   const rideId =
@@ -69,83 +77,161 @@ export const DriverTripScreen = ({ navigation, route }) => {
     route.params?.currency ||
     activeRide?.currency ||
     'USD';
-  const distance =
-    route.params?.distance ||
+  const tripDistance =
     route.params?.tripDistance ||
+    route.params?.distance ||
     (activeRide?.distance_km !== undefined
       ? `${activeRide.distance_km} km`
       : '16.4 mi');
+  const distance = tripDistance;
+  const vehicleType =
+    route.params?.vehicleType ||
+    activeRide?.vehicle_type ||
+    'CAR';
 
   const pickupCoords = useMemo(() => {
     if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
       return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
     }
-    const pLon = route.params?.pickup_lon ?? activeRide?.pickup_lon;
-    const pLat = route.params?.pickup_lat ?? activeRide?.pickup_lat;
+    const pLon =
+      route.params?.pickup_lon ??
+      activeRide?.pickup_lon ??
+      activeRide?.pickup_longitude;
+    const pLat =
+      route.params?.pickup_lat ??
+      activeRide?.pickup_lat ??
+      activeRide?.pickup_latitude;
     if (pLon && pLat) {
       return [Number(pLon), Number(pLat)];
     }
     return [76.7835809, 30.6948328];
-  }, [route.params, activeRide]);
+  }, [
+    route.params?.pickupCoordinates,
+    route.params?.pickup_lon,
+    route.params?.pickup_lat,
+    activeRide?.pickup_lon,
+    activeRide?.pickup_lat,
+  ]);
 
   const dropCoords = useMemo(() => {
     if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
       return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
     }
-    const dLon = route.params?.drop_lon ?? activeRide?.drop_lon;
-    const dLat = route.params?.drop_lat ?? activeRide?.drop_lat;
+    const dLon =
+      route.params?.drop_lon ??
+      activeRide?.drop_lon ??
+      activeRide?.drop_longitude ??
+      activeRide?.destination_lon;
+    const dLat =
+      route.params?.drop_lat ??
+      activeRide?.drop_lat ??
+      activeRide?.drop_latitude ??
+      activeRide?.destination_lat;
     if (dLon && dLat) {
       return [Number(dLon), Number(dLat)];
     }
-    return [75.8573, 30.9005];
-  }, [route.params, activeRide]);
+    // Local destination offset (~2.1 km in Chandigarh area) rather than defaulting to Ludhiana (92 km away)
+    return [pickupCoords[0] + 0.015, pickupCoords[1] + 0.012];
+  }, [
+    route.params?.dropCoordinates,
+    route.params?.drop_lon,
+    route.params?.drop_lat,
+    activeRide?.drop_lon,
+    activeRide?.drop_lat,
+    pickupCoords,
+  ]);
 
   const numDistanceKm = useMemo(() => {
     const raw = route.params?.distance_km ?? activeRide?.distance_km;
     if (raw !== undefined && raw !== null) return Number(raw);
     const parsed = parseFloat(String(distance).replace(/[^\d.]/g, ''));
-    return !isNaN(parsed) && parsed > 0 ? parsed : 91.56;
+    return !isNaN(parsed) && parsed > 0 ? parsed : 2.5;
   }, [route.params, activeRide, distance]);
 
-  const hasNavigatedRef = useRef(false);
+  // Live driver position: tracks GPS and Redux location updates while ON_TRIP
+  const [driverCoords, setDriverCoords] = useState(() => {
+    if (route.params?.driverCoordinates && route.params.driverCoordinates.length === 2) {
+      return [Number(route.params.driverCoordinates[0]), Number(route.params.driverCoordinates[1])];
+    }
+    const ackLat = lastLocationAck?.lat ?? currentLocation?.lat;
+    const ackLng = lastLocationAck?.lng ?? currentLocation?.lng;
+    if (ackLat && ackLng) {
+      return [Number(ackLng), Number(ackLat)];
+    }
+    return pickupCoords;
+  });
 
-  const navigateToCompleted = useCallback(() => {
-    if (hasNavigatedRef.current) return;
-    hasNavigatedRef.current = true;
-    navigation.replace('DriverTripCompleted', {
-      ride_id: rideId,
-      destination,
-      passengerName,
-      fare: estimatedFare,
-      currency,
-      distance,
-      duration: '32 mins',
+  // Keep driver position synced when Redux location updates
+  useEffect(() => {
+    const lat = lastLocationAck?.lat ?? currentLocation?.lat;
+    const lng = lastLocationAck?.lng ?? currentLocation?.lng;
+    if (lat && lng) {
+      const numLng = Number(lng);
+      const numLat = Number(lat);
+      setDriverCoords((prev) => {
+        if (
+          prev &&
+          Math.abs(prev[0] - numLng) < 0.00002 &&
+          Math.abs(prev[1] - numLat) < 0.00002
+        ) {
+          return prev;
+        }
+        return [numLng, numLat];
+      });
+    }
+  }, [lastLocationAck, currentLocation]);
+
+  // Continuous GPS tracking
+  useEffect(() => {
+    let watchId = null;
+    let isMounted = true;
+
+    getCurrentLocation()
+      .then((loc) => {
+        if (isMounted && loc?.longitude && loc?.latitude) {
+          setDriverCoords([loc.longitude, loc.latitude]);
+          dispatch(sendDriverLocationUpdate({ lat: loc.latitude, lng: loc.longitude }));
+        }
+      })
+      .catch((err) => console.warn('[DriverTrip] Initial GPS failed:', err));
+
+    watchLocation(
+      (loc) => {
+        if (isMounted && loc?.longitude && loc?.latitude) {
+          setDriverCoords((prev) => {
+            if (prev) {
+              const distMoved = Math.hypot(prev[0] - loc.longitude, prev[1] - loc.latitude);
+              if (distMoved < 0.00004) return prev; // Filter GPS micro-jitter (< ~4m)
+            }
+            return [loc.longitude, loc.latitude];
+          });
+        }
+      },
+      (err) => console.warn('[DriverTrip] Location watch error:', err)
+    ).then((id) => {
+      watchId = id;
     });
-  }, [
-    rideId,
-    destination,
-    passengerName,
-    estimatedFare,
-    currency,
-    distance,
-    navigation,
-  ]);
+
+    return () => {
+      isMounted = false;
+      if (watchId !== null) {
+        clearLocationWatch(watchId);
+      }
+    };
+  }, [dispatch]);
 
   // Periodic location heartbeat every 10 seconds while on trip
   useEffect(() => {
-    const pushInterval = setInterval(async () => {
-      try {
-        const loc = await getCurrentLocation();
-        if (loc?.longitude && loc?.latitude) {
-          dispatch(sendDriverLocationUpdate({ lat: loc.latitude, lng: loc.longitude }));
-        }
-      } catch (err) {
-        console.warn('[DriverTrip] Location push error:', err);
-      }
+    const pushInterval = setInterval(() => {
+      const lat = driverCoords[1] || pickupCoords[1];
+      const lng = driverCoords[0] || pickupCoords[0];
+      dispatch(sendDriverLocationUpdate({ lat, lng }));
     }, 10000);
 
     return () => clearInterval(pushInterval);
-  }, [dispatch]);
+  }, [dispatch, driverCoords, pickupCoords]);
+
+  const hasNavigatedRef = useRef(false);
 
   // Listen for rider cancelling trip
   useEffect(() => {
@@ -155,6 +241,34 @@ export const DriverTripScreen = ({ navigation, route }) => {
       navigation.navigate('DriverTabs', { screen: 'DriverHome' });
     }
   }, [rideCancelledNotice, dispatch, navigation]);
+
+  const navigateToCompleted = useCallback(() => {
+    if (hasNavigatedRef.current) return;
+    hasNavigatedRef.current = true;
+    navigation.replace('DriverTripCompleted', {
+      ride_id: rideId,
+      pickup,
+      destination,
+      passengerName,
+      fare: estimatedFare,
+      currency,
+      distance: displayDistance || distance,
+      duration: etaMin ? `${etaMin} mins` : '12 mins',
+      vehicleType,
+    });
+  }, [
+    rideId,
+    pickup,
+    destination,
+    passengerName,
+    estimatedFare,
+    currency,
+    displayDistance,
+    distance,
+    etaMin,
+    vehicleType,
+    navigation,
+  ]);
 
   // Listen for complete_trip_success from server
   useEffect(() => {
@@ -171,22 +285,70 @@ export const DriverTripScreen = ({ navigation, route }) => {
   }, [actionError, dispatch]);
 
   const handleEndTrip = () => {
-    // Send {"type": "complete_trip", "ride_id": rideId}
-    dispatch(driverCompleteTrip({ rideId }));
+    // Navigate to Payment Method screen for passenger fare collection
+    navigation.navigate('PaymentMethod', {
+      ride_id: rideId,
+      rideId,
+      tripId: rideId,
+      pickup,
+      destination,
+      passengerName,
+      fare: estimatedFare,
+      totalFare: estimatedFare,
+      amount: estimatedFare,
+      currency,
+      distance: displayDistance || distance,
+      duration: etaMin ? `${etaMin} mins` : '12 mins',
+      vehicleType,
+      isDriver: true,
+    });
   };
 
-  const mapPane = (
+  const displayEta = useMemo(() => {
+    const min = etaMin ?? lastLocationAck?.eta_min;
+    if (min !== undefined && min !== null) {
+      return `${min} ${t('navigation.min')}`;
+    }
+    return `12 ${t('navigation.min')}`;
+  }, [etaMin, lastLocationAck, t]);
+
+  const displayDistance = useMemo(() => {
+    const dist = distanceRemainingKm ?? lastLocationAck?.distance_remaining_km;
+    if (dist !== undefined && dist !== null) {
+      if (dist < 1) {
+        const meters = Math.round(dist * 1000);
+        return `${Math.max(10, meters)} m`;
+      }
+      return `${dist.toFixed(1)} km`;
+    }
+    if (route.params?.distance_km) {
+      return `${Number(route.params.distance_km).toFixed(1)} km`;
+    }
+    return tripDistance;
+  }, [distanceRemainingKm, lastLocationAck, route.params, tripDistance]);
+
+  const initialTripDistanceRef = useRef(
+    distanceRemainingKm !== null && distanceRemainingKm !== undefined
+      ? Number(distanceRemainingKm)
+      : (numDistanceKm > 0 && numDistanceKm < 50 ? numDistanceKm : 2.5)
+  );
+
+  const mapPane = useMemo(() => (
     <View style={styles.mapArea}>
       <RidesRouteMap
         pickupCoords={pickupCoords}
         dropCoords={dropCoords}
-        pickupLabel={pickup}
-        destinationLabel={destination}
-        distanceKm={numDistanceKm}
+        driverCoords={driverCoords}
+        pickupLabel="Pick-up"
+        destinationLabel={destination || 'Drop-off'}
+        distanceKm={initialTripDistanceRef.current || 2.5}
+        isDriverEnRoute={true}
+        vehicleType={vehicleType || 'CAR'}
+        focusOnStart={true}
         style={{ flex: 1, width: '100%', height: '100%' }}
       />
     </View>
-  );
+  ), [pickupCoords, dropCoords, driverCoords, destination, vehicleType]);
 
   const tripPane = (
     <View
@@ -201,23 +363,35 @@ export const DriverTripScreen = ({ navigation, route }) => {
         <View style={styles.fareEtaRow}>
           <View>
             <Text style={styles.fareLabel}>{t('driver.tripEarnings')}</Text>
-            <Text style={styles.fareAmount}>{formatCurrency(estimatedFare)}</Text>
+            <Text style={styles.fareAmount}>{formatCurrency(estimatedFare, currency === 'USD' ? '$' : currency)}</Text>
           </View>
 
           <View style={styles.etaBadge}>
-            <Text style={styles.etaVal}>18 {t('navigation.min')}</Text>
-            <Text style={styles.etaDist}>8.4 mi</Text>
+            <Text style={styles.etaVal}>{displayEta}</Text>
+            <Text style={styles.etaDist}>{displayDistance}</Text>
           </View>
         </View>
 
-        {/* Dropoff Destination Row */}
-        <View style={styles.destinationRow}>
-          <View style={styles.destSquare} />
-          <View style={styles.destCol}>
-            <Text style={styles.destLabel}>{t('rider.dropoffLocation')}</Text>
-            <Text numberOfLines={1} style={styles.destAddress}>
-              {destination}
-            </Text>
+        {/* Route Pick & Drop Card */}
+        <View style={styles.routeCard}>
+          <View style={styles.routeTimeline}>
+            <View style={styles.pickupDot} />
+            <View style={styles.routeLine} />
+            <View style={styles.dropSquare} />
+          </View>
+          <View style={styles.routeAddresses}>
+            <View style={styles.addressBlock}>
+              <Text style={styles.addressLabel}>{t('rider.pickupLocation', 'PICKUP')}</Text>
+              <Text numberOfLines={1} style={styles.addressText}>
+                {pickup}
+              </Text>
+            </View>
+            <View style={[styles.addressBlock, { marginTop: SPACING.sm }]}>
+              <Text style={styles.addressLabel}>{t('rider.dropoffLocation', 'DROPOFF')}</Text>
+              <Text numberOfLines={1} style={styles.addressText}>
+                {destination}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -228,7 +402,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
           </View>
           <Text style={styles.passengerName}>{passengerName}</Text>
           <View style={styles.comfortBadge}>
-            <Text style={styles.comfortText}>Moto Taxi Comfort</Text>
+            <Text style={styles.comfortText}>{vehicleType || 'Moto Taxi'}</Text>
           </View>
         </View>
 
@@ -264,9 +438,11 @@ export const DriverTripScreen = ({ navigation, route }) => {
           <Icon name="navigation" size={24} color={COLORS.white} />
         </View>
         <View style={styles.turnDetails}>
-          <Text style={styles.turnDistance}>In 1.2 mi</Text>
+          <Text style={styles.turnDistance}>
+            {displayDistance} • {displayEta}
+          </Text>
           <Text numberOfLines={1} style={styles.turnInstruction}>
-            {t('navigation.keepStraight')}
+            {t('navigation.navigatingTo', 'Navigating to')} {destination}
           </Text>
         </View>
       </View>
@@ -419,29 +595,54 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     fontSize: 10,
   },
-  destinationRow: {
+  routeCard: {
     flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.inputBg,
     padding: SPACING.md,
-    borderRadius: RADIUS.medium,
+    borderRadius: RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     marginBottom: SPACING.md,
   },
-  destSquare: {
+  routeTimeline: {
+    alignItems: 'center',
+    width: 20,
+    marginRight: SPACING.sm,
+    paddingVertical: 4,
+  },
+  pickupDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primaryDark,
+  },
+  routeLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 22,
+    backgroundColor: COLORS.border,
+    marginVertical: 3,
+  },
+  dropSquare: {
     width: 10,
     height: 10,
     borderRadius: 2,
     backgroundColor: COLORS.secondPrimary,
-    marginRight: SPACING.md,
   },
-  destCol: {
+  routeAddresses: {
     flex: 1,
   },
-  destLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
+  addressBlock: {
+    justifyContent: 'center',
   },
-  destAddress: {
+  addressLabel: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '800',
+    color: COLORS.textLight,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  addressText: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
     color: COLORS.text,

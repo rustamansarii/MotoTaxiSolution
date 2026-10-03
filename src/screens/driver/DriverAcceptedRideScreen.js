@@ -45,6 +45,8 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     activeRide,
     currentLocation,
     lastLocationAck,
+    distanceRemainingKm,
+    etaMin,
   } = useSelector((state) => state.driver);
 
   const rideId =
@@ -158,7 +160,13 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     watchLocation(
       (loc) => {
         if (isMounted && loc?.longitude && loc?.latitude) {
-          setDriverPos([loc.longitude, loc.latitude]);
+          setDriverPos((prev) => {
+            if (prev) {
+              const distMoved = Math.hypot(prev[0] - loc.longitude, prev[1] - loc.latitude);
+              if (distMoved < 0.00004) return prev; // Filter micro-jitter (< ~4m)
+            }
+            return [loc.longitude, loc.latitude];
+          });
         }
       },
       (err) => console.warn('[DriverAccepted] Location watch error:', err)
@@ -186,8 +194,15 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     return () => clearInterval(pushInterval);
   }, [dispatch]);
 
-  // 2. Real-time Distance between Driver and Rider (Haversine formula)
+  // 2. Real-time Distance between Driver and Rider
   const distanceToRiderKm = useMemo(() => {
+    // 1. Prioritize server-calculated distance from location_ack
+    const serverDist = distanceRemainingKm ?? lastLocationAck?.distance_remaining_km;
+    if (serverDist !== undefined && serverDist !== null) {
+      return Number(serverDist);
+    }
+
+    // 2. Fallback to Haversine formula
     if (!driverPos || !pickupCoords) return 0;
     const [lon1, lat1] = driverPos;
     const [lon2, lat2] = pickupCoords;
@@ -203,7 +218,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const dist = R * c;
     return Number(dist.toFixed(2));
-  }, [driverPos, pickupCoords]);
+  }, [distanceRemainingKm, lastLocationAck, driverPos, pickupCoords]);
 
   const formattedDistanceToRider = useMemo(() => {
     if (distanceToRiderKm < 1) {
@@ -214,8 +229,12 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
   }, [distanceToRiderKm]);
 
   const etaMinutesToRider = useMemo(() => {
+    const serverEta = etaMin ?? lastLocationAck?.eta_min;
+    if (serverEta !== undefined && serverEta !== null) {
+      return Math.max(1, Number(serverEta));
+    }
     return Math.max(1, Math.round(distanceToRiderKm * 2.5));
-  }, [distanceToRiderKm]);
+  }, [etaMin, lastLocationAck, distanceToRiderKm]);
 
   const isNearRider = useMemo(() => {
     return distanceToRiderKm <= 0.2; // within 200m
@@ -238,11 +257,13 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     }
   }, [rideCancelledNotice, dispatch, navigation]);
 
-  const hasNavigatedRef = useRef(false);
+  const initialDriverPosRef = useRef(driverPos);
+  const hasNavigatedToArrivedRef = useRef(false);
+  const hasNavigatedToTripRef = useRef(false);
 
   const navigateToArrived = useCallback(() => {
-    if (hasNavigatedRef.current) return;
-    hasNavigatedRef.current = true;
+    if (hasNavigatedToArrivedRef.current) return;
+    hasNavigatedToArrivedRef.current = true;
     setShowOtpModal(false);
     navigation.replace('DriverArrived', {
       ride_id: rideId,
@@ -254,9 +275,15 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
       currency,
       tripDistance,
       vehicleType,
+      driverCoordinates: driverPosRef.current || driverPos,
       pickupCoordinates: pickupCoords,
       dropCoordinates: dropCoords,
+      pickup_lat: pickupCoords?.[1],
+      pickup_lon: pickupCoords?.[0],
+      drop_lat: dropCoords?.[1],
+      drop_lon: dropCoords?.[0],
       distance_km: numDistanceKm,
+      otp: route.params?.otp || activeRide?.otp,
     });
   }, [
     rideId,
@@ -271,54 +298,55 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     pickupCoords,
     dropCoords,
     numDistanceKm,
+    route.params?.otp,
+    activeRide?.otp,
     navigation,
   ]);
 
-  // When driver arrives at pickup: mark arrived and show OTP modal
+  // When driver arrives at pickup: mark arrived and navigate to OTP screen
   const handleArrived = () => {
     dispatch(driverMarkArrived({ rideId }));
-    setShowOtpModal(true);
+    navigateToArrived();
   };
 
-  const handleKeypadPress = (val) => {
-    if (val === 'C') {
-      setEnteredOtp('');
-    } else if (val === 'DEL') {
-      setEnteredOtp((prev) => prev.slice(0, -1));
-    } else {
-      if (enteredOtp.length < 4) {
-        setEnteredOtp((prev) => prev + val);
-      }
+  // If server marks status arrived, navigate to DriverArrived screen
+  useEffect(() => {
+    if (rideStatus === 'arrived') {
+      navigateToArrived();
     }
-  };
+  }, [rideStatus, navigateToArrived]);
 
   const handleStartTripWithOtp = () => {
     if (enteredOtp.length < 4) {
-      Alert.alert('Invalid OTP', 'Please enter the complete 4-digit OTP provided by the rider.');
+      Alert.alert('Invalid OTP', 'Please enter the 4-digit OTP provided by the rider.');
       return;
     }
     dispatch(driverStartTrip({ rideId, otp: enteredOtp }));
   };
 
-  // Listen for start_trip_success from server
-  useEffect(() => {
-    if (rideStatus === 'in_progress') {
-      setShowOtpModal(false);
-      navigation.replace('DriverTrip', {
-        ride_id: rideId,
-        pickup,
-        destination,
-        passengerName,
-        estimatedFare,
-        currency,
-        tripDistance,
-        pickupCoordinates: pickupCoords,
-        dropCoordinates: dropCoords,
-        distance_km: numDistanceKm,
-      });
-    }
+  const navigateToTrip = useCallback(() => {
+    if (hasNavigatedToTripRef.current) return;
+    hasNavigatedToTripRef.current = true;
+    setShowOtpModal(false);
+    navigation.replace('DriverTrip', {
+      ride_id: rideId,
+      pickup,
+      destination,
+      passengerName,
+      estimatedFare,
+      currency,
+      tripDistance,
+      vehicleType,
+      driverCoordinates: driverPosRef.current || driverPos,
+      pickupCoordinates: pickupCoords,
+      dropCoordinates: dropCoords,
+      pickup_lat: pickupCoords?.[1],
+      pickup_lon: pickupCoords?.[0],
+      drop_lat: dropCoords?.[1],
+      drop_lon: dropCoords?.[0],
+      distance_km: numDistanceKm,
+    });
   }, [
-    rideStatus,
     rideId,
     pickup,
     destination,
@@ -326,11 +354,19 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     estimatedFare,
     currency,
     tripDistance,
+    vehicleType,
     pickupCoords,
     dropCoords,
     numDistanceKm,
     navigation,
   ]);
+
+  // Listen for start_trip_success from server (navigates exactly once)
+  useEffect(() => {
+    if (rideStatus === 'in_progress') {
+      navigateToTrip();
+    }
+  }, [rideStatus, navigateToTrip]);
 
   useEffect(() => {
     if (actionError) {
@@ -339,19 +375,24 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     }
   }, [actionError, dispatch]);
 
+  const initialDistanceRef = useRef(distanceToRiderKm || 0.5);
+
   // Map Pane shows route from Driver's live location to Rider's pickup location
-  const mapPane = (
+  const mapPane = useMemo(() => (
     <View style={styles.mapArea}>
       <RidesRouteMap
-        pickupCoords={driverPos}
+        pickupCoords={initialDriverPosRef.current || driverPos}
         dropCoords={pickupCoords}
+        driverCoords={driverPos}
         pickupLabel="My Location"
         destinationLabel={passengerName ? `${passengerName} (Pickup)` : 'Rider Pickup'}
-        distanceKm={distanceToRiderKm || 0.5}
+        distanceKm={initialDistanceRef.current || 0.5}
+        isDriverEnRoute={true}
+        vehicleType={vehicleType || 'CAR'}
         style={{ flex: 1, width: '100%', height: '100%' }}
       />
     </View>
-  );
+  ), [pickupCoords, driverPos, passengerName, vehicleType]);
 
   const passengerPane = (
     <View
@@ -512,41 +553,6 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
                 </View>
               );
             })}
-          </View>
-
-          {/* Large On-Screen Numeric Keypad */}
-          <View style={styles.keypadGrid}>
-            {[
-              ['1', '2', '3'],
-              ['4', '5', '6'],
-              ['7', '8', '9'],
-              ['C', '0', '⌫'],
-            ].map((row, rIdx) => (
-              <View key={rIdx} style={styles.keypadRow}>
-                {row.map((btn) => (
-                  <TouchableOpacity
-                    key={btn}
-                    activeOpacity={0.7}
-                    onPress={() =>
-                      handleKeypadPress(btn === '⌫' ? 'DEL' : btn)
-                    }
-                    style={[
-                      styles.keypadButton,
-                      (btn === 'C' || btn === '⌫') && styles.keypadSpecial,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.keypadText,
-                        (btn === 'C' || btn === '⌫') && styles.keypadSpecialText,
-                      ]}
-                    >
-                      {btn}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
           </View>
 
           <TouchableOpacity
@@ -812,39 +818,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.h2,
     fontWeight: '800',
     color: COLORS.text,
-  },
-  keypadGrid: {
-    width: '100%',
-    paddingHorizontal: SPACING.sm,
-    marginVertical: SPACING.xs,
-  },
-  keypadRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
-  },
-  keypadButton: {
-    flex: 1,
-    height: 44,
-    marginHorizontal: 4,
-    borderRadius: RADIUS.medium,
-    backgroundColor: COLORS.inputBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  keypadSpecial: {
-    backgroundColor: COLORS.cardBackground,
-  },
-  keypadText: {
-    ...TYPOGRAPHY.bodyLarge,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  keypadSpecialText: {
-    color: COLORS.primaryDark,
-    fontWeight: '800',
   },
   fullScreenArrivalLink: {
     marginTop: SPACING.sm,

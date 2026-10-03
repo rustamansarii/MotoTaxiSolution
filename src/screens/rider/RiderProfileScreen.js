@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector, useDispatch } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -19,26 +20,21 @@ import ResponsiveContainer from '../../components/ResponsiveContainer';
 import LanguageButton from '../../components/LanguageButton';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
-import { clearTokens, saveRole } from '../../utils/storage';
+import { clearTokens } from '../../utils/storage';
+import { fetchUserProfile } from '../../redux/features/auth/authSlice';
 
 const MENU_ITEMS = [
+  {
+    id: 'personal_details',
+    icon: 'user',
+    title: 'Personal Details',
+    subtitle: 'Manage profile, email, and phone',
+  },
   {
     id: 'places',
     icon: 'map-pin',
     title: 'Saved Places',
     subtitle: 'Manage Home, Work, and favorite spots',
-  },
-  {
-    id: 'safety',
-    icon: 'shield',
-    title: 'Safety Toolkit',
-    subtitle: 'Emergency contacts & ride sharing PIN',
-  },
-  {
-    id: 'notifications',
-    icon: 'bell',
-    title: 'Notifications & Alerts',
-    subtitle: 'Push notifications, trip updates, deals',
   },
   {
     id: 'privacy',
@@ -52,12 +48,53 @@ const MENU_ITEMS = [
     title: 'Help & Support',
     subtitle: 'Trip issues, lost items, contact support',
   },
+  {
+    id: 'delete_account',
+    icon: 'alert-triangle',
+    title: 'Delete Account',
+    subtitle: 'Permanently close and delete your account',
+    isDanger: true,
+  },
 ];
 
 export const RiderProfileScreen = ({ navigation }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
+
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+
+  const authUser = useSelector((state) => state.auth?.user);
+  const riderProfile = useSelector((state) => state.auth?.riderProfile);
+
+  useEffect(() => {
+    dispatch(fetchUserProfile());
+  }, [dispatch]);
+
+  const displayName = useMemo(() => {
+    const raw =
+      authUser?.full_name ||
+      (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
+      authUser?.name;
+    if (raw) {
+      return raw
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+    return 'Rider';
+  }, [authUser]);
+
+  const displayEmail = authUser?.email || '';
+  const displayPhone = authUser?.phone_number || authUser?.phone || '';
+  const displayRating = riderProfile?.rating_avg || authUser?.rating || '5.00';
+  const displayTrips =
+    riderProfile?.total_rides !== undefined
+      ? `${riderProfile.total_rides} Trips`
+      : '0 Trips';
+  const avatarPhoto = authUser?.profile_photo;
 
   const handleLogout = async () => {
     setShowLogoutModal(false);
@@ -65,102 +102,120 @@ export const RiderProfileScreen = ({ navigation }) => {
     navigation.replace('RoleSelection');
   };
 
-  const handleSwitchToDriver = async () => {
-    await saveRole('DRIVER');
-    navigation.replace('DriverNav');
+  const handleMenuPress = (item) => {
+    switch (item.id) {
+      case 'personal_details':
+        navigation.navigate('PersonalDetails');
+        break;
+      case 'places':
+        navigation.navigate('SavedPlaces');
+        break;
+      case 'privacy':
+        setShowPrivacyModal(true);
+        break;
+      case 'help':
+        setShowHelpModal(true);
+        break;
+      case 'delete_account':
+        navigation.navigate('DeleteAccount');
+        break;
+      default:
+        break;
+    }
   };
 
   const isMultiColumn = isFoldableOrTablet || isSplitLayout;
 
   const profileOverview = (
-    <>
-      {/* User Card */}
-      <View style={styles.userCard}>
-        <ProfileAvatar
-          name="Alex Morgan"
-          size={76}
-          showEdit={true}
-          onEditPress={() => {}}
-        />
+    <View style={styles.userCard}>
+      <ProfileAvatar
+        imageUri={avatarPhoto}
+        name={displayName}
+        size={76}
+        showEdit={true}
+        onEditPress={() => navigation.navigate('PersonalDetails')}
+      />
 
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>Alex Morgan</Text>
-          <Text style={styles.userEmail}>alex.morgan@example.com</Text>
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{displayName}</Text>
+        {displayEmail ? <Text style={styles.userEmail}>{displayEmail}</Text> : null}
+        {displayPhone ? <Text style={styles.userPhone}>{displayPhone}</Text> : null}
 
-          <View style={styles.badgesRow}>
-            <View style={styles.scoreBadge}>
-              <Icon name="star" size={12} color={COLORS.primary} />
-              <Text style={styles.scoreText}>4.98 Rating</Text>
-            </View>
-            <View style={styles.tripsBadge}>
-              <Text style={styles.tripsBadgeText}>128 Trips</Text>
-            </View>
+        <View style={styles.badgesRow}>
+          <View style={styles.scoreBadge}>
+            <Icon name="star" size={12} color={COLORS.primary} />
+            <Text style={styles.scoreText}>{displayRating} Rating</Text>
+          </View>
+          <View style={styles.tripsBadge}>
+            <Text style={styles.tripsBadgeText}>{displayTrips}</Text>
           </View>
         </View>
       </View>
-
-      {/* Switch to Driver Role Banner */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={handleSwitchToDriver}
-        style={styles.switchBanner}
-      >
-        <View style={styles.bannerIconCircle}>
-          <Icon name="bike" size={20} color={COLORS.primary} />
-        </View>
-        <View style={styles.bannerInfo}>
-          <Text style={styles.bannerTitle}>Earn Money as a Driver</Text>
-          <Text style={styles.bannerSubtitle}>
-            Switch to driver mode or complete partner signup.
-          </Text>
-        </View>
-        <Icon name="arrow-right" size={18} color={COLORS.text} />
-      </TouchableOpacity>
-    </>
+    </View>
   );
 
   const menuList = (
     <View style={styles.menuCard}>
-      {MENU_ITEMS.map((item, index) => (
-        <TouchableOpacity
-          key={item.id}
-          activeOpacity={0.7}
-          onPress={() => {
-            if (item.id === 'places') {
-              navigation.navigate('SavedPlaces');
-            }
-          }}
-          style={[
-            styles.menuItem,
-            index === MENU_ITEMS.length - 1 && styles.noBorder,
-          ]}
-        >
-          <View style={styles.menuIconBox}>
-            <Icon name={item.icon} size={18} color={COLORS.secondPrimary} />
-          </View>
+      {MENU_ITEMS.map((item, index) => {
+        const isDanger = item.isDanger;
+        return (
+          <TouchableOpacity
+            key={item.id}
+            activeOpacity={0.7}
+            onPress={() => handleMenuPress(item)}
+            style={[
+              styles.menuItem,
+              index === MENU_ITEMS.length - 1 && styles.noBorder,
+              isDanger && styles.dangerMenuItem,
+            ]}
+          >
+            <View
+              style={[
+                styles.menuIconBox,
+                isDanger && styles.dangerMenuIconBox,
+              ]}
+            >
+              <Icon
+                name={item.icon}
+                size={18}
+                color={isDanger ? COLORS.danger : COLORS.secondPrimary}
+              />
+            </View>
 
-          <View style={styles.menuTextCol}>
-            <Text style={styles.menuTitle}>{item.title}</Text>
-            <Text numberOfLines={1} style={styles.menuSubtitle}>
-              {item.subtitle}
-            </Text>
-          </View>
+            <View style={styles.menuTextCol}>
+              <Text
+                style={[
+                  styles.menuTitle,
+                  isDanger && styles.dangerMenuTitle,
+                ]}
+              >
+                {item.title}
+              </Text>
+              <Text numberOfLines={1} style={styles.menuSubtitle}>
+                {item.subtitle}
+              </Text>
+            </View>
 
-          <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
-        </TouchableOpacity>
-      ))}
+            <Icon
+              name="chevron-right"
+              size={16}
+              color={isDanger ? COLORS.danger : COLORS.iconLight}
+            />
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 
   const footerActions = (
     <>
       <TouchableOpacity
-        activeOpacity={0.7}
+        activeOpacity={0.75}
         onPress={() => setShowLogoutModal(true)}
         style={styles.logoutBtn}
       >
         <Icon name="close" size={16} color={COLORS.danger} />
-        <Text style={styles.logoutText}>{t('rider.logout')}</Text>
+        <Text style={styles.logoutText}>{t('rider.logout', 'Log Out')}</Text>
       </TouchableOpacity>
 
       <Text style={styles.appVersion}>Moto Taxi App Version 2.4.0 (Build 182)</Text>
@@ -172,7 +227,7 @@ export const RiderProfileScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={920} style={{ flex: 1 }}>
         <Header
-          title={t('rider.profile')}
+          title={t('rider.profile', 'Profile')}
           showBack={false}
           rightComponent={<LanguageButton />}
         />
@@ -208,13 +263,37 @@ export const RiderProfileScreen = ({ navigation }) => {
       <CustomModal
         visible={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
-        title={t('rider.logout')}
+        title={t('rider.logout', 'Log Out')}
         message="Are you sure you want to log out? You will need to sign in again to book rides."
-        confirmText={t('rider.logout')}
-        cancelText={t('common.cancel')}
+        confirmText={t('rider.logout', 'Log Out')}
+        cancelText={t('common.cancel', 'Cancel')}
         isDanger={true}
         onConfirm={handleLogout}
         icon="alert-triangle"
+      />
+
+      {/* Privacy & Security Modal */}
+      <CustomModal
+        visible={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+        title="Privacy & Security"
+        message="Your account is protected by industry-standard encryption, tokenized authentication, and device biometrics. You can manage access permissions in your system settings."
+        confirmText="Understood"
+        showCancel={false}
+        onConfirm={() => setShowPrivacyModal(false)}
+        icon="shield"
+      />
+
+      {/* Help & Support Modal */}
+      <CustomModal
+        visible={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        title="Help & Support"
+        message="Need help with a trip or lost item? Our 24/7 dedicated support team is available via in-app chat, or reach out to support@mototaxi.com."
+        confirmText="Got it"
+        showCancel={false}
+        onConfirm={() => setShowHelpModal(false)}
+        icon="info"
       />
     </SafeAreaView>
   );
@@ -245,7 +324,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   userInfo: {
     flex: 1,
@@ -260,6 +339,12 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
+  },
+  userPhone: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textSecondary || '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
   },
   badgesRow: {
     flexDirection: 'row',
@@ -291,43 +376,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primaryDark,
   },
-  switchBanner: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.large,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  bannerIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: RADIUS.round,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  bannerInfo: {
-    flex: 1,
-  },
-  bannerTitle: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  bannerSubtitle: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
   menuCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.large,
@@ -346,6 +394,7 @@ const styles = StyleSheet.create({
   noBorder: {
     borderBottomWidth: 0,
   },
+  dangerMenuItem: {},
   menuIconBox: {
     width: 38,
     height: 38,
@@ -355,6 +404,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: SPACING.md,
   },
+  dangerMenuIconBox: {
+    backgroundColor: '#FEF2F2',
+  },
   menuTextCol: {
     flex: 1,
   },
@@ -362,6 +414,9 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  dangerMenuTitle: {
+    color: COLORS.danger,
   },
   menuSubtitle: {
     ...TYPOGRAPHY.caption,
@@ -372,10 +427,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.inputBg,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.large,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   logoutText: {
     ...TYPOGRAPHY.bodySmall,

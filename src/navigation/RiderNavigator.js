@@ -22,6 +22,9 @@ import RideInProgressScreen from '../screens/rider/RideInProgressScreen';
 import TripCompletedScreen from '../screens/rider/TripCompletedScreen';
 import RatingScreen from '../screens/rider/RatingScreen';
 import SavedPlacesScreen from '../screens/rider/SavedPlacesScreen';
+import PersonalDetailsScreen from '../screens/rider/PersonalDetailsScreen';
+import DeleteAccountScreen from '../screens/rider/DeleteAccountScreen';
+import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -70,16 +73,7 @@ const RiderTabs = () => {
           ),
         }}
       />
-      <Tab.Screen
-        name="Wallet"
-        component={WalletScreen}
-        options={{
-          tabBarLabel: 'Wallet',
-          tabBarIcon: ({ color, focused }) => (
-            <Icon name="wallet" size={22} color={color} />
-          ),
-        }}
-      />
+
       <Tab.Screen
         name="RiderProfile"
         component={RiderProfileScreen}
@@ -107,8 +101,11 @@ export const RiderNavigator = () => {
       <Stack.Screen name="DriverAssigned" component={DriverAssignedScreen} />
       <Stack.Screen name="RideInProgress" component={RideInProgressScreen} />
       <Stack.Screen name="TripCompleted" component={TripCompletedScreen} />
+      <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
       <Stack.Screen name="Rating" component={RatingScreen} />
       <Stack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
+      <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
+      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
     </Stack.Navigator>
   );
 };

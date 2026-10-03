@@ -267,29 +267,6 @@ export const RideOptionsScreen = ({ navigation, route }) => {
           ))
         )}
       </ScrollView>
-
-      {/* Payment Selector */}
-      <TouchableOpacity
-        activeOpacity={0.75}
-        onPress={() => navigation.navigate('RiderTabs', { screen: 'Wallet' })}
-        style={styles.paymentSelector}
-      >
-        <View style={styles.paymentLeft}>
-          <View style={styles.paymentIconBox}>
-            <Icon
-              name={paymentMethod?.type === 'cash' ? 'cash' : paymentMethod?.type === 'apple_pay' ? 'apple' : 'card'}
-              size={16}
-              color={COLORS.text}
-            />
-          </View>
-          <Text style={styles.paymentText}>{paymentMethod?.name || 'Payment Method'}</Text>
-        </View>
-        <View style={styles.paymentRight}>
-          <Text style={styles.changePaymentText}>Change</Text>
-          <Icon name="chevron-right" size={14} color="#94A3B8" />
-        </View>
-      </TouchableOpacity>
-
       {/* Confirm CTA Button with Price Badge */}
       <TouchableOpacity
         activeOpacity={0.88}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSelector, useDispatch } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -21,11 +22,47 @@ import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import { clearTokens, saveRole } from '../../utils/storage';
+import { fetchUserProfile } from '../../redux/features/auth/authSlice';
 
 export const DriverProfileScreen = ({ navigation }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
-  const driver = ACTIVE_MOCK_DRIVER;
+
+  const authUser = useSelector((state) => state.auth?.user);
+  const driverState = useSelector((state) => state.driver);
+  const driverProfile = driverState?.driverProfile || authUser?.driver_profile;
+
+  useEffect(() => {
+    dispatch(fetchUserProfile());
+  }, [dispatch]);
+
+  const displayName = useMemo(() => {
+    const raw =
+      authUser?.full_name ||
+      (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
+      authUser?.name;
+    if (raw) {
+      return raw
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+    return ACTIVE_MOCK_DRIVER.name;
+  }, [authUser]);
+
+  const displayPhone = authUser?.phone_number || authUser?.phone || ACTIVE_MOCK_DRIVER.phone;
+  const displayEmail = authUser?.email || '';
+  const displayRating =
+    driverProfile?.rating_avg ||
+    authUser?.rider_profile?.rating_avg ||
+    authUser?.rating ||
+    ACTIVE_MOCK_DRIVER.rating;
+  const displayTrips =
+    driverProfile?.total_trips !== undefined
+      ? `${driverProfile.total_trips} Trips`
+      : '3,840 Trips';
+
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = async () => {
@@ -46,28 +83,30 @@ export const DriverProfileScreen = ({ navigation }) => {
       {/* Driver Hero Card */}
       <View style={styles.driverHeroCard}>
         <ProfileAvatar
-          name={driver.name}
+          imageUri={authUser?.profile_photo}
+          name={displayName}
           size={80}
           isOnline={true}
           showStatus={true}
           showEdit={true}
         />
 
-        <Text style={styles.driverName}>{driver.name}</Text>
-        <Text style={styles.driverPhone}>{driver.phone}</Text>
+        <Text style={styles.driverName}>{displayName}</Text>
+        <Text style={styles.driverPhone}>{displayPhone}</Text>
+        {displayEmail ? <Text style={styles.driverEmail}>{displayEmail}</Text> : null}
 
         <View style={styles.statsPillsRow}>
           <View style={styles.statPill}>
             <Icon name="star" size={12} color={COLORS.primary} />
-            <Text style={styles.statPillText}>{driver.rating} Rating</Text>
+            <Text style={styles.statPillText}>{displayRating} Rating</Text>
           </View>
 
           <View style={styles.statPill}>
-            <Text style={styles.statPillText}>3,840 Trips</Text>
+            <Text style={styles.statPillText}>{displayTrips}</Text>
           </View>
 
           <View style={styles.statPill}>
-            <Text style={styles.statPillText}>Top Partner</Text>
+            <Text style={styles.statPillText}>Partner</Text>
           </View>
         </View>
       </View>
@@ -271,6 +310,12 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
+  },
+  driverEmail: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textSecondary || '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
   },
   statsPillsRow: {
     flexDirection: 'row',

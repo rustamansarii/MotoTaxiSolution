@@ -174,10 +174,17 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
         otp: otp || rideOtp,
         pickup,
         destination,
+        pickupCoordinates:
+          pickupLon && pickupLat ? [Number(pickupLon), Number(pickupLat)] : userLocation,
         pickup_lat: pickupLat,
         pickup_lon: pickupLon,
+        dropCoordinates:
+          route.params?.drop_lon && route.params?.drop_lat
+            ? [Number(route.params.drop_lon), Number(route.params.drop_lat)]
+            : undefined,
         drop_lat: route.params?.drop_lat,
         drop_lon: route.params?.drop_lon,
+        distance_km: route.params?.distance_km ?? route.params?.bookingPayload?.distance_km,
       });
     }
   }, [

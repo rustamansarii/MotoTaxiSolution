@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ export const DriverOTPScreen = ({ navigation, route }) => {
   const [code, setCode] = useState('');
   const [timer, setTimer] = useState(30);
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -68,9 +69,14 @@ export const DriverOTPScreen = ({ navigation, route }) => {
             {t('auth.otpSentTo')} <Text style={styles.phoneText}>+1 {phoneNumber}</Text>
           </Text>
 
-        <View style={styles.otpRow}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => inputRef.current?.focus()}
+          style={styles.otpRow}
+        >
           {[0, 1, 2, 3].map((index) => {
             const digit = code[index] || '';
+            const isActive = code.length === index;
             return (
               <View
                 key={index}
@@ -78,24 +84,27 @@ export const DriverOTPScreen = ({ navigation, route }) => {
                   styles.box,
                   { width: boxSize, height: boxSize },
                   digit ? styles.boxFilled : null,
+                  isActive ? styles.boxActive : null,
                 ]}
               >
                 <Text style={styles.boxText}>{digit}</Text>
               </View>
             );
           })}
-        </View>
+        </TouchableOpacity>
 
         <KeyboardTextInput
+          ref={inputRef}
           id="driver-otp-input"
           value={code}
           onChangeText={(t) => {
-            if (t.length <= 4) setCode(t);
+            const num = t.replace(/[^0-9]/g, '');
+            if (num.length <= 4) setCode(num);
           }}
           keyboardType="number-pad"
           maxLength={4}
           style={styles.hiddenInput}
-          autoFocus
+          autoFocus={true}
         />
 
         <View style={styles.resendArea}>
@@ -183,6 +192,10 @@ const styles = StyleSheet.create({
   boxFilled: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.white,
+  },
+  boxActive: {
+    borderColor: COLORS.primaryDark,
+    backgroundColor: COLORS.primaryLight,
   },
   boxText: {
     ...TYPOGRAPHY.h2,

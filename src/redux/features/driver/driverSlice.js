@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiPost } from '../../../utils/apiClient';
+import { apiPost, apiGet } from '../../../utils/apiClient';
 import ApiConstant from '../../../utils/apiConstant';
 import { getAccessToken } from '../../../utils/storage';
 import { driverWebSocket } from '../../../utils/driverWebSocket';
@@ -23,7 +23,10 @@ const initialState = {
   // GPS Location
   currentLocation: DEFAULT_COORDINATES,
   lastLocationSent: null, // { lat, lng, timestamp }
-  lastLocationAck: null, // { lat, lng, timestamp }
+  lastLocationAck: null, // { lat, lng, timestamp, status, ride_id, target, distance_remaining_km, eta_min }
+  distanceRemainingKm: null,
+  etaMin: null,
+  target: null, // 'pickup' | 'drop'
 
   // Ride State
   // 'idle' | 'requested' | 'accepted' | 'arrived' | 'in_progress' | 'completed' | 'cancelled'
@@ -38,6 +41,15 @@ const initialState = {
   actionSuccessNotice: null,
   rideTakenNotice: null, // {"type": "ride_taken", "ride_id": ..}
   rideCancelledNotice: null, // {"type": "ride_cancelled", "ride_id": .., "cancelled_by": "RIDER"}
+
+  // Driver Wallet & Earnings
+  wallet: null, // { balance, currency, available_balance, pending_balance, total_earnings, ... }
+  walletTransactions: [], // [ { id, amount, type, description, created_at, status, ... } ]
+  walletSummary: null, // { total_earnings, trips_count, hours_online, daily_breakdown, ... }
+  isWalletLoading: false,
+  isTransactionsLoading: false,
+  isSummaryLoading: false,
+  walletError: null,
 
   socketMessages: [],
   lastMessage: null,
@@ -108,6 +120,82 @@ export const driverGoOffline = createAsyncThunk(
         error?.message ||
         'Failed to go offline';
       console.warn('[DriverAPI] Go-offline error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/drivers/wallet/
+ */
+export const fetchDriverWallet = createAsyncThunk(
+  'driver/fetchWallet',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('[DriverAPI] Fetching driver wallet...');
+      const response = await apiGet(ApiConstant.DriverWallet);
+      console.log('[DriverAPI] Wallet response:', response);
+      return response?.data || response;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch driver wallet';
+      console.warn('[DriverAPI] Wallet fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/drivers/wallet/transactions/
+ */
+export const fetchDriverWalletTransactions = createAsyncThunk(
+  'driver/fetchWalletTransactions',
+  async (params, { rejectWithValue }) => {
+    try {
+      console.log('[DriverAPI] Fetching wallet transactions...');
+      const response = await apiGet(ApiConstant.DriverWalletTransactions, params);
+      console.log('[DriverAPI] Wallet transactions response count:', Array.isArray(response) ? response.length : 'non-array');
+      const list = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.results)
+        ? response.results
+        : Array.isArray(response?.data)
+        ? response.data
+        : [];
+      return list;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch wallet transactions';
+      console.warn('[DriverAPI] Transactions fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/drivers/wallet/summary/
+ */
+export const fetchDriverWalletSummary = createAsyncThunk(
+  'driver/fetchWalletSummary',
+  async (params, { rejectWithValue }) => {
+    try {
+      console.log('[DriverAPI] Fetching wallet summary...');
+      const response = await apiGet(ApiConstant.DriverWalletSummary, params);
+      console.log('[DriverAPI] Wallet summary response:', response);
+      return response?.data || response;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch wallet summary';
+      console.warn('[DriverAPI] Summary fetch error:', errorMsg);
       return rejectWithValue(errorMsg);
     }
   }
@@ -252,9 +340,32 @@ export const driverStartTrip = createAsyncThunk(
  */
 export const driverCompleteTrip = createAsyncThunk(
   'driver/completeTrip',
-  async ({ rideId }) => {
-    const sent = driverWebSocket.completeTrip(rideId);
-    return { rideId, sent };
+  async ({ rideId, lat, lng, fare } = {}, { getState }) => {
+    const state = getState();
+    const loc = state.driver?.currentLocation;
+    const activeRide = state.driver?.activeRide || state.driver?.completedRide;
+
+    const effectiveRideId = Number(rideId || activeRide?.ride_id || 1);
+    const effectiveLat = lat ?? loc?.lat;
+    const effectiveLng = lng ?? loc?.lng;
+    const effectiveFare = fare ?? activeRide?.driver_payout ?? activeRide?.fare;
+
+    const extra = {};
+    if (effectiveLat !== undefined && effectiveLng !== undefined) {
+      extra.lat = Number(effectiveLat);
+      extra.lng = Number(effectiveLng);
+      extra.latitude = Number(effectiveLat);
+      extra.longitude = Number(effectiveLng);
+    }
+    if (effectiveFare !== undefined && effectiveFare !== null) {
+      extra.fare = Number(effectiveFare);
+      extra.final_fare = Number(effectiveFare);
+    }
+
+    console.log('[driverCompleteTrip] Sending complete_trip for rideId:', effectiveRideId, 'with data:', extra);
+    const sent = driverWebSocket.completeTrip(effectiveRideId, extra);
+    console.log('sent', sent);
+    return { rideId: effectiveRideId, sent };
   }
 );
 
@@ -329,6 +440,9 @@ export const driverSlice = createSlice({
       state.incomingRideRequest = null;
       state.activeRide = null;
       state.completedRide = null;
+      state.distanceRemainingKm = null;
+      state.etaMin = null;
+      state.target = null;
       state.actionError = null;
       state.actionSuccessNotice = null;
       state.rideTakenNotice = null;
@@ -347,11 +461,104 @@ export const driverSlice = createSlice({
           state.socketConnected = true;
           break;
 
+        case 'current_state': {
+          // {"type": "current_state", "has_active_ride": true, "stage": "trip_ongoing", "driver": {...}, "ride": {...}, ...}
+          console.log('[DriverSlice] 🔄 Processing current_state payload:', msg);
+          if (msg.driver?.status) {
+            state.isOnline = msg.driver.status === 'ONLINE';
+          }
+          if (msg.driver?.location?.lat && msg.driver?.location?.lng) {
+            state.currentLocation = {
+              lat: Number(msg.driver.location.lat),
+              lng: Number(msg.driver.location.lng),
+            };
+          }
+          if (msg.has_active_ride && msg.ride) {
+            const rideData = msg.ride || {};
+            const pickupObj = rideData.pickup || {};
+            const dropObj = rideData.drop || {};
+            const stage = String(msg.stage || rideData.status || '').toLowerCase();
+
+            if (stage.includes('assign') || stage.includes('accept')) {
+              state.rideStatus = 'accepted';
+            } else if (stage.includes('arriv')) {
+              state.rideStatus = 'arrived';
+            } else if (stage.includes('trip') || stage.includes('ongo') || stage.includes('progress')) {
+              state.rideStatus = 'in_progress';
+            } else {
+              state.rideStatus = 'accepted';
+            }
+
+            state.activeRide = {
+              ...(state.activeRide || {}),
+              ride_id: rideData.ride_id || rideData.id || state.activeRide?.ride_id,
+              status: rideData.status,
+              pickup_address:
+                pickupObj.address ||
+                pickupObj.display_name ||
+                (typeof rideData.pickup === 'string' ? rideData.pickup : null) ||
+                rideData.pickup_address ||
+                state.activeRide?.pickup_address,
+              drop_address:
+                dropObj.address ||
+                dropObj.display_name ||
+                (typeof rideData.drop === 'string' ? rideData.drop : null) ||
+                rideData.drop_address ||
+                state.activeRide?.drop_address,
+              pickup: rideData.pickup || state.activeRide?.pickup,
+              drop: rideData.drop || state.activeRide?.drop,
+              pickup_lat: pickupObj.lat ?? rideData.pickup_lat ?? state.activeRide?.pickup_lat,
+              pickup_lon: pickupObj.lng ?? pickupObj.lon ?? rideData.pickup_lon ?? state.activeRide?.pickup_lon,
+              drop_lat: dropObj.lat ?? rideData.drop_lat ?? state.activeRide?.drop_lat,
+              drop_lon: dropObj.lng ?? dropObj.lon ?? rideData.drop_lon ?? state.activeRide?.drop_lon,
+              rider_name: msg.rider?.name || rideData.rider_name || state.activeRide?.rider_name || 'Rider',
+              rider_phone: msg.rider?.phone || rideData.rider_phone || state.activeRide?.rider_phone,
+              rider: msg.rider || state.activeRide?.rider,
+              driver_payout: rideData.driver_payout ?? rideData.fare ?? state.activeRide?.driver_payout ?? 0,
+              fare: rideData.driver_payout ?? rideData.fare ?? state.activeRide?.fare ?? 0,
+              currency: rideData.currency || state.activeRide?.currency || 'USD',
+              vehicle: msg.vehicle || state.activeRide?.vehicle,
+              vehicle_type: msg.vehicle?.vehicle_type || rideData.vehicle_type || state.activeRide?.vehicle_type || 'CAR',
+              distance_km: msg.progress?.distance_remaining_km ?? rideData.distance_km ?? state.activeRide?.distance_km,
+            };
+
+            if (
+              msg.progress?.distance_remaining_km !== undefined &&
+              msg.progress?.distance_remaining_km !== null
+            ) {
+              state.distanceRemainingKm = Number(msg.progress.distance_remaining_km);
+            }
+            if (msg.progress?.eta_min !== undefined && msg.progress?.eta_min !== null) {
+              state.etaMin = Number(msg.progress.eta_min);
+            }
+            if (msg.progress?.target) {
+              state.target = msg.progress.target;
+            }
+          } else if (msg.has_active_ride === false) {
+            state.activeRide = null;
+            if (state.rideStatus !== 'requested') {
+              state.rideStatus = 'idle';
+            }
+          }
+          break;
+        }
+
         case 'location_ack':
-          // {"type": "location_ack", "lat": .., "lng": ..}
+          // {"type": "location_ack", "lat": .., "lng": .., "status": "BUSY", "ride_id": .., "target": "pickup", "distance_remaining_km": 0.02, "eta_min": 1}
           state.lastLocationAck = {
             lat: Number(msg.lat),
             lng: Number(msg.lng),
+            status: msg.status,
+            ride_id: msg.ride_id,
+            target: msg.target,
+            distance_remaining_km:
+              msg.distance_remaining_km !== undefined && msg.distance_remaining_km !== null
+                ? Number(msg.distance_remaining_km)
+                : undefined,
+            eta_min:
+              msg.eta_min !== undefined && msg.eta_min !== null
+                ? Number(msg.eta_min)
+                : undefined,
             timestamp: Date.now(),
           };
           if (msg.lat !== undefined && msg.lng !== undefined) {
@@ -359,6 +566,47 @@ export const driverSlice = createSlice({
               lat: Number(msg.lat),
               lng: Number(msg.lng),
             };
+          }
+          if (
+            msg.distance_remaining_km !== undefined &&
+            msg.distance_remaining_km !== null
+          ) {
+            state.distanceRemainingKm = Number(msg.distance_remaining_km);
+          }
+          if (msg.eta_min !== undefined && msg.eta_min !== null) {
+            state.etaMin = Number(msg.eta_min);
+          }
+          if (msg.target) {
+            state.target = msg.target;
+          }
+
+          // Synchronize rideStatus and activeRide when location_ack indicates an active ride
+          const ackStatus = String(msg.status || '').toUpperCase();
+          if (
+            ackStatus === 'ON_TRIP' ||
+            ackStatus === 'IN_PROGRESS' ||
+            ackStatus === 'TRIP_ONGOING'
+          ) {
+            if (state.rideStatus !== 'in_progress') {
+              state.rideStatus = 'in_progress';
+            }
+            if (msg.ride_id && (!state.activeRide || state.activeRide.ride_id !== msg.ride_id)) {
+              state.activeRide = {
+                ...(state.activeRide || {}),
+                ride_id: msg.ride_id,
+              };
+            }
+          } else if (ackStatus === 'ARRIVED') {
+            if (state.rideStatus !== 'arrived') {
+              state.rideStatus = 'arrived';
+            }
+          } else if (
+            ackStatus === 'ACCEPTED' ||
+            (ackStatus === 'BUSY' && msg.target === 'pickup')
+          ) {
+            if (state.rideStatus === 'idle') {
+              state.rideStatus = 'accepted';
+            }
           }
           break;
 
@@ -638,6 +886,45 @@ export const driverSlice = createSlice({
       })
       .addCase(driverCancelRide.fulfilled, (state) => {
         state.actionLoading = false;
+      })
+
+      // fetchDriverWallet
+      .addCase(fetchDriverWallet.pending, (state) => {
+        state.isWalletLoading = true;
+        state.walletError = null;
+      })
+      .addCase(fetchDriverWallet.fulfilled, (state, action) => {
+        state.isWalletLoading = false;
+        state.wallet = action.payload;
+        state.walletError = null;
+      })
+      .addCase(fetchDriverWallet.rejected, (state, action) => {
+        state.isWalletLoading = false;
+        state.walletError = action.payload;
+      })
+
+      // fetchDriverWalletTransactions
+      .addCase(fetchDriverWalletTransactions.pending, (state) => {
+        state.isTransactionsLoading = true;
+      })
+      .addCase(fetchDriverWalletTransactions.fulfilled, (state, action) => {
+        state.isTransactionsLoading = false;
+        state.walletTransactions = action.payload;
+      })
+      .addCase(fetchDriverWalletTransactions.rejected, (state) => {
+        state.isTransactionsLoading = false;
+      })
+
+      // fetchDriverWalletSummary
+      .addCase(fetchDriverWalletSummary.pending, (state) => {
+        state.isSummaryLoading = true;
+      })
+      .addCase(fetchDriverWalletSummary.fulfilled, (state, action) => {
+        state.isSummaryLoading = false;
+        state.walletSummary = action.payload;
+      })
+      .addCase(fetchDriverWalletSummary.rejected, (state) => {
+        state.isSummaryLoading = false;
       });
   },
 });

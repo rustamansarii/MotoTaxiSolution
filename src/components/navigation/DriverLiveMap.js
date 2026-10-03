@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import {
   Map as MapLibreMap,
@@ -48,6 +48,7 @@ export const DriverLiveMap = ({
   driverStatus = 'Online',
   isOnline = true,
   statusLabel,
+  target = null, // 'pickup' | 'drop'
   pickupCoordinate = null,
   dropCoordinate = null,
   pickupLabel = 'Pickup',
@@ -63,83 +64,175 @@ export const DriverLiveMap = ({
   const [routeShape, setRouteShape] = useState(null);
 
   const activeCoordinate = useMemo(() => {
-    return driverCoordinate || userCoordinate || [75.8573, 30.9005];
+    const raw = driverCoordinate || userCoordinate || [75.8573, 30.9005];
+    return [Number(raw[0]), Number(raw[1])];
   }, [driverCoordinate, userCoordinate]);
+
+  // Frozen initial camera state: guarantees MapLibre camera doesn't reset or flash on GPS updates
+  const initialCameraState = useMemo(() => {
+    return {
+      center: activeCoordinate,
+      zoom: 15.5,
+      pitch: 0,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const effectiveStatus = statusLabel || driverStatus || (isOnline ? 'Online' : 'Offline');
 
-  // Fetch real OSRM road route when pickupCoordinate or dropCoordinate is available
+  // Active destination based on target:
+  // If target === 'drop' (ON_TRIP): route driver directly to dropCoordinate
+  // If target === 'pickup': route driver to pickupCoordinate
+  const activeDestination = useMemo(() => {
+    if (target === 'drop') {
+      return dropCoordinate || pickupCoordinate;
+    }
+    if (target === 'pickup') {
+      return pickupCoordinate;
+    }
+    return dropCoordinate || pickupCoordinate;
+  }, [target, dropCoordinate, pickupCoordinate]);
+
+  // Generates an immediate curved route line so a path is always visible
+  const generateFallbackRoute = useCallback((start, end) => {
+    if (!start || !end || start.length < 2 || end.length < 2) return null;
+    const coords = [];
+    const steps = 14;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const lng = start[0] + (end[0] - start[0]) * t;
+      const latCurve = Math.sin(t * Math.PI) * 0.003;
+      const lat = start[1] + (end[1] - start[1]) * t + latCurve;
+      coords.push([lng, lat]);
+    }
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: coords,
+      },
+    };
+  }, []);
+
+  const lastRouteParamsRef = useRef({
+    originLng: null,
+    originLat: null,
+    destLng: null,
+    destLat: null,
+    lastFetchedAt: 0,
+  });
+
+  // Stable OSRM Route Fetching: once route is set, keep it stable in background!
   useEffect(() => {
-    if (!pickupCoordinate) {
+    if (!activeDestination || activeDestination.length < 2) {
       setRouteShape(null);
       return;
     }
 
+    const [origLng, origLat] = activeCoordinate;
+    const [destLng, destLat] = activeDestination;
+
+    const prev = lastRouteParamsRef.current;
+    const destChanged =
+      prev.destLng === null ||
+      Math.abs(prev.destLng - destLng) > 0.0003 ||
+      Math.abs(prev.destLat - destLat) > 0.0003;
+
+    // If route already exists and destination didn't change, KEEP the route stable in background!
+    // Driver GPS movements should NOT invalidate the route path or trigger map reloading.
+    if (routeShape && !destChanged) {
+      return;
+    }
+
+    lastRouteParamsRef.current = {
+      originLng: origLng,
+      originLat: origLat,
+      destLng: destLng,
+      destLat: destLat,
+      lastFetchedAt: Date.now(),
+    };
+
     let isCancelled = false;
     const fetchRoute = async () => {
       try {
-        const [originLng, originLat] = activeCoordinate;
-        const [pLng, pLat] = pickupCoordinate;
-        let osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${pLng},${pLat}?overview=full&geometries=geojson`;
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origLng},${origLat};${destLng},${destLat}?overview=full&geometries=geojson`;
 
-        if (dropCoordinate && dropCoordinate.length === 2) {
-          const [dLng, dLat] = dropCoordinate;
-          osrmUrl = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
-        }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        const res = await fetch(osrmUrl);
+        const res = await fetch(osrmUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
         const data = await res.json();
-        if (!isCancelled && data?.routes?.[0]?.geometry) {
+        if (
+          !isCancelled &&
+          data?.code === 'Ok' &&
+          data.routes?.[0]?.geometry?.coordinates?.length > 0
+        ) {
           setRouteShape({
             type: 'Feature',
             properties: {},
             geometry: data.routes[0].geometry,
           });
+          return;
         }
       } catch (err) {
-        console.warn('[DriverLiveMap] OSRM route notice:', err);
+        // Non-fatal network notice
+      }
+
+      if (!isCancelled) {
+        setRouteShape((prev) => prev || generateFallbackRoute(activeCoordinate, activeDestination));
       }
     };
 
     fetchRoute();
+
     return () => {
       isCancelled = true;
     };
-  }, [activeCoordinate, pickupCoordinate, dropCoordinate]);
+  }, [activeCoordinate, activeDestination, generateFallbackRoute, routeShape]);
 
-  // Smoothly center/fit camera when driverCoordinate or pickupCoordinate updates
+  // Initial and destination-change camera fit (does NOT run on every raw coordinate tick)
+  const hasInitializedCameraRef = useRef(false);
+  const lastTargetRef = useRef(null);
   useEffect(() => {
-    if (cameraRef.current && mapLoaded) {
-      try {
-        if (pickupCoordinate && activeCoordinate) {
-          const [dLng, dLat] = activeCoordinate;
-          const [pLng, pLat] = pickupCoordinate;
-          const center = [(dLng + pLng) / 2, (dLat + pLat) / 2];
+    if (cameraRef.current && mapLoaded && activeCoordinate) {
+      const targetChanged = target && target !== lastTargetRef.current;
+      if (activeDestination && (!hasInitializedCameraRef.current || targetChanged)) {
+        hasInitializedCameraRef.current = true;
+        lastTargetRef.current = target;
+        const [dLng, dLat] = activeCoordinate;
+        const [tLng, tLat] = activeDestination;
+        const center = [(dLng + tLng) / 2, (dLat + tLat) / 2];
+        try {
           cameraRef.current.flyTo({
             center,
             zoom: 13.8,
-            duration: 900,
+            duration: 800,
           });
-        } else if (activeCoordinate) {
+        } catch (e) {}
+      } else if (!hasInitializedCameraRef.current) {
+        hasInitializedCameraRef.current = true;
+        try {
           cameraRef.current.flyTo({
             center: activeCoordinate,
             zoom: 15.6,
-            duration: 1000,
+            duration: 800,
           });
-        }
-      } catch (err) {
-        // Safe fallback
+        } catch (e) {}
       }
     }
-  }, [activeCoordinate, pickupCoordinate, mapLoaded]);
+  }, [mapLoaded, activeDestination, target]);
 
   const handleRecenter = () => {
     if (cameraRef.current && activeCoordinate) {
       try {
-        if (pickupCoordinate) {
+        if (activeDestination) {
           const [dLng, dLat] = activeCoordinate;
-          const [pLng, pLat] = pickupCoordinate;
+          const [tLng, tLat] = activeDestination;
           cameraRef.current.flyTo({
-            center: [(dLng + pLng) / 2, (dLat + pLat) / 2],
+            center: [(dLng + tLng) / 2, (dLat + tLat) / 2],
             zoom: 14.0,
             duration: 800,
           });
@@ -194,15 +287,8 @@ export const DriverLiveMap = ({
       >
         <MapLibreCamera
           ref={cameraRef}
-          initialViewState={{
-            center: activeCoordinate,
-            zoom: 15.5,
-            pitch: 0,
-          }}
+          initialViewState={initialCameraState}
         />
-
-        {/* Native animated GPS Location Puck */}
-        <UserLocation animated={true} />
 
         {/* Driver Center Vehicle Marker */}
         {activeCoordinate && activeCoordinate.length === 2 && (
@@ -221,7 +307,7 @@ export const DriverLiveMap = ({
           </Marker>
         )}
 
-        {/* Active Route Layer connecting Driver -> Pickup -> Dropoff */}
+        {/* Active Route Layer connecting Driver to Destination */}
         {routeShape && (
           <RouteLayer
             id="driverActiveRoadRoute"
@@ -231,8 +317,8 @@ export const DriverLiveMap = ({
           />
         )}
 
-        {/* Pickup Pin if active request */}
-        {pickupCoordinate && pickupCoordinate.length === 2 && (
+        {/* Pickup Pin (only shown when heading to pickup, hidden once ON_TRIP) */}
+        {target !== 'drop' && pickupCoordinate && pickupCoordinate.length === 2 && (
           <Marker
             id="driverLivePickupMarker"
             lngLat={pickupCoordinate}

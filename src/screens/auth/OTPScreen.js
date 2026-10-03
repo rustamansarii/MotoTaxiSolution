@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ export const OTPScreen = ({ navigation, route }) => {
   const [code, setCode] = useState('');
   const [timer, setTimer] = useState(45);
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -75,9 +76,14 @@ export const OTPScreen = ({ navigation, route }) => {
           </Text>
 
         {/* OTP Input Boxes */}
-        <View style={styles.otpRow}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => inputRef.current?.focus()}
+          style={styles.otpRow}
+        >
           {[0, 1, 2, 3].map((index) => {
             const digit = code[index] || '';
+            const isActive = code.length === index;
             return (
               <View
                 key={index}
@@ -85,25 +91,28 @@ export const OTPScreen = ({ navigation, route }) => {
                   styles.otpBox,
                   { width: otpBoxSize, height: otpBoxSize },
                   digit ? styles.otpBoxFilled : null,
+                  isActive ? styles.otpBoxActive : null,
                 ]}
               >
                 <Text style={styles.otpText}>{digit}</Text>
               </View>
             );
           })}
-        </View>
+        </TouchableOpacity>
 
         {/* Hidden or direct input */}
         <KeyboardTextInput
+          ref={inputRef}
           id="auth-otp-input"
           value={code}
           onChangeText={(text) => {
-            if (text.length <= 4) setCode(text);
+            const num = text.replace(/[^0-9]/g, '');
+            if (num.length <= 4) setCode(num);
           }}
           keyboardType="number-pad"
           maxLength={4}
           style={styles.hiddenInput}
-          autoFocus
+          autoFocus={true}
         />
 
         {/* Resend Timer */}
@@ -195,6 +204,10 @@ const styles = StyleSheet.create({
   otpBoxFilled: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.white,
+  },
+  otpBoxActive: {
+    borderColor: COLORS.primaryDark,
+    backgroundColor: COLORS.primaryLight,
   },
   otpText: {
     ...TYPOGRAPHY.h2,

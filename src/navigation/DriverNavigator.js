@@ -20,6 +20,7 @@ import DriverTripCompletedScreen from '../screens/driver/DriverTripCompletedScre
 import DriverMapScreen from '../screens/driver/DriverMapScreen';
 import VehicleSetupScreen from '../screens/driver/VehicleSetupScreen';
 import DocumentUploadScreen from '../screens/driver/DocumentUploadScreen';
+import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -100,9 +101,11 @@ export const DriverNavigator = () => {
       <Stack.Screen name="RideRequest" component={RideRequestScreen} />
       <Stack.Screen name="DriverAcceptedRide" component={DriverAcceptedRideScreen} />
       <Stack.Screen name="DriverArrived" component={DriverArrivedScreen} />
+      <Stack.Screen name="DriverRideOtp" component={DriverArrivedScreen} />
       <Stack.Screen name="DriverTrip" component={DriverTripScreen} />
       <Stack.Screen name="DriverTripCompleted" component={DriverTripCompletedScreen} />
       <Stack.Screen name="DriverMap" component={DriverMapScreen} />
+      <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
       <Stack.Screen name="VehicleSetup" component={VehicleSetupScreen} />
       <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
     </Stack.Navigator>

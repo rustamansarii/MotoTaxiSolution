@@ -25,6 +25,11 @@ import {
   sendDriverLocationUpdate,
   clearActionNotices,
 } from '../../redux/features/driver/driverSlice';
+import {
+  getCurrentLocation,
+  watchLocation,
+  clearLocationWatch,
+} from '../../utils/locationService';
 
 export const DriverArrivedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -37,6 +42,9 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     actionError,
     actionLoading,
     activeRide,
+    currentLocation,
+    lastLocationAck,
+    distanceRemainingKm,
   } = useSelector((state) => state.driver);
 
   const rideId =
@@ -60,6 +68,15 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     activeRide?.rider_name ||
     activeRide?.passengerName ||
     'Rider';
+  const passengerRating =
+    route.params?.passengerRating ||
+    (activeRide?.rider_rating ? String(activeRide.rider_rating) : '4.95');
+  const passengerPhone =
+    route.params?.passengerPhone ||
+    activeRide?.rider_phone ||
+    activeRide?.phone ||
+    null;
+  const demoOtp = route.params?.otp || activeRide?.otp;
   const estimatedFare =
     route.params?.estimatedFare ??
     activeRide?.driver_payout ??
@@ -75,6 +92,11 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
       ? `${activeRide.distance_km} km`
       : '16.4 mi');
 
+  const vehicleType =
+    route.params?.vehicleType ||
+    activeRide?.vehicle_type ||
+    'CAR';
+
   const pickupCoords = useMemo(() => {
     if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
       return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
@@ -87,7 +109,8 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     return [76.7835809, 30.6948328];
   }, [route.params, activeRide]);
 
-  const dropCoords = useMemo(() => {
+  // Trip drop-off destination coordinates for starting the trip
+  const tripDestinationCoords = useMemo(() => {
     if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
       return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
     }
@@ -106,25 +129,82 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     return !isNaN(parsed) && parsed > 0 ? parsed : 91.56;
   }, [route.params, activeRide, tripDistance]);
 
-  const [waitTimer, setWaitTimer] = useState(300); // 5 mins in seconds
-  const [enteredPin, setEnteredPin] = useState('');
-  const inputRef = useRef(null);
+  // Live driver position: starts from route params, Redux ack/location, or pickupCoords
+  const [driverCoords, setDriverCoords] = useState(() => {
+    if (route.params?.driverCoordinates && route.params.driverCoordinates.length === 2) {
+      return [Number(route.params.driverCoordinates[0]), Number(route.params.driverCoordinates[1])];
+    }
+    const lat = lastLocationAck?.lat ?? currentLocation?.lat;
+    const lng = lastLocationAck?.lng ?? currentLocation?.lng;
+    if (lat && lng) {
+      return [Number(lng), Number(lat)];
+    }
+    return pickupCoords;
+  });
 
-  // Send periodic location heartbeat at pickup (every 10 seconds)
+  // Keep driver position synced when Redux location updates
   useEffect(() => {
-    const lat = pickupCoords[1];
-    const lng = pickupCoords[0];
+    const lat = lastLocationAck?.lat ?? currentLocation?.lat;
+    const lng = lastLocationAck?.lng ?? currentLocation?.lng;
+    if (lat && lng) {
+      setDriverCoords([Number(lng), Number(lat)]);
+    }
+  }, [lastLocationAck, currentLocation]);
+
+  // Live GPS tracking
+  useEffect(() => {
+    let watchId = null;
+    let isMounted = true;
+
+    getCurrentLocation()
+      .then((loc) => {
+        if (isMounted && loc?.longitude && loc?.latitude) {
+          setDriverCoords([loc.longitude, loc.latitude]);
+          dispatch(sendDriverLocationUpdate({ lat: loc.latitude, lng: loc.longitude }));
+        }
+      })
+      .catch((err) => console.warn('[DriverArrived] Initial GPS failed:', err));
+
+    watchLocation(
+      (loc) => {
+        if (isMounted && loc?.longitude && loc?.latitude) {
+          setDriverCoords([loc.longitude, loc.latitude]);
+        }
+      },
+      (err) => console.warn('[DriverArrived] Location watch error:', err)
+    ).then((id) => {
+      watchId = id;
+    });
+
+    return () => {
+      isMounted = false;
+      if (watchId !== null) {
+        clearLocationWatch(watchId);
+      }
+    };
+  }, [dispatch]);
+
+  // Periodic heartbeat: send driver position every 10 seconds
+  useEffect(() => {
     const interval = setInterval(() => {
+      const lat = driverCoords[1] || pickupCoords[1];
+      const lng = driverCoords[0] || pickupCoords[0];
       dispatch(sendDriverLocationUpdate({ lat, lng }));
     }, 10000);
     return () => clearInterval(interval);
-  }, [dispatch, pickupCoords]);
+  }, [dispatch, driverCoords, pickupCoords]);
+
+  // Elapsed wait time: begins counting UP from 00:00 upon driver arrival
+  const [elapsedWaitSeconds, setElapsedWaitSeconds] = useState(0);
+  const [enteredPin, setEnteredPin] = useState('');
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    if (waitTimer <= 0) return;
-    const interval = setInterval(() => setWaitTimer((sec) => sec - 1), 1000);
+    const interval = setInterval(() => {
+      setElapsedWaitSeconds((sec) => sec + 1);
+    }, 1000);
     return () => clearInterval(interval);
-  }, [waitTimer]);
+  }, []);
 
   // Listen for rider cancellation
   useEffect(() => {
@@ -139,6 +219,11 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     }
   }, [rideCancelledNotice, dispatch, navigation]);
 
+  const driverCoordsRef = useRef(driverCoords);
+  useEffect(() => {
+    driverCoordsRef.current = driverCoords;
+  }, [driverCoords]);
+
   const hasNavigatedRef = useRef(false);
 
   const navigateToTrip = useCallback(() => {
@@ -152,8 +237,14 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
       estimatedFare,
       currency,
       tripDistance,
+      vehicleType,
+      driverCoordinates: driverCoordsRef.current || driverCoords,
       pickupCoordinates: pickupCoords,
-      dropCoordinates: dropCoords,
+      dropCoordinates: tripDestinationCoords,
+      pickup_lat: pickupCoords?.[1],
+      pickup_lon: pickupCoords?.[0],
+      drop_lat: tripDestinationCoords?.[1],
+      drop_lon: tripDestinationCoords?.[0],
       distance_km: numDistanceKm,
     });
   }, [
@@ -164,8 +255,9 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     estimatedFare,
     currency,
     tripDistance,
+    vehicleType,
     pickupCoords,
-    dropCoords,
+    tripDestinationCoords,
     numDistanceKm,
     navigation,
   ]);
@@ -180,14 +272,16 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
   useEffect(() => {
     if (actionError) {
       Alert.alert('OTP Verification Failed', actionError);
+      setEnteredPin('');
       dispatch(clearActionNotices());
     }
   }, [actionError, dispatch]);
 
-  const formatWait = (sec) => {
-    const mins = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${mins}:${s < 10 ? '0' : ''}${s}`;
+  const formatTime = (sec) => {
+    const s = Math.max(0, Math.floor(sec || 0));
+    const mins = Math.floor(s / 60);
+    const remainder = s % 60;
+    return `${mins < 10 ? '0' : ''}${mins}:${remainder < 10 ? '0' : ''}${remainder}`;
   };
 
   const handleStartTrip = () => {
@@ -198,39 +292,39 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
     dispatch(driverStartTrip({ rideId, otp: enteredPin }));
   };
 
-  const handleKeypadPress = (val) => {
-    if (val === 'C') {
-      setEnteredPin('');
-    } else if (val === 'DEL') {
-      setEnteredPin((prev) => prev.slice(0, -1));
-    } else {
-      if (enteredPin.length < 4) {
-        setEnteredPin((prev) => prev + val);
-      }
-    }
-  };
-
   const mapPane = (
     <View style={isSplitLayout ? styles.mapAreaSplit : styles.mapArea}>
       <RidesRouteMap
         pickupCoords={pickupCoords}
-        dropCoords={dropCoords}
-        pickupLabel="Pickup (Arrived)"
-        destinationLabel={destination}
-        distanceKm={numDistanceKm}
+        dropCoords={pickupCoords}
+        driverCoords={driverCoords}
+        pickupLabel="Pick-up"
+        destinationLabel={passengerName ? `${passengerName} (Pickup)` : (pickup || 'Pickup Location')}
+        distanceKm={0.05}
+        isDriverEnRoute={true}
+        vehicleType={vehicleType || 'CAR'}
         style={{ flex: 1, width: '100%', height: '100%' }}
       />
 
-      {/* Floating Wait Timer */}
+      {/* Floating Back Button */}
+      <TouchableOpacity
+        style={[styles.floatingBackBtn, { top: Math.max(insets.top + 10, 30) }]}
+        onPress={() => navigation.goBack()}
+        activeOpacity={0.8}
+      >
+        <Icon name="arrow-back" size={20} color={COLORS.text} />
+      </TouchableOpacity>
+
+      {/* Floating Wait Timer Badge */}
       <View
         style={[
           styles.waitBadge,
           { top: Math.max(insets.top + 10, 30) },
         ]}
       >
-        <Icon name="clock" size={16} color={COLORS.primary} />
+        <Icon name="clock" size={15} color={COLORS.primary} />
         <Text style={styles.waitText}>
-          Waiting for rider: {formatWait(waitTimer)}
+          Arrived • Waiting: {formatTime(elapsedWaitSeconds)}
         </Text>
       </View>
     </View>
@@ -256,6 +350,61 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
         <Text style={styles.subtitle}>
           Ask {passengerName} for their 4-digit ride OTP (visible on their phone screen) before departing.
         </Text>
+
+        {/* Wait time & Free wait status strip */}
+        <View style={styles.statusBanner}>
+          <View style={styles.statusPill}>
+            <Icon name="clock" size={13} color={COLORS.primaryDark} />
+            <Text style={styles.statusPillText}>
+              Wait: {formatTime(elapsedWaitSeconds)}
+            </Text>
+          </View>
+          <View style={styles.freeWaitPill}>
+            <View style={styles.livePulseDot} />
+            <Text style={styles.freeWaitText}>
+              {elapsedWaitSeconds < 300
+                ? `Free wait: ${formatTime(300 - elapsedWaitSeconds)}`
+                : 'Wait fee active'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Passenger mini card with call and chat */}
+      <View style={styles.passengerCard}>
+        <View style={styles.passengerAvatar}>
+          <Text style={styles.avatarInitials}>
+            {passengerName.charAt(0)}
+          </Text>
+        </View>
+        <View style={styles.passengerDetails}>
+          <Text style={styles.passengerName}>{passengerName}</Text>
+          <View style={styles.ratingRow}>
+            <Icon name="star" size={12} color={COLORS.primary} />
+            <Text style={styles.ratingText}>{passengerRating}</Text>
+            <Text style={styles.paymentTag}>• In-App Paid</Text>
+          </View>
+        </View>
+
+        <View style={styles.contactActions}>
+          <TouchableOpacity
+            style={styles.contactBtn}
+            onPress={() =>
+              Alert.alert(
+                'Calling Rider',
+                passengerPhone ? `Calling ${passengerPhone}...` : `Dialing ${passengerName}...`
+              )
+            }
+          >
+            <Icon name="phone" size={18} color={COLORS.secondPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.contactBtn}
+            onPress={() => Alert.alert('Chat', `Open chat with ${passengerName}`)}
+          >
+            <Icon name="chat" size={18} color={COLORS.secondPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* OTP Inputs with Touch to Focus */}
@@ -283,54 +432,31 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
           })}
         </TouchableOpacity>
 
+        {demoOtp ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setEnteredPin(String(demoOtp))}
+            style={styles.demoOtpBadge}
+          >
+            <Icon name="key" size={12} color={COLORS.primary} />
+            <Text style={styles.demoOtpText}>Demo Rider OTP: {demoOtp} (Tap to fill)</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {/* Transparent keyboard input over the area */}
         <KeyboardTextInput
           ref={inputRef}
           id="driver-pin-input"
           value={enteredPin}
           onChangeText={(val) => {
-            if (val.length <= 4) setEnteredPin(val);
+            const num = val.replace(/[^0-9]/g, '');
+            if (num.length <= 4) setEnteredPin(num);
           }}
           keyboardType="number-pad"
           maxLength={4}
-          autoFocus={false}
+          autoFocus={true}
           style={styles.hiddenInput}
         />
-      </View>
-
-      {/* Large On-Screen Numeric Keypad for fast driver input */}
-      <View style={styles.keypadGrid}>
-        {[
-          ['1', '2', '3'],
-          ['4', '5', '6'],
-          ['7', '8', '9'],
-          ['C', '0', '⌫'],
-        ].map((row, rIdx) => (
-          <View key={rIdx} style={styles.keypadRow}>
-            {row.map((btn) => (
-              <TouchableOpacity
-                key={btn}
-                activeOpacity={0.7}
-                onPress={() =>
-                  handleKeypadPress(btn === '⌫' ? 'DEL' : btn)
-                }
-                style={[
-                  styles.keypadButton,
-                  (btn === 'C' || btn === '⌫') && styles.keypadSpecial,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.keypadText,
-                    (btn === 'C' || btn === '⌫') && styles.keypadSpecialText,
-                  ]}
-                >
-                  {btn}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
       </View>
 
       {/* Start Trip CTA */}
@@ -338,7 +464,7 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
         title={t('driver.startTrip', 'START TRIP').toUpperCase()}
         onPress={handleStartTrip}
         loading={actionLoading}
-        disabled={enteredPin.length < 4}
+        disabled={enteredPin.length < 4 || actionLoading}
         variant="primary"
         icon="navigation"
         iconPosition="right"
@@ -376,10 +502,29 @@ const styles = StyleSheet.create({
     height: '100%',
     position: 'relative',
   },
+  floatingBackBtn: {
+    position: 'absolute',
+    left: SPACING.md,
+    top: 50,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 10,
+  },
   waitBadge: {
     position: 'absolute',
     top: 50,
-    alignSelf: 'center',
+    right: SPACING.md,
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.round,
     paddingHorizontal: SPACING.md,
@@ -393,6 +538,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 4,
+    zIndex: 10,
   },
   waitText: {
     ...TYPOGRAPHY.caption,
@@ -434,6 +580,50 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     lineHeight: 18,
     paddingHorizontal: SPACING.sm,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statusPillText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    marginLeft: 5,
+  },
+  freeWaitPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 5,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  livePulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#2E7D32',
+    marginRight: 5,
+  },
+  freeWaitText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: '#2E7D32',
   },
   pinSection: {
     alignItems: 'center',
@@ -480,43 +670,94 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  keypadGrid: {
+  startBtn: {
     width: '100%',
     maxWidth: 320,
-    marginVertical: SPACING.sm,
+    marginTop: SPACING.md,
   },
-  keypadRow: {
+  passengerCard: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
-  },
-  keypadButton: {
-    flex: 1,
-    height: 44,
-    marginHorizontal: 4,
-    borderRadius: RADIUS.medium,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
     backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.large,
+    padding: SPACING.sm,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  passengerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.secondPrimaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  avatarInitials: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.secondPrimaryDark,
+  },
+  passengerDetails: {
+    flex: 1,
+  },
+  passengerName: {
+    ...TYPOGRAPHY.bodyMedium,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 4,
+  },
+  ratingText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.text,
+    fontSize: 11,
+  },
+  paymentTag: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    fontSize: 11,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  contactBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  keypadSpecial: {
-    backgroundColor: COLORS.cardBackground,
-  },
-  keypadText: {
-    ...TYPOGRAPHY.bodyLarge,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  keypadSpecialText: {
-    color: COLORS.primaryDark,
-    fontWeight: '800',
-  },
-  startBtn: {
-    width: '100%',
-    maxWidth: 320,
+  demoOtpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+    borderWidth: 1,
+    borderRadius: RADIUS.round,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 5,
     marginTop: SPACING.xs,
+    gap: 6,
+  },
+  demoOtpText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    fontSize: 11,
   },
 });
 

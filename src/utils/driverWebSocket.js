@@ -271,11 +271,13 @@ class DriverWebSocketService {
    * Complete trip:
    * {"type": "complete_trip", "ride_id": 1}
    * @param {number|string} rideId
+   * @param {Object} [extraPayload]
    */
-  completeTrip(rideId) {
+  completeTrip(rideId, extraPayload = {}) {
     return this.sendMessage({
       type: 'complete_trip',
       ride_id: Number(rideId),
+      ...extraPayload,
     });
   }
 

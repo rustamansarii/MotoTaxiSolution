@@ -144,9 +144,19 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const onFocus = useCallback((id: string, initialValue: string, initialSelection: { start: number; end: number }) => {
+    activeInputIdRef.current = id;
+    const safeVal = typeof initialValue === 'string' ? initialValue : '';
+    valueRef.current = safeVal;
+    const valLen = safeVal.length;
+    const safeSel = {
+      start: Math.max(0, Math.min(initialSelection?.start ?? valLen, valLen)),
+      end: Math.max(0, Math.min(initialSelection?.end ?? valLen, valLen)),
+    };
+    selectionRef.current = safeSel;
+
     setActiveInputId(id);
-    setValue(initialValue);
-    setSelection(initialSelection);
+    setValue(safeVal);
+    setSelection(safeSel);
     setKeyboardVisible(true);
 
     const input = inputsRef.current[id];
@@ -168,13 +178,25 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const onSelectionChange = useCallback((id: string, newSelection: { start: number; end: number }) => {
     if (activeInputIdRef.current === id) {
-      setSelection(newSelection);
+      const valLen = valueRef.current ? valueRef.current.length : 0;
+      const safeSel = {
+        start: Math.max(0, Math.min(newSelection.start, valLen)),
+        end: Math.max(0, Math.min(newSelection.end, valLen)),
+      };
+      selectionRef.current = safeSel;
+      setSelection(safeSel);
     }
   }, []);
 
   const onValueChange = useCallback((id: string, newValue: string) => {
     if (activeInputIdRef.current === id) {
-      setValue(newValue);
+      const safeVal = typeof newValue === 'string' ? newValue : '';
+      valueRef.current = safeVal;
+      const valLen = safeVal.length;
+      const safeSel = { start: valLen, end: valLen };
+      selectionRef.current = safeSel;
+      setValue(safeVal);
+      setSelection(safeSel);
     }
   }, []);
 
@@ -205,8 +227,12 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const input = inputsRef.current[activeId];
     if (!input) return;
 
-    const val = valueRef.current;
-    const sel = selectionRef.current;
+    const rawVal = valueRef.current;
+    const val = typeof rawVal === 'string' ? rawVal : '';
+    const rawSel = selectionRef.current;
+    const valLen = val.length;
+    const start = Math.max(0, Math.min(rawSel?.start ?? valLen, valLen));
+    const end = Math.max(0, Math.min(rawSel?.end ?? valLen, valLen));
     const isShift = isShiftActiveRef.current;
     const isCaps = isCapsLockRef.current;
     const keyboardLang = keyboardLanguageRef.current;
@@ -214,8 +240,6 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     switch (key.action) {
       case 'char': {
         const charToInsert = key.value !== undefined ? key.value : key.label;
-        const start = sel.start;
-        const end = sel.end;
         
         if (input.maxLength !== undefined && input.maxLength !== null) {
           const lengthDiff = charToInsert.length - (end - start);
@@ -245,9 +269,6 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         break;
       }
       case 'space': {
-        const start = sel.start;
-        const end = sel.end;
-
         if (input.maxLength !== undefined && input.maxLength !== null) {
           const lengthDiff = 1 - (end - start);
           if (val.length + lengthDiff > input.maxLength) {
@@ -269,8 +290,6 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         break;
       }
       case 'backspace': {
-        const start = sel.start;
-        const end = sel.end;
         let newValue = val;
         let newSelection = { start, end };
 

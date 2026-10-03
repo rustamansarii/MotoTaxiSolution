@@ -20,25 +20,27 @@ const getZoomForDistance = (distKm) => {
   const d = Number(distKm) || 10;
   if (d > 300) return 6.5;
   if (d > 150) return 7.5;
-  if (d > 80) return 8.6; // ~92 km (Chandigarh to Ludhiana)
+  if (d > 80) return 8.6;
   if (d > 40) return 9.6;
   if (d > 20) return 10.8;
   if (d > 10) return 11.8;
   if (d > 5) return 12.8;
   if (d > 2) return 13.8;
-  return 14.8;
+  if (d > 0.5) return 14.8;
+  return 15.6;
 };
 
 /**
  * Generates an interpolated multi-point road curve fallback
  */
 const generateFallbackRoute = (pickup, drop) => {
+  if (!pickup || !drop || pickup.length < 2 || drop.length < 2) return null;
   const coords = [];
   const steps = 14;
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     const lng = pickup[0] + (drop[0] - pickup[0]) * t;
-    const latCurve = Math.sin(t * Math.PI) * 0.015;
+    const latCurve = Math.sin(t * Math.PI) * 0.012;
     const lat = pickup[1] + (drop[1] - pickup[1]) * t + latCurve;
     coords.push([lng, lat]);
   }
@@ -54,28 +56,50 @@ const generateFallbackRoute = (pickup, drop) => {
 
 /**
  * RidesRouteMap
- * Clean, modern MapLibre interactive map showing:
- * - High-res OpenStreetMap street tiles (free, no API key)
- * - Active road route connecting pickup and dropoff
- * - Minimal, elegant pickup and dropoff markers
- * - Floating thumb-friendly recenter control
+ * Rock-solid MapLibre interactive map:
+ * - Stable, non-reloading background map with persistent road polyline
+ * - Real-time smooth driver vehicle marker updates without reloading tiles or camera
+ * - Immediate fallback curve route on frame 0 (never shows blank or reloading states)
+ * - Single-pass background OSRM route fetch that never cancels on driver movement
  */
-export const RidesRouteMap = ({
-  pickupCoords = [76.7834118, 30.6946309], // [longitude, latitude]
-  dropCoords = [75.851601, 30.9090157], // [longitude, latitude]
+const RidesRouteMapComponent = ({
+  pickupCoords = [76.7834118, 30.6946309], // [longitude, latitude] Start/Pickup
+  dropCoords = [75.851601, 30.9090157], // [longitude, latitude] Destination
+  driverCoords = null, // [longitude, latitude] Live driver GPS position
   pickupLabel = 'Pick-up',
   destinationLabel = 'Drop-off',
   distanceKm = 92.1,
   style,
+  isDriverEnRoute = false,
+  vehicleType = 'CAR',
+  focusOnStart = false,
 }) => {
   const cameraRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [hasMapError, setHasMapError] = useState(false);
-  const [routeShape, setRouteShape] = useState(null);
-  const [isLoadingRoute, setIsLoadingRoute] = useState(true);
+
+  // Live driver vehicle coordinates: moves smoothly across the screen on top of the map
+  const liveVehicleCoords = useMemo(() => {
+    if (driverCoords && driverCoords.length === 2 && !isNaN(driverCoords[0]) && !isNaN(driverCoords[1])) {
+      return [Number(driverCoords[0]), Number(driverCoords[1])];
+    }
+    if (pickupCoords && pickupCoords.length === 2 && !isNaN(pickupCoords[0]) && !isNaN(pickupCoords[1])) {
+      return [Number(pickupCoords[0]), Number(pickupCoords[1])];
+    }
+    return [76.7834, 30.6948];
+  }, [driverCoords, pickupCoords]);
+
+  // Synchronously initialize route immediately on mount so road path is NEVER null!
+  const [routeShape, setRouteShape] = useState(() => {
+    if (pickupCoords && dropCoords && pickupCoords.length === 2 && dropCoords.length === 2) {
+      return generateFallbackRoute(pickupCoords, dropCoords);
+    }
+    return null;
+  });
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
   // Center coordinate between pickup & dropoff
-  const centerCoord = useMemo(() => {
+  const routeCenterCoord = useMemo(() => {
     return [
       (pickupCoords[0] + dropCoords[0]) / 2,
       (pickupCoords[1] + dropCoords[1]) / 2,
@@ -86,29 +110,58 @@ export const RidesRouteMap = ({
     return getZoomForDistance(distanceKm);
   }, [distanceKm]);
 
-  // Fetch real road route from OSRM
+  // Frozen initial camera state: when focusOnStart is true, starts focused directly on vehicle / starting position
+  const initialCameraState = useMemo(() => {
+    if (focusOnStart) {
+      return {
+        center: liveVehicleCoords,
+        zoom: 16.2,
+        pitch: 0,
+      };
+    }
+    return {
+      center: routeCenterCoord,
+      zoom: initialZoom,
+      pitch: 0,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const routeOriginRef = useRef(pickupCoords);
+  const routeDestRef = useRef(dropCoords);
+  const hasFetchedOsrmRef = useRef(false);
+
+  // Fetch turn-by-turn road route from OSRM ONCE in background.
+  // Note: Only triggers if destination dropCoords changes. Driver movement alone does NOT re-trigger!
   useEffect(() => {
-    let isCancelled = false;
-    setIsLoadingRoute(true);
+    if (!dropCoords || dropCoords.length < 2) return;
 
-    const fetchRoute = async () => {
-      try {
-        const [pLng, pLat] = pickupCoords;
-        const [dLng, dLat] = dropCoords;
-        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pLng},${pLat};${dLng},${dLat}?overview=full&geometries=geojson`;
+    const [dLng, dLat] = dropCoords;
+    const prevDest = routeDestRef.current;
+    const destChanged =
+      !prevDest ||
+      Math.abs(prevDest[0] - dLng) > 0.0003 ||
+      Math.abs(prevDest[1] - dLat) > 0.0003;
 
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
+    if (hasFetchedOsrmRef.current && !destChanged) {
+      return;
+    }
 
-        const res = await fetch(osrmUrl, { signal: controller.signal });
+    hasFetchedOsrmRef.current = true;
+    routeDestRef.current = dropCoords;
+
+    const [origLng, origLat] = routeOriginRef.current || pickupCoords;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origLng},${origLat};${dLng},${dLat}?overview=full&geometries=geojson`;
+
+    fetch(osrmUrl, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((data) => {
         clearTimeout(timer);
-
-        const data = await res.json();
-        if (
-          !isCancelled &&
-          data?.code === 'Ok' &&
-          data.routes?.[0]?.geometry?.coordinates?.length > 0
-        ) {
+        if (data?.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates?.length > 0) {
           setRouteShape({
             type: 'Feature',
             properties: {},
@@ -117,29 +170,39 @@ export const RidesRouteMap = ({
               coordinates: data.routes[0].geometry.coordinates,
             },
           });
-          setIsLoadingRoute(false);
-          return;
         }
-      } catch (err) {
-        // Fallback below
-      }
-
-      if (!isCancelled) {
-        setRouteShape(generateFallbackRoute(pickupCoords, dropCoords));
+      })
+      .catch(() => {
+        // Fallback curve route is already painted
+      })
+      .finally(() => {
         setIsLoadingRoute(false);
-      }
-    };
-
-    fetchRoute();
+      });
 
     return () => {
-      isCancelled = true;
+      clearTimeout(timer);
     };
-  }, [pickupCoords, dropCoords]);
+  }, [dropCoords]);
 
   // Fit camera bounds to show entire route
   const handleFitRoute = useCallback(() => {
     if (!cameraRef.current) return;
+
+    const lngDiff = Math.abs(pickupCoords[0] - dropCoords[0]);
+    const latDiff = Math.abs(pickupCoords[1] - dropCoords[1]);
+
+    if (lngDiff < 0.002 && latDiff < 0.002) {
+      try {
+        if (cameraRef.current.flyTo) {
+          cameraRef.current.flyTo({
+            center: routeCenterCoord,
+            zoom: initialZoom || 15.6,
+            duration: 800,
+          });
+          return;
+        }
+      } catch (_) {}
+    }
 
     const minLng = Math.min(pickupCoords[0], dropCoords[0]);
     const maxLng = Math.max(pickupCoords[0], dropCoords[0]);
@@ -154,52 +217,73 @@ export const RidesRouteMap = ({
           { top: 60, bottom: 40, left: 50, right: 50 },
           1000
         );
-      } else if (cameraRef.current.setStop) {
-        cameraRef.current.setStop({
-          bounds: {
-            ne: [maxLng, maxLat],
-            sw: [minLng, minLat],
-            paddingLeft: 50,
-            paddingRight: 50,
-            paddingTop: 60,
-            paddingBottom: 40,
-          },
-          duration: 1000,
+      } else if (cameraRef.current.flyTo) {
+        cameraRef.current.flyTo({
+          center: routeCenterCoord,
+          zoom: initialZoom,
+          duration: 800,
         });
       }
-    } catch (e) {
-      try {
-        if (cameraRef.current.flyTo) {
-          cameraRef.current.flyTo({
-            center: centerCoord,
-            zoom: initialZoom,
-            duration: 800,
-          });
-        }
-      } catch (_) {}
-    }
-  }, [pickupCoords, dropCoords, centerCoord, initialZoom]);
+    } catch (_) {}
+  }, [pickupCoords, dropCoords, routeCenterCoord, initialZoom]);
 
-  // Re-fit when map finishes loading
+  // Recenter camera directly on live vehicle / starting location
+  const handleRecenterVehicle = useCallback(() => {
+    if (!cameraRef.current) return;
+    try {
+      if (cameraRef.current.flyTo) {
+        cameraRef.current.flyTo({
+          center: liveVehicleCoords,
+          zoom: 16.2,
+          duration: 600,
+        });
+      }
+    } catch (_) {}
+  }, [liveVehicleCoords]);
+
+  // Handle map load: if focusOnStart is true, stays centered on starting location at zoom 16.2
+  const hasFittedInitialRouteRef = useRef(false);
   const handleMapLoaded = useCallback(() => {
     setMapLoaded(true);
-    setTimeout(() => {
-      handleFitRoute();
-    }, 400);
-  }, [handleFitRoute]);
+    if (!hasFittedInitialRouteRef.current) {
+      hasFittedInitialRouteRef.current = true;
+      if (!focusOnStart) {
+        setTimeout(() => {
+          handleFitRoute();
+        }, 400);
+      } else {
+        try {
+          if (cameraRef.current?.flyTo) {
+            cameraRef.current.flyTo({
+              center: liveVehicleCoords,
+              zoom: 16.2,
+              duration: 350,
+            });
+          }
+        } catch (_) {}
+      }
+    }
+  }, [focusOnStart, handleFitRoute, liveVehicleCoords]);
 
   // Clean, short label extraction
   const cleanPickup = useMemo(() => {
-    if (!pickupLabel) return 'Pick-up';
+    if (!pickupLabel) return isDriverEnRoute ? 'Driver' : 'Pick-up';
     const first = pickupLabel.split(',')[0].trim();
     return first.length > 18 ? `${first.substring(0, 16)}...` : first;
-  }, [pickupLabel]);
+  }, [pickupLabel, isDriverEnRoute]);
 
   const cleanDrop = useMemo(() => {
-    if (!destinationLabel) return 'Drop-off';
-    const first = destinationLabel.split(',')[0].trim();
-    return first.length > 18 ? `${first.substring(0, 16)}...` : first;
-  }, [destinationLabel]);
+    if (!destinationLabel) return isDriverEnRoute ? 'Rider (Pickup)' : 'Drop-off';
+    const hasPickupSuffix = destinationLabel.toLowerCase().includes('(pickup)');
+    const base = destinationLabel.replace(/\s*\(pickup\)/gi, '').split(',')[0].trim();
+    if (hasPickupSuffix || isDriverEnRoute) {
+      if (!base || base.toLowerCase() === 'rider') return 'Rider (Pickup)';
+      if (base.toLowerCase() === 'pickup' || base.toLowerCase() === 'pick-up') return 'Pickup';
+      const shortBase = base.length > 13 ? `${base.substring(0, 11)}...` : base;
+      return `${shortBase} (Pickup)`;
+    }
+    return base.length > 18 ? `${base.substring(0, 16)}...` : base;
+  }, [destinationLabel, isDriverEnRoute]);
 
   // Graceful fallback to MapPlaceholder if native map fails
   if (hasMapError) {
@@ -234,14 +318,10 @@ export const RidesRouteMap = ({
       >
         <MapLibreCamera
           ref={cameraRef}
-          initialViewState={{
-            center: centerCoord,
-            zoom: initialZoom,
-            pitch: 0,
-          }}
+          initialViewState={initialCameraState}
         />
 
-        {/* Active Road Route Layer */}
+        {/* Stable Road Route Layer in background */}
         {routeShape && (
           <RouteLayer
             id="activeRideRoadRoute"
@@ -251,30 +331,64 @@ export const RidesRouteMap = ({
           />
         )}
 
-        {/* Pickup Pin Marker */}
-        {pickupCoords && pickupCoords.length === 2 && (
-          <Marker
-            id="pickupLocationPin"
-            lngLat={pickupCoords}
-            coordinate={pickupCoords}
-            anchor="bottom"
-          >
-            <View style={styles.markerContainer}>
-              <View style={styles.pickupPill}>
-                <View style={styles.pickupPillDot} />
-                <Text numberOfLines={1} style={styles.pickupPillText}>
-                  {cleanPickup}
-                </Text>
+        {/* Driver / Pickup Marker: Smooth real-time coordinate tracking */}
+        {isDriverEnRoute ? (
+          liveVehicleCoords && liveVehicleCoords.length === 2 && (
+            <Marker
+              id="driverLiveVehiclePin"
+              lngLat={liveVehicleCoords}
+              coordinate={liveVehicleCoords}
+              anchor="center"
+            >
+              <View style={styles.markerContainer}>
+                <View style={styles.pickupPill}>
+                  <View style={[styles.pickupPillDot, { backgroundColor: COLORS.secondPrimary }]} />
+                  <Text numberOfLines={1} style={styles.pickupPillText}>
+                    {cleanPickup}
+                  </Text>
+                </View>
+                <View style={styles.driverPinCircle}>
+                  <Icon
+                    name={
+                      vehicleType === 'BIKE'
+                        ? 'car'
+                        : vehicleType === 'AUTO'
+                        ? 'navigation'
+                        : 'car'
+                    }
+                    size={13}
+                    color={COLORS.white}
+                  />
+                </View>
+                <View style={styles.driverPinTip} />
               </View>
-              <View style={styles.pickupPinCircle}>
-                <View style={styles.pickupPinInnerDot} />
+            </Marker>
+          )
+        ) : (
+          pickupCoords && pickupCoords.length === 2 && (
+            <Marker
+              id="pickupLocationPin"
+              lngLat={pickupCoords}
+              coordinate={pickupCoords}
+              anchor="bottom"
+            >
+              <View style={styles.markerContainer}>
+                <View style={styles.pickupPill}>
+                  <View style={styles.pickupPillDot} />
+                  <Text numberOfLines={1} style={styles.pickupPillText}>
+                    {cleanPickup}
+                  </Text>
+                </View>
+                <View style={styles.pickupPinCircle}>
+                  <View style={styles.pickupPinInnerDot} />
+                </View>
+                <View style={styles.pickupPinTip} />
               </View>
-              <View style={styles.pickupPinTip} />
-            </View>
-          </Marker>
+            </Marker>
+          )
         )}
 
-        {/* Destination / Drop Pin Marker */}
+        {/* Destination / Rider Pickup Pin Marker */}
         {dropCoords && dropCoords.length === 2 && (
           <Marker
             id="dropLocationPin"
@@ -284,35 +398,61 @@ export const RidesRouteMap = ({
           >
             <View style={styles.markerContainer}>
               <View style={styles.dropPill}>
+                {isDriverEnRoute && <View style={styles.pickupPillDot} />}
                 <Text numberOfLines={1} style={styles.dropPillText}>
                   {cleanDrop}
                 </Text>
               </View>
-              <View style={styles.dropPinCircle}>
-                <Icon name="flag" size={12} color={COLORS.white} />
-              </View>
-              <View style={styles.dropPinTip} />
+              {isDriverEnRoute ? (
+                <>
+                  <View style={styles.pickupPinCircle}>
+                    <View style={styles.pickupPinInnerDot} />
+                  </View>
+                  <View style={styles.pickupPinTip} />
+                </>
+              ) : (
+                <>
+                  <View style={styles.dropPinCircle}>
+                    <Icon name="flag" size={12} color={COLORS.white} />
+                  </View>
+                  <View style={styles.dropPinTip} />
+                </>
+              )}
             </View>
           </Marker>
         )}
       </MapLibreMap>
 
-      {/* Route Loading Badge (compact top chip) */}
-      {isLoadingRoute && (
+      {/* Route Loading Badge (only shown before initial route exists) */}
+      {isLoadingRoute && !routeShape && (
         <View style={styles.routeLoadingBadge}>
           <ActivityIndicator size="small" color={COLORS.secondPrimary} style={{ marginRight: 6 }} />
           <Text style={styles.routeLoadingText}>Drawing road path...</Text>
         </View>
       )}
 
-      {/* Recenter / Fit Full Route Control (bottom-right thumb friendly) */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={handleFitRoute}
-        style={styles.fitRouteBtn}
-      >
-        <Icon name="navigation" size={17} color={COLORS.primary} />
-      </TouchableOpacity>
+      {/* Floating Map Controls: Recenter on Vehicle + View Full Route */}
+      <View style={styles.mapControlsContainer}>
+        {/* Fit Entire Route Button */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleFitRoute}
+          style={styles.mapControlBtn}
+          accessibilityLabel="View full route overview"
+        >
+          <Icon name="map" size={17} color={COLORS.primary || '#0F172A'} />
+        </TouchableOpacity>
+
+        {/* Recenter on Vehicle / Starting Location Button */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleRecenterVehicle}
+          style={[styles.mapControlBtn, styles.recenterBtn]}
+          accessibilityLabel="Recenter on starting location"
+        >
+          <Icon name="navigation" size={16} color={COLORS.white} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -389,12 +529,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   dropPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#0F172A',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: RADIUS.round,
     marginBottom: 4,
-    maxWidth: 130,
+    maxWidth: 160,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -432,10 +574,40 @@ const styles = StyleSheet.create({
     borderTopColor: '#0F172A',
     alignSelf: 'center',
   },
-  fitRouteBtn: {
+  driverPinCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.secondPrimary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  driverPinTip: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 3,
+    borderRightWidth: 3,
+    borderTopWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#0F172A',
+    alignSelf: 'center',
+  },
+  mapControlsContainer: {
     position: 'absolute',
     right: 14,
     bottom: 14,
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  mapControlBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
@@ -449,6 +621,12 @@ const styles = StyleSheet.create({
     elevation: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    marginBottom: 8,
+  },
+  recenterBtn: {
+    backgroundColor: COLORS.primary || '#0F172A',
+    borderColor: 'transparent',
+    marginBottom: 0,
   },
   routeLoadingBadge: {
     position: 'absolute',
@@ -472,5 +650,40 @@ const styles = StyleSheet.create({
     color: COLORS.secondPrimary,
   },
 });
+
+const areCoordinatesClose = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return Math.abs(a[0] - b[0]) < 0.00003 && Math.abs(a[1] - b[1]) < 0.00003;
+};
+
+export const RidesRouteMap = React.memo(
+  RidesRouteMapComponent,
+  (prevProps, nextProps) => {
+    // If live vehicle coordinates moved meaningfully (> ~3m), re-render so Marker moves
+    if (!areCoordinatesClose(prevProps.driverCoords, nextProps.driverCoords)) {
+      return false; // re-render
+    }
+    // If route pickup or drop coordinates changed
+    if (!areCoordinatesClose(prevProps.pickupCoords, nextProps.pickupCoords)) {
+      return false; // re-render
+    }
+    if (!areCoordinatesClose(prevProps.dropCoords, nextProps.dropCoords)) {
+      return false; // re-render
+    }
+    // If labels, mode, vehicle type, or focusOnStart changed
+    if (
+      prevProps.pickupLabel !== nextProps.pickupLabel ||
+      prevProps.destinationLabel !== nextProps.destinationLabel ||
+      prevProps.vehicleType !== nextProps.vehicleType ||
+      prevProps.isDriverEnRoute !== nextProps.isDriverEnRoute ||
+      prevProps.focusOnStart !== nextProps.focusOnStart
+    ) {
+      return false; // re-render
+    }
+    // Micro-changes in distance or re-created array instances do NOT reload the map!
+    return true; // skip re-render
+  }
+);
 
 export default RidesRouteMap;

@@ -37,6 +37,8 @@ const ICON_MAP = {
   'my-location': { family: 'MaterialIcons', name: 'my-location' },
   'gps': { family: 'MaterialIcons', name: 'my-location' },
   'map-pin': { family: 'Ionicons', name: 'location-sharp' },
+  'map': { family: 'Ionicons', name: 'map-outline' },
+  'map-outline': { family: 'Ionicons', name: 'map-outline' },
   'flag': { family: 'Ionicons', name: 'flag' },
   'more-vertical': { family: 'Ionicons', name: 'ellipsis-vertical' },
   'dots-vertical': { family: 'Ionicons', name: 'ellipsis-vertical' },
@@ -79,8 +81,15 @@ const ICON_MAP = {
   // Finance & Payments
   'wallet': { family: 'Ionicons', name: 'wallet' },
   'card': { family: 'Ionicons', name: 'card' },
-  'cash': { family: 'Ionicons', name: 'cash' },
+  'credit-card': { family: 'Ionicons', name: 'card-outline' },
+  'cash': { family: 'Ionicons', name: 'cash-outline' },
+  'cash-solid': { family: 'Ionicons', name: 'cash' },
   'dollar-sign': { family: 'Ionicons', name: 'cash' },
+  'qr-code': { family: 'Ionicons', name: 'qr-code-outline' },
+  'qr': { family: 'Ionicons', name: 'qr-code' },
+  'scan': { family: 'Ionicons', name: 'scan-outline' },
+  'phone-portrait': { family: 'Ionicons', name: 'phone-portrait-outline' },
+  'cellphone': { family: 'MaterialCommunityIcons', name: 'cellphone' },
 
   // Actions & Controls
   'check': { family: 'Ionicons', name: 'checkmark' },

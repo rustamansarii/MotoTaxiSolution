@@ -22,6 +22,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { MOCK_DRIVER_STATS, ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
+import { fetchUserProfile } from '../../redux/features/auth/authSlice';
 import {
   getCurrentLocation,
   watchLocation,
@@ -37,6 +38,8 @@ import {
   clearIncomingRideRequest,
   clearActionNotices,
   handleIncomingSocketMessage,
+  fetchDriverWallet,
+  fetchDriverWalletSummary,
 } from '../../redux/features/driver/driverSlice';
 
 export const DriverHomeScreen = ({ navigation }) => {
@@ -55,9 +58,74 @@ export const DriverHomeScreen = ({ navigation }) => {
     actionLoading,
     currentLocation,
     lastLocationAck,
+    distanceRemainingKm,
+    etaMin,
+    target,
     rideTakenNotice,
+    wallet,
+    walletSummary,
   } = useSelector((state) => state.driver);
   const authUser = useSelector((state) => state.auth?.user);
+
+  const driverDisplayName = useMemo(() => {
+    const raw =
+      authUser?.full_name ||
+      (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
+      authUser?.name;
+    if (raw) {
+      return raw
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+    }
+    return ACTIVE_MOCK_DRIVER.name;
+  }, [authUser]);
+
+  const driverRating = useMemo(() => {
+    return (
+      authUser?.driver_profile?.rating_avg ||
+      authUser?.rider_profile?.rating_avg ||
+      authUser?.rating ||
+      ACTIVE_MOCK_DRIVER.rating
+    );
+  }, [authUser]);
+
+  const hasActiveDriverRide = Boolean(
+    activeRide &&
+    (rideStatus === 'accepted' || rideStatus === 'arrived' || rideStatus === 'in_progress')
+  );
+
+  const activeDropCoords = useMemo(() => {
+    if (!activeRide) return null;
+    const lng =
+      activeRide.drop_lon ??
+      activeRide.drop?.lng ??
+      activeRide.drop?.lon ??
+      activeRide.drop_longitude ??
+      activeRide.destination_lon;
+    const lat =
+      activeRide.drop_lat ??
+      activeRide.drop?.lat ??
+      activeRide.drop_latitude ??
+      activeRide.destination_lat;
+    if (lng && lat) return [Number(lng), Number(lat)];
+    return null;
+  }, [activeRide]);
+
+  const activePickupCoords = useMemo(() => {
+    if (!activeRide) return null;
+    const lng =
+      activeRide.pickup_lon ??
+      activeRide.pickup?.lng ??
+      activeRide.pickup?.lon ??
+      activeRide.pickup_longitude;
+    const lat =
+      activeRide.pickup_lat ??
+      activeRide.pickup?.lat ??
+      activeRide.pickup_latitude;
+    if (lng && lat) return [Number(lng), Number(lat)];
+    return null;
+  }, [activeRide]);
 
   // Driver GPS coordinates [longitude, latitude]
   const [driverLocation, setDriverLocation] = useState([
@@ -67,6 +135,7 @@ export const DriverHomeScreen = ({ navigation }) => {
   const [driverHeading, setDriverHeading] = useState(45);
   const [requestCountdown, setRequestCountdown] = useState(15);
   const handledRideIdRef = useRef(null);
+  const navigatedRideIdRef = useRef(null);
   const driverLocationRef = useRef(driverLocation);
 
   useEffect(() => {
@@ -88,7 +157,18 @@ export const DriverHomeScreen = ({ navigation }) => {
   useEffect(() => {
     if (lastLocationAck?.lat && lastLocationAck?.lng) {
       console.log('[DriverHome] Real-time location_ack received from server:', lastLocationAck);
-      setDriverLocation([Number(lastLocationAck.lng), Number(lastLocationAck.lat)]);
+      const newLng = Number(lastLocationAck.lng);
+      const newLat = Number(lastLocationAck.lat);
+      setDriverLocation((prev) => {
+        if (
+          prev &&
+          Math.abs(prev[0] - newLng) < 0.00002 &&
+          Math.abs(prev[1] - newLat) < 0.00002
+        ) {
+          return prev;
+        }
+        return [newLng, newLat];
+      });
     }
   }, [lastLocationAck]);
 
@@ -130,6 +210,13 @@ export const DriverHomeScreen = ({ navigation }) => {
       }
     };
   }, []);
+
+  // Fetch user profile from /api/v1/auth/profile/, wallet and summary on mount
+  useEffect(() => {
+    dispatch(fetchUserProfile());
+    dispatch(fetchDriverWallet());
+    dispatch(fetchDriverWalletSummary());
+  }, [dispatch]);
 
   const handleRecenterLocation = useCallback(async () => {
     try {
@@ -203,8 +290,17 @@ export const DriverHomeScreen = ({ navigation }) => {
           vehicleType: req.vehicle_type || 'CAR',
           pickupCoordinates:
             req.pickup_lat && req.pickup_lon
-              ? [req.pickup_lon, req.pickup_lat]
+              ? [Number(req.pickup_lon), Number(req.pickup_lat)]
               : [curLoc[0] + 0.003, curLoc[1] + 0.002],
+          dropCoordinates:
+            req.drop_lat && req.drop_lon
+              ? [Number(req.drop_lon), Number(req.drop_lat)]
+              : undefined,
+          pickup_lat: req.pickup_lat,
+          pickup_lon: req.pickup_lon,
+          drop_lat: req.drop_lat,
+          drop_lon: req.drop_lon,
+          distance_km: req.distance_km,
           driverCoordinates: curLoc,
         };
 
@@ -249,9 +345,14 @@ export const DriverHomeScreen = ({ navigation }) => {
     return () => clearInterval(timer);
   }, [incomingRideRequest, requestCountdown, dispatch]);
 
-  // Transition to accepted screen when ride status changes to accepted
+  // Transition to accepted screen when ride status changes to accepted (first time only)
   useEffect(() => {
-    if (rideStatus === 'accepted' && activeRide) {
+    if (rideStatus === 'accepted' && activeRide && activeRide.ride_id) {
+      if (navigatedRideIdRef.current === activeRide.ride_id) {
+        // Driver already navigated to this ride; do not loop if user navigated back
+        return;
+      }
+      navigatedRideIdRef.current = activeRide.ride_id;
       const parentNav = navigation.getParent();
       const targetNav = parentNav || navigation;
       targetNav.navigate('DriverAcceptedRide', {
@@ -266,9 +367,111 @@ export const DriverHomeScreen = ({ navigation }) => {
         timeToPickup: '3 mins',
         tripDistance: activeRide.distance_km !== undefined ? `${activeRide.distance_km} km` : '0 km',
         vehicleType: activeRide.vehicle_type || 'CAR',
+        pickup_lat: activeRide.pickup_lat,
+        pickup_lon: activeRide.pickup_lon,
+        drop_lat: activeRide.drop_lat,
+        drop_lon: activeRide.drop_lon,
+        distance_km: activeRide.distance_km,
+        pickupCoordinates:
+          activeRide.pickup_lon && activeRide.pickup_lat
+            ? [Number(activeRide.pickup_lon), Number(activeRide.pickup_lat)]
+            : undefined,
+        dropCoordinates:
+          activeRide.drop_lon && activeRide.drop_lat
+            ? [Number(activeRide.drop_lon), Number(activeRide.drop_lat)]
+            : undefined,
       });
+    } else if (rideStatus === 'idle' || !activeRide) {
+      navigatedRideIdRef.current = null;
     }
   }, [rideStatus, activeRide, navigation]);
+
+  // Navigate back to ongoing screen/state when clicking Active Trip Card/Banner
+  const handleResumeDriverTrip = useCallback(() => {
+    if (!activeRide) return;
+    const parentNav = navigation.getParent();
+    const targetNav = parentNav || navigation;
+
+    const curLoc = driverLocationRef.current || driverLocation;
+    const pLat = activeRide.pickup_lat ?? activeRide.pickup?.lat;
+    const pLon =
+      activeRide.pickup_lon ??
+      activeRide.pickup?.lng ??
+      activeRide.pickup?.lon;
+    const dLat = activeRide.drop_lat ?? activeRide.drop?.lat;
+    const dLon =
+      activeRide.drop_lon ?? activeRide.drop?.lng ?? activeRide.drop?.lon;
+
+    const params = {
+      ride_id: activeRide.ride_id,
+      tripId: activeRide.ride_id,
+      pickup:
+        activeRide.pickup_address ||
+        activeRide.pickup?.address ||
+        activeRide.pickup?.display_name ||
+        activeRide.pickup ||
+        'Pickup Location',
+      destination:
+        activeRide.drop_address ||
+        activeRide.drop?.address ||
+        activeRide.drop?.display_name ||
+        activeRide.drop ||
+        'Drop Location',
+      drop:
+        activeRide.drop_address ||
+        activeRide.drop?.address ||
+        activeRide.drop?.display_name ||
+        activeRide.drop ||
+        'Drop Location',
+      passengerName:
+        activeRide.rider_name || activeRide.rider?.name || 'Rider',
+      passengerPhone: activeRide.rider_phone || activeRide.rider?.phone,
+      passengerRating: activeRide.rider_rating
+        ? String(activeRide.rider_rating)
+        : '4.95',
+      estimatedFare: activeRide.driver_payout ?? activeRide.fare ?? 0,
+      fare: activeRide.driver_payout ?? activeRide.fare ?? 0,
+      currency: activeRide.currency || 'USD',
+      distanceToPickup:
+        distanceRemainingKm !== null && distanceRemainingKm !== undefined
+          ? `${distanceRemainingKm} km`
+          : 'Nearby',
+      timeToPickup:
+        etaMin !== null && etaMin !== undefined
+          ? `${etaMin} mins`
+          : '3 mins',
+      tripDistance:
+        activeRide.distance_km !== undefined
+          ? `${activeRide.distance_km} km`
+          : '0 km',
+      vehicleType: activeRide.vehicle_type || 'CAR',
+      pickup_lat: pLat,
+      pickup_lon: pLon,
+      drop_lat: dLat,
+      drop_lon: dLon,
+      distance_km: activeRide.distance_km,
+      pickupCoordinates:
+        pLon && pLat ? [Number(pLon), Number(pLat)] : undefined,
+      dropCoordinates:
+        dLon && dLat ? [Number(dLon), Number(dLat)] : undefined,
+      driverCoordinates: curLoc,
+    };
+
+    if (rideStatus === 'arrived') {
+      targetNav.navigate('DriverArrived', params);
+    } else if (rideStatus === 'in_progress') {
+      targetNav.navigate('DriverTrip', params);
+    } else {
+      targetNav.navigate('DriverAcceptedRide', params);
+    }
+  }, [
+    activeRide,
+    rideStatus,
+    navigation,
+    driverLocation,
+    distanceRemainingKm,
+    etaMin,
+  ]);
 
   const handleAcceptIncomingRide = useCallback(() => {
     if (!incomingRideRequest) return;
@@ -292,6 +495,19 @@ export const DriverHomeScreen = ({ navigation }) => {
         timeToPickup: '3 mins',
         tripDistance: req.distance_km !== undefined ? `${req.distance_km} km` : '0 km',
         vehicleType: req.vehicle_type || 'CAR',
+        pickup_lat: req.pickup_lat,
+        pickup_lon: req.pickup_lon,
+        drop_lat: req.drop_lat,
+        drop_lon: req.drop_lon,
+        distance_km: req.distance_km,
+        pickupCoordinates:
+          req.pickup_lon && req.pickup_lat
+            ? [Number(req.pickup_lon), Number(req.pickup_lat)]
+            : undefined,
+        dropCoordinates:
+          req.drop_lon && req.drop_lat
+            ? [Number(req.drop_lon), Number(req.drop_lat)]
+            : undefined,
       });
     }, 1000);
   }, [dispatch, incomingRideRequest, navigation]);
@@ -308,11 +524,7 @@ export const DriverHomeScreen = ({ navigation }) => {
   const nearbyRequests = useMemo(() => {
     if (!driverLocation || !isOnline) return [];
     const [lng, lat] = driverLocation;
-    return [
-      { id: 'req_1', coordinate: [lng + 0.0032, lat + 0.0022], fare: '$18.50', distance: '0.4 mi' },
-      { id: 'req_2', coordinate: [lng - 0.0028, lat + 0.0035], fare: '$26.00', distance: '0.8 mi' },
-      { id: 'req_3', coordinate: [lng + 0.0024, lat - 0.0031], fare: '$14.20', distance: '0.5 mi' },
-    ];
+   
   }, [driverLocation, isOnline]);
 
   const toggleOnline = useCallback(() => {
@@ -333,7 +545,7 @@ export const DriverHomeScreen = ({ navigation }) => {
       ride_id: 20,
       vehicle_type: 'CAR',
       pickup_address:
-        'Prasad group of companies, 765, Purv Marg, Phase 2, Ward 22, Chandigarh, 160030, India',
+        '',
       pickup_lat: driverLocation ? driverLocation[1] + 0.002 : 30.6948328,
       pickup_lon: driverLocation ? driverLocation[0] + 0.003 : 76.7835809,
       drop_address: 'Ludhiana, Punjab, India',
@@ -344,7 +556,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     dispatch(handleIncomingSocketMessage(simReq));
   };
 
-  const mapPane = (
+  const mapPane = useMemo(() => (
     <View style={styles.mapArea}>
       <DriverLiveMap
         driverCoordinate={driverLocation}
@@ -360,27 +572,63 @@ export const DriverHomeScreen = ({ navigation }) => {
               : t('driver.online', 'Online')
             : t('driver.offline', 'Offline')
         }
+        target={
+          target ||
+          lastLocationAck?.target ||
+          (rideStatus === 'in_progress' ? 'drop' : 'pickup')
+        }
         pickupCoordinate={
           incomingRideRequest?.pickup_lon && incomingRideRequest?.pickup_lat
             ? [Number(incomingRideRequest.pickup_lon), Number(incomingRideRequest.pickup_lat)]
-            : null
+            : activePickupCoords
         }
         dropCoordinate={
           incomingRideRequest?.drop_lon && incomingRideRequest?.drop_lat
             ? [Number(incomingRideRequest.drop_lon), Number(incomingRideRequest.drop_lat)]
-            : incomingRideRequest
-            ? [75.8573, 30.9005]
-            : null
+            : activeDropCoords
         }
-        pickupLabel={incomingRideRequest?.pickup_address}
-        destinationLabel={incomingRideRequest?.drop_address}
-        nearbyRequests={nearbyRequests}
-        onRequestPress={() => {
-          handleSimulateRequest();
-        }}
+        pickupLabel={incomingRideRequest?.pickup_address || activeRide?.pickup_address || activeRide?.pickup?.address}
+        destinationLabel={incomingRideRequest?.drop_address || activeRide?.drop_address || activeRide?.drop?.address}
+        onRequestPress={handleSimulateRequest}
         onRecenter={handleRecenterLocation}
         style={styles.fullMapStyle}
       />
+
+      {/* Floating Active Trip Banner on Map */}
+      {hasActiveDriverRide && (
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={handleResumeDriverTrip}
+          style={[
+            styles.floatingActiveTripBanner,
+            { bottom: isSplitLayout ? 24 : 16 },
+          ]}
+        >
+          <View
+            style={[
+              styles.floatingActiveDot,
+              rideStatus === 'arrived'
+                ? { backgroundColor: '#10B981' }
+                : rideStatus === 'in_progress'
+                ? { backgroundColor: '#3B82F6' }
+                : { backgroundColor: '#F59E0B' },
+            ]}
+          />
+          <View style={styles.floatingActiveTextCol}>
+            <Text style={styles.floatingActiveTitle}>
+              {rideStatus === 'arrived'
+                ? '📍 Arrived at Pickup • Awaiting OTP'
+                : rideStatus === 'in_progress'
+                ? '🚗 Trip in Progress • On Route'
+                : '🟡 Active Ride • Heading to Pickup'}
+            </Text>
+            <Text style={styles.floatingActiveSub}>
+              Tap to return to active trip screen ›
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={18} color={COLORS.text} />
+        </TouchableOpacity>
+      )}
 
       {/* Floating Driver Top Profile Bar */}
       <View style={[styles.topBar, { top: Math.max(insets.top + 8, 16) }]}>
@@ -391,21 +639,19 @@ export const DriverHomeScreen = ({ navigation }) => {
         >
           <ProfileAvatar
             imageUri={authUser?.profile_photo || ACTIVE_MOCK_DRIVER.avatar}
-            name={authUser?.first_name || ACTIVE_MOCK_DRIVER.name}
+            name={driverDisplayName}
             size={40}
-            rating={authUser?.rating || ACTIVE_MOCK_DRIVER.rating}
+            rating={driverRating}
             showRatingBadge={false}
           />
           <View style={styles.driverNameCol}>
             <Text style={styles.driverName} numberOfLines={1}>
-              {authUser?.first_name
-                ? `${authUser.first_name} ${authUser.last_name || ''}`.trim()
-                : ACTIVE_MOCK_DRIVER.name}
+              {driverDisplayName}
             </Text>
             <View style={styles.driverRatingRow}>
               <Icon name="star" size={11} color={COLORS.secondary} />
               <Text style={styles.driverRatingText}>
-                {authUser?.rating || ACTIVE_MOCK_DRIVER.rating}
+                {driverRating}
               </Text>
               {socketConnected && (
                 <View style={styles.liveSocketBadge}>
@@ -418,20 +664,6 @@ export const DriverHomeScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.topActionsRow}>
-          {/* Quick Switch to Rider Mode */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={async () => {
-              console.log('[DriverHome] Switching role to RIDER');
-              await saveRole('RIDER');
-              navigation.replace('RiderNav');
-            }}
-            style={styles.switchRiderBtn}
-          >
-            <Icon name="user" size={13} color={COLORS.secondPrimary} />
-            <Text style={styles.switchRiderText}>Rider Mode</Text>
-          </TouchableOpacity>
-
           {/* Online / Offline Status Toggle Pill */}
           <TouchableOpacity
             activeOpacity={0.8}
@@ -480,26 +712,31 @@ export const DriverHomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Incoming Trip Request Simulation Button */}
-      {isOnline && (
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleSimulateRequest}
-          style={[
-            styles.incomingRequestFloatingBadge,
-            { top: Math.max(insets.top + 76, 84) },
-          ]}
-        >
-          <View style={styles.floatingPulse} />
-          <Icon name="flash" size={14} color={COLORS.primary} style={{ marginRight: 6 }} />
-          <Text style={styles.incomingBadgeText}>
-            Incoming Request Available (Tap to test)
-          </Text>
-        </TouchableOpacity>
-      )}
     </View>
-  );
+  ), [
+    driverLocation,
+    driverHeading,
+    isOnline,
+    socketConnected,
+    socketConnecting,
+    t,
+    target,
+    lastLocationAck,
+    rideStatus,
+    incomingRideRequest,
+    activePickupCoords,
+    activeDropCoords,
+    activeRide,
+    handleRecenterLocation,
+    hasActiveDriverRide,
+    handleResumeDriverTrip,
+    isSplitLayout,
+    insets.top,
+    navigation,
+    authUser,
+    toggleOnline,
+    onlineLoading,
+  ]);
 
   const summaryPanel = (
     <View
@@ -514,6 +751,139 @@ export const DriverHomeScreen = ({ navigation }) => {
     >
       {!isSplitLayout && <View style={styles.dragHandle} />}
 
+      {/* Active Trip Banner / Card (Visible when Driver backed out to HomeScreen with active ride) */}
+      {hasActiveDriverRide && activeRide && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={handleResumeDriverTrip}
+          style={styles.activeTripCard}
+        >
+          {/* Card Top: Stage Tag + Live Pulse + ETA */}
+          <View style={styles.activeTripHeaderRow}>
+            <View
+              style={[
+                styles.activeTripStageTag,
+                rideStatus === 'arrived'
+                  ? styles.stageArrivedTag
+                  : rideStatus === 'in_progress'
+                  ? styles.stageTripTag
+                  : styles.stageAcceptedTag,
+              ]}
+            >
+              <View
+                style={[
+                  styles.activeTripLiveDot,
+                  rideStatus === 'arrived'
+                    ? { backgroundColor: '#10B981' }
+                    : rideStatus === 'in_progress'
+                    ? { backgroundColor: '#3B82F6' }
+                    : { backgroundColor: '#F59E0B' },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.activeTripStageText,
+                  rideStatus === 'arrived'
+                    ? { color: '#047857' }
+                    : rideStatus === 'in_progress'
+                    ? { color: '#1D4ED8' }
+                    : { color: '#B45309' },
+                ]}
+              >
+                {rideStatus === 'arrived'
+                  ? 'ARRIVED AT PICKUP'
+                  : rideStatus === 'in_progress'
+                  ? 'TRIP IN PROGRESS'
+                  : 'HEADING TO PICKUP'}
+              </Text>
+            </View>
+
+            <View style={styles.activeTripEtaBadge}>
+              <Icon name="time" size={13} color={COLORS.textLight} />
+              <Text style={styles.activeTripEtaText}>
+                {rideStatus === 'arrived'
+                  ? 'Waiting for Rider'
+                  : etaMin !== null && etaMin !== undefined
+                  ? `${etaMin} min away`
+                  : distanceRemainingKm !== null && distanceRemainingKm !== undefined
+                  ? `${distanceRemainingKm} km`
+                  : 'Active'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Passenger & Fare Info Row */}
+          <View style={styles.activeTripRiderRow}>
+            <View style={styles.activeTripAvatar}>
+              <Icon name="user" size={18} color={COLORS.primaryDark} />
+            </View>
+            <View style={styles.activeTripRiderCol}>
+              <Text style={styles.activeTripRiderName} numberOfLines={1}>
+                {activeRide.rider_name || activeRide.rider?.name || 'Rider'}
+              </Text>
+              <Text style={styles.activeTripRiderRating}>
+                ★ {activeRide.rider_rating ? String(activeRide.rider_rating) : '4.95'} • Ride #{activeRide.ride_id}
+              </Text>
+            </View>
+            <View style={styles.activeTripPayoutCol}>
+              <Text style={styles.activeTripPayoutAmount}>
+                {formatCurrency(
+                  activeRide.driver_payout ?? activeRide.fare ?? 0,
+                  activeRide.currency === 'USD' ? '$' : activeRide.currency || '$'
+                )}
+              </Text>
+              <Text style={styles.activeTripPayoutLabel}>Payout</Text>
+            </View>
+          </View>
+
+          {/* Route Preview */}
+          <View style={styles.activeTripRouteBox}>
+            <View style={styles.activeTripRouteRow}>
+              <View style={styles.activeTripPickupDot} />
+              <Text numberOfLines={1} style={styles.activeTripAddressText}>
+                {activeRide.pickup_address ||
+                  activeRide.pickup?.address ||
+                  activeRide.pickup?.display_name ||
+                  'Pickup Location'}
+              </Text>
+            </View>
+            <View style={styles.activeTripRouteLine} />
+            <View style={styles.activeTripRouteRow}>
+              <View style={styles.activeTripDropSquare} />
+              <Text numberOfLines={1} style={styles.activeTripAddressText}>
+                {activeRide.drop_address ||
+                  activeRide.drop?.address ||
+                  activeRide.drop?.display_name ||
+                  'Dropoff Location'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Big Action Button */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={handleResumeDriverTrip}
+            style={[
+              styles.activeTripResumeBtn,
+              rideStatus === 'arrived'
+                ? { backgroundColor: '#10B981' }
+                : rideStatus === 'in_progress'
+                ? { backgroundColor: '#2563EB' }
+                : { backgroundColor: COLORS.primary },
+            ]}
+          >
+            <Text style={styles.activeTripResumeBtnText}>
+              {rideStatus === 'arrived'
+                ? 'Enter OTP & Start Trip ›'
+                : rideStatus === 'in_progress'
+                ? 'Return to Live Trip Map ›'
+                : 'Return to Active Trip ›'}
+            </Text>
+            <Icon name="arrow-right" size={16} color={COLORS.white} />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
+
       {/* Earnings Ticker */}
       <View style={styles.earningsRow}>
         <View>
@@ -521,7 +891,13 @@ export const DriverHomeScreen = ({ navigation }) => {
             {t('driver.todayEarnings', "Today's Earnings")}
           </Text>
           <Text style={styles.earningsAmount}>
-            {formatCurrency(MOCK_DRIVER_STATS.dailyEarnings)}
+            {formatCurrency(
+              walletSummary?.today_earnings ??
+                (wallet?.balance !== undefined && !isNaN(Number(wallet.balance))
+                  ? Number(wallet.balance)
+                  : MOCK_DRIVER_STATS.dailyEarnings),
+              wallet?.currency === 'INR' ? '₹' : wallet?.currency === 'USD' ? '$' : (wallet?.currency || '$')
+            )}
           </Text>
         </View>
 
@@ -558,38 +934,11 @@ export const DriverHomeScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* MapLibre Live Navigation Demo CTA */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => navigation.navigate('DriverMap')}
-        style={styles.maplibreDemoBanner}
-      >
-        <View style={styles.maplibreIconBadge}>
-          <Icon name="navigation" size={16} color={COLORS.white} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.maplibreTitle}>
-            MapLibre Navigation UI
-          </Text>
-          <Text style={styles.maplibreSub}>Interactive driver demo map</Text>
-        </View>
-        <Icon
-          name="chevron-right"
-          size={18}
-          color={COLORS.secondPrimary}
-        />
-      </TouchableOpacity>
+  
 
       {/* Direct Action Trigger */}
       {isOnline ? (
-        <CustomButton
-          title="Simulate Incoming Trip"
-          onPress={handleSimulateRequest}
-          variant="primary"
-          icon="navigation"
-          iconPosition="right"
-          style={styles.requestCta}
-        />
+        <></>
       ) : (
         <CustomButton
           title={onlineLoading ? 'Going Online...' : 'Go Online to Receive Trips'}
@@ -705,25 +1054,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         </View>
       </View>
 
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={() => {
-          const parentNav = navigation.getParent();
-          const targetNav = parentNav || navigation;
-          targetNav.navigate('RideRequest', {
-            ride_id: incomingRideRequest.ride_id,
-            pickup: incomingRideRequest.pickup_address,
-            destination: incomingRideRequest.drop_address,
-            estimatedFare: incomingRideRequest.driver_payout,
-            currency: incomingRideRequest.currency,
-            tripDistance: `${incomingRideRequest.distance_km} km`,
-            vehicleType: incomingRideRequest.vehicle_type,
-          });
-        }}
-        style={styles.viewFullMapBtn}
-      >
-        <Text style={styles.viewFullMapText}>View Full Route Map & Details ›</Text>
-      </TouchableOpacity>
+  
     </View>
   );
 
@@ -933,11 +1264,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xl,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
+  
   },
   onlinePanel: {
     backgroundColor: COLORS.white,
@@ -1237,6 +1564,203 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
+  },
+
+  // Active Trip Banner & Card Styles
+  floatingActiveTripBanner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    width: '92%',
+    maxWidth: 500,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.large,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 999,
+  },
+  floatingActiveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SPACING.sm,
+  },
+  floatingActiveTextCol: {
+    flex: 1,
+  },
+  floatingActiveTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  floatingActiveSub: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.primaryDark,
+    fontWeight: '600',
+    marginTop: 1,
+    fontSize: 11,
+  },
+  activeTripCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.large,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  activeTripHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  activeTripStageTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 3,
+    borderRadius: RADIUS.round,
+  },
+  stageAcceptedTag: {
+    backgroundColor: '#FEF3C7',
+  },
+  stageArrivedTag: {
+    backgroundColor: '#D1FAE5',
+  },
+  stageTripTag: {
+    backgroundColor: '#DBEAFE',
+  },
+  activeTripLiveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  activeTripStageText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  activeTripEtaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  activeTripEtaText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.textLight,
+  },
+  activeTripRiderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  activeTripAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  activeTripRiderCol: {
+    flex: 1,
+  },
+  activeTripRiderName: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  activeTripRiderRating: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  activeTripPayoutCol: {
+    alignItems: 'flex-end',
+  },
+  activeTripPayoutAmount: {
+    ...TYPOGRAPHY.h3,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+  },
+  activeTripPayoutLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 10,
+    color: COLORS.textLight,
+    textTransform: 'uppercase',
+  },
+  activeTripRouteBox: {
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.medium,
+    padding: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  activeTripRouteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activeTripPickupDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.primary,
+    marginRight: SPACING.sm,
+  },
+  activeTripDropSquare: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+    backgroundColor: COLORS.danger,
+    marginRight: SPACING.sm,
+  },
+  activeTripRouteLine: {
+    width: 1.5,
+    height: 12,
+    backgroundColor: COLORS.border,
+    marginLeft: 3,
+    marginVertical: 2,
+  },
+  activeTripAddressText: {
+    flex: 1,
+    ...TYPOGRAPHY.caption,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  activeTripResumeBtn: {
+    height: 46,
+    borderRadius: RADIUS.large,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  activeTripResumeBtnText: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+    color: COLORS.white,
+    letterSpacing: 0.3,
   },
 });
 

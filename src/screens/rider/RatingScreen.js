@@ -19,8 +19,10 @@ import ProfileAvatar from '../../components/ProfileAvatar';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
+import { useDispatch } from 'react-redux';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
+import { clearRiderTripState } from '../../redux/features/rider/riderSlice';
 
 const COMPLIMENTS = [
   'Smooth driving',
@@ -35,6 +37,7 @@ const TIP_OPTIONS = [0, 1, 3, 5];
 
 export const RatingScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const { insets } = useResponsive();
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
 
@@ -54,6 +57,7 @@ export const RatingScreen = ({ navigation, route }) => {
 
   const handleSubmit = () => {
     setLoading(true);
+    dispatch(clearRiderTripState());
     setTimeout(() => {
       setLoading(false);
       if (navigation.canGoBack()) {

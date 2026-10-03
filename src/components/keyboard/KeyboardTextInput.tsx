@@ -40,12 +40,47 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
   const inputRef = useRef<any>(null);
 
   // Expose the native text input methods to parent refs
-  useImperativeHandle(ref, () => inputRef.current);
+  useImperativeHandle(ref, () => ({
+    ...inputRef.current,
+    focus: () => {
+      inputRef.current?.focus();
+      if (customKeyboardEnabled) {
+        Keyboard.dismiss();
+        const valLen = value ? value.length : 0;
+        contextOnFocus(id, value, { start: valLen, end: valLen });
+      }
+    },
+    blur: () => {
+      inputRef.current?.blur();
+      if (customKeyboardEnabled && isActive) {
+        contextOnBlur(id);
+      }
+    },
+    isFocused: () => inputRef.current?.isFocused?.() || isActive,
+    clear: () => {
+      inputRef.current?.clear?.();
+      if (customKeyboardEnabled && isActive) {
+        contextOnValueChange(id, '');
+      }
+    },
+  }));
 
   const isActive = activeInputId === id;
   const lastSentValueRef = useRef(value);
+  const pendingSentValuesRef = useRef<Set<string>>(new Set());
   const userTappedRef = useRef(false);
   const touchTimeoutRef = useRef<any>(null);
+
+  // Auto focus into global custom keyboard on mount if requested
+  useEffect(() => {
+    if (props.autoFocus && customKeyboardEnabled) {
+      const timer = setTimeout(() => {
+        const valLen = value ? value.length : 0;
+        contextOnFocus(id, value, { start: valLen, end: valLen });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [id, customKeyboardEnabled, contextOnFocus, props.autoFocus]);
 
   // Update registered callbacks when they change, without unregistering
   useEffect(() => {
@@ -55,6 +90,7 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       maxLength,
       onChangeText: (text) => {
         lastSentValueRef.current = text;
+        pendingSentValuesRef.current.add(text);
         if (onChangeText) {
           onChangeText(text);
         }
@@ -89,22 +125,37 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
   useEffect(() => {
     if (!isActive) {
       lastSentValueRef.current = value;
+      pendingSentValuesRef.current.clear();
     }
   }, [value, isActive]);
 
   // Keep value synced in context when it changes externally
   useEffect(() => {
-    if (isActive && value !== lastSentValueRef.current) {
-      contextOnValueChange(id, value);
+    if (!isActive) return;
+
+    // If the incoming prop matches a pending keystroke from our keyboard, consume it and do not overwrite context
+    if (pendingSentValuesRef.current.has(value)) {
+      pendingSentValuesRef.current.delete(value);
+      return;
+    }
+
+    // If there are still pending keystrokes in flight, ignore intermediate in-flight values from parent
+    if (pendingSentValuesRef.current.size > 0) {
+      return;
+    }
+
+    // External change (e.g. user selected an address suggestion or pressed the clear button)
+    if (value !== lastSentValueRef.current) {
       lastSentValueRef.current = value;
+      contextOnValueChange(id, value);
     }
   }, [value, isActive, id, contextOnValueChange]);
 
   const handleFocus = (e: any) => {
-    // Set initial selection state
+    const valLen = value ? value.length : 0;
     const currentSelection = {
-      start: value ? value.length : 0,
-      end: value ? value.length : 0,
+      start: valLen,
+      end: valLen,
     };
 
     if (customKeyboardEnabled) {
@@ -124,15 +175,23 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
   };
 
   const handleSelectionChange = (e: NativeSyntheticEvent<any>) => {
-    const newSelection = e.nativeEvent.selection;
-    if (customKeyboardEnabled && isActive) {
-      // Only sync selection natively when user explicitly touched the input recently
-      if (userTappedRef.current) {
-        contextOnSelectionChange(id, newSelection);
-      }
+    const newSelection = e.nativeEvent?.selection;
+    if (customKeyboardEnabled && isActive && newSelection) {
+      contextOnSelectionChange(id, newSelection);
     }
     if (onSelectionChange) {
       onSelectionChange(e);
+    }
+  };
+
+  const handleNativeChangeText = (text: string) => {
+    lastSentValueRef.current = text;
+    pendingSentValuesRef.current.add(text);
+    if (customKeyboardEnabled && isActive) {
+      contextOnValueChange(id, text);
+    }
+    if (onChangeText) {
+      onChangeText(text);
     }
   };
 
@@ -147,19 +206,31 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
 
     if (customKeyboardEnabled) {
       Keyboard.dismiss();
+      const valLen = value ? value.length : 0;
       const currentSelection = {
-        start: value ? value.length : 0,
-        end: value ? value.length : 0,
+        start: valLen,
+        end: valLen,
       };
       contextOnFocus(id, value, currentSelection);
     }
   };
 
+  const valLen = typeof value === 'string' ? value.length : 0;
+  const isSelectionAtEnd =
+    selection && selection.start === valLen && selection.end === valLen;
+  const safeSelection =
+    customKeyboardEnabled && isActive && selection && !isSelectionAtEnd
+      ? {
+          start: Math.max(0, Math.min(selection.start, valLen)),
+          end: Math.max(0, Math.min(selection.end, valLen)),
+        }
+      : undefined;
+
   return (
     <TextInput
       ref={inputRef}
       value={value}
-      onChangeText={onChangeText}
+      onChangeText={handleNativeChangeText}
       onFocus={handleFocus}
       onBlur={handleBlur}
       onTouchStart={handleTouchStart}
@@ -169,11 +240,7 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       showSoftInputOnFocus={customKeyboardEnabled ? false : showSoftInputOnFocus}
       editable={Platform.OS === 'ios' && customKeyboardEnabled ? false : editable}
       keyboardType={keyboardType}
-      selection={
-        customKeyboardEnabled && isActive && (selection.start !== value.length || selection.end !== value.length)
-          ? selection
-          : undefined
-      }
+      selection={safeSelection}
       placeholderTextColor={props.placeholderTextColor || colors.text.secondary}
       {...props}
       style={[{ color: colors.text.primary }, props.style]}

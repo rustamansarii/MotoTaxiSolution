@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import {
   Map as MapLibreMap,
@@ -55,6 +55,13 @@ export const RiderLiveMap = ({
   const cameraRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
+
+  const initialCameraState = useMemo(() => ({
+    center: userCoordinate || [75.8573, 30.9005],
+    zoom: 15,
+    pitch: 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), []);
 
   // Smoothly center camera when userCoordinate updates
   useEffect(() => {
@@ -124,11 +131,7 @@ export const RiderLiveMap = ({
       >
         <MapLibreCamera
           ref={cameraRef}
-          initialViewState={{
-            center: userCoordinate,
-            zoom: 15,
-            pitch: 0,
-          }}
+          initialViewState={initialCameraState}
         />
 
         {/* Native animated GPS Location Puck */}

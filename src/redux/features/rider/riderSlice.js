@@ -13,8 +13,12 @@ const initialState = {
   tripStatus: 'idle', // 'idle' | 'searching' | 'driver_assigned' | 'driver_arrived' | 'in_progress' | 'completed' | 'cancelled'
   driverDetails: null, // { name, phone, rating, vehicle_make, vehicle_model, vehicle_plate, vehicle }
   driverLocation: null, // { lat: number, lng: number }
+  distanceRemainingKm: null, // number in km (e.g. 0.07)
+  etaMin: null, // number in minutes (e.g. 1)
+  target: null, // 'pickup' | 'drop'
   completedTrip: null, // { ride_id, final_fare, payment_status }
   cancellationNotice: null, // { ride_id, cancelled_by: "DRIVER" | "RIDER" }
+  activeRideData: null, // Full ride object if received from server / current_state
 
   // Action status
   actionLoading: false,
@@ -137,10 +141,38 @@ export const riderSlice = createSlice({
       state.driverDetails = action.payload;
     },
     updateDriverLocation: (state, action) => {
-      state.driverLocation = {
-        lat: Number(action.payload.lat ?? action.payload.latitude),
-        lng: Number(action.payload.lng ?? action.payload.longitude ?? action.payload.lon),
-      };
+      const payload = action.payload || {};
+      const lat = payload.lat ?? payload.latitude;
+      const lng = payload.lng ?? payload.longitude ?? payload.lon;
+      if (lat !== undefined && lng !== undefined) {
+        state.driverLocation = {
+          lat: Number(lat),
+          lng: Number(lng),
+        };
+      }
+      if (payload.distance_remaining_km !== undefined && payload.distance_remaining_km !== null) {
+        state.distanceRemainingKm = Number(payload.distance_remaining_km);
+      }
+      if (payload.eta_min !== undefined && payload.eta_min !== null) {
+        state.etaMin = Number(payload.eta_min);
+      }
+      if (payload.target) {
+        state.target = payload.target;
+      }
+    },
+    setTripEtaAndDistance: (state, action) => {
+      const payload = action.payload || {};
+      const dist = payload.distance_remaining_km ?? payload.distanceRemainingKm;
+      const eta = payload.eta_min ?? payload.etaMin;
+      if (dist !== undefined && dist !== null) {
+        state.distanceRemainingKm = Number(dist);
+      }
+      if (eta !== undefined && eta !== null) {
+        state.etaMin = Number(eta);
+      }
+      if (payload.target) {
+        state.target = payload.target;
+      }
     },
     clearActionNotices: (state) => {
       state.actionError = null;
@@ -153,10 +185,14 @@ export const riderSlice = createSlice({
       state.tripStatus = 'idle';
       state.driverDetails = null;
       state.driverLocation = null;
+      state.distanceRemainingKm = null;
+      state.etaMin = null;
+      state.target = null;
       state.completedTrip = null;
       state.cancellationNotice = null;
       state.actionError = null;
       state.actionSuccessNotice = null;
+      state.activeRideData = null;
     },
 
     // ----------------------------------------------------
@@ -173,6 +209,93 @@ export const riderSlice = createSlice({
           state.socketConnected = true;
           break;
 
+        case 'current_state': {
+          // {"type": "current_state", "has_active_ride": true, "stage": "trip_ongoing", "driver": {...}, "ride": {...}, ...}
+          console.log('[RiderSlice] 🔄 Processing current_state payload:', msg);
+          if (msg.has_active_ride && msg.ride) {
+            const ride = msg.ride || {};
+            const assignedRideId = ride.ride_id || ride.id || msg.ride_id;
+            if (assignedRideId) {
+              state.activeRideId = assignedRideId;
+            }
+
+            const stage = String(msg.stage || ride.status || '').toLowerCase();
+            if (stage.includes('searching') || stage.includes('request')) {
+              state.tripStatus = 'searching';
+            } else if (stage.includes('assign') || stage.includes('accept')) {
+              state.tripStatus = 'driver_assigned';
+            } else if (stage.includes('arriv')) {
+              state.tripStatus = 'driver_arrived';
+            } else if (stage.includes('trip') || stage.includes('ongo') || stage.includes('progress')) {
+              state.tripStatus = 'in_progress';
+            } else {
+              state.tripStatus = 'driver_assigned';
+            }
+
+            if (ride.otp) {
+              state.rideOtp = ride.otp;
+            }
+
+            // Driver Details
+            const d = msg.driver || {};
+            const v = msg.vehicle || {};
+            const vMake = v.make || d.vehicle_make || '';
+            const vModel = v.model || d.vehicle_model || '';
+            const vPlate = v.plate || d.vehicle_plate || d.vehicle_number || '';
+            const vType = v.vehicle_type || d.vehicle_type || 'CAR';
+            const vName = v.name || `${vMake} ${vModel}`.trim() || 'Vehicle';
+
+            state.driverDetails = {
+              id: d.id || d.driver_id || 1,
+              name: d.name || d.driver_name || 'Assigned Driver',
+              phone: d.phone || d.driver_phone || '+1 (555) 019-2834',
+              rating: d.rating ? String(d.rating) : '4.95',
+              vehicle_type: vType,
+              vehicle_make: vMake,
+              vehicle_model: vModel,
+              vehicle_plate: vPlate,
+              vehicle: vName,
+              photo: d.photo || d.avatar || null,
+            };
+
+            const driverLat = d.location?.lat ?? d.lat ?? msg.lat;
+            const driverLng = d.location?.lng ?? d.lng ?? msg.lng;
+            if (
+              driverLat !== undefined &&
+              driverLng !== undefined &&
+              driverLat !== null &&
+              driverLng !== null
+            ) {
+              state.driverLocation = {
+                lat: Number(driverLat),
+                lng: Number(driverLng),
+              };
+            }
+
+            if (
+              msg.progress?.distance_remaining_km !== undefined &&
+              msg.progress?.distance_remaining_km !== null
+            ) {
+              state.distanceRemainingKm = Number(msg.progress.distance_remaining_km);
+            }
+            if (msg.progress?.eta_min !== undefined && msg.progress?.eta_min !== null) {
+              state.etaMin = Number(msg.progress.eta_min);
+            }
+            if (msg.progress?.target) {
+              state.target = msg.progress.target;
+            }
+
+            state.activeRideData = ride;
+          } else if (msg.has_active_ride === false) {
+            state.activeRideId = null;
+            state.tripStatus = 'idle';
+            state.driverDetails = null;
+            state.driverLocation = null;
+            state.activeRideData = null;
+          }
+          break;
+        }
+
         case 'driver_assigned':
         case 'ride_accepted': {
           // Supports flat: {"type": "driver_assigned", "ride_id": 1, "driver_name": ".."}
@@ -183,6 +306,39 @@ export const riderSlice = createSlice({
           if (assignedRideId) {
             state.activeRideId = assignedRideId;
           }
+
+          // Extract live driver coordinates from backend payload if present
+          const driverLat =
+            msg.driver_lat ??
+            msg.lat ??
+            msg.latitude ??
+            d.driver_lat ??
+            d.lat ??
+            d.latitude;
+          const driverLng =
+            msg.driver_lon ??
+            msg.driver_lng ??
+            msg.lng ??
+            msg.lon ??
+            msg.longitude ??
+            d.driver_lon ??
+            d.driver_lng ??
+            d.lng ??
+            d.lon ??
+            d.longitude;
+
+          if (
+            driverLat !== undefined &&
+            driverLat !== null &&
+            driverLng !== undefined &&
+            driverLng !== null
+          ) {
+            state.driverLocation = {
+              lat: Number(driverLat),
+              lng: Number(driverLng),
+            };
+          }
+
           const vMake = d.vehicle_make || d.vehicle?.make || '';
           const vModel = d.vehicle_model || d.vehicle?.model || '';
           const vPlate = d.vehicle_plate || d.vehicle?.plate || d.vehicle_number || '';
@@ -191,6 +347,14 @@ export const riderSlice = createSlice({
             `${vMake} ${vModel}`.trim() ||
             d.vehicle?.name ||
             'Motorcycle';
+          const vType =
+            d.vehicle_type ||
+            msg.vehicle_type ||
+            (vName.toLowerCase().includes('car')
+              ? 'CAR'
+              : vName.toLowerCase().includes('auto')
+              ? 'AUTO'
+              : 'BIKE');
 
           state.driverDetails = {
             id: d.driver_id || d.id || 1,
@@ -201,18 +365,33 @@ export const riderSlice = createSlice({
               : d.rating
               ? String(d.rating)
               : '4.95',
+            vehicle_type: vType,
             vehicle_make: vMake,
             vehicle_model: vModel,
             vehicle_plate: vPlate,
             vehicle: vName,
             photo: d.driver_photo || d.photo || d.avatar || null,
           };
+
+          const initialDist = msg.distance_remaining_km ?? msg.distance_km ?? d.distance_remaining_km ?? d.distance_km;
+          const initialEta = msg.eta_min ?? msg.eta ?? d.eta_min ?? d.eta;
+          if (initialDist !== undefined && initialDist !== null) {
+            state.distanceRemainingKm = Number(initialDist);
+          }
+          if (initialEta !== undefined && initialEta !== null) {
+            state.etaMin = Number(initialEta);
+          }
+          if (msg.target || d.target) {
+            state.target = msg.target || d.target;
+          }
           break;
         }
 
         case 'driver_arrived':
           // {"type": "driver_arrived", "ride_id": ..}
           state.tripStatus = 'driver_arrived';
+          state.distanceRemainingKm = 0;
+          state.etaMin = 0;
           break;
 
         case 'trip_started':
@@ -221,14 +400,57 @@ export const riderSlice = createSlice({
           break;
 
         case 'driver_location': {
-          // {"type": "driver_location", "lat": .., "lng": ..}
-          const lat = msg.lat ?? msg.latitude;
-          const lng = msg.lng ?? msg.lon ?? msg.longitude;
-          if (lat !== undefined && lng !== undefined) {
+          // {"type": "driver_location", "lat": .., "lng": .., "status": "BUSY", "ride_id": .., "target": "pickup", "distance_remaining_km": 0.07, "eta_min": 1}
+          const lat = msg.lat ?? msg.latitude ?? msg.driver_lat;
+          const lng =
+            msg.lng ??
+            msg.lon ??
+            msg.longitude ??
+            msg.driver_lon ??
+            msg.driver_lng;
+          if (
+            lat !== undefined &&
+            lng !== undefined &&
+            lat !== null &&
+            lng !== null
+          ) {
             state.driverLocation = {
               lat: Number(lat),
               lng: Number(lng),
             };
+          }
+
+          if (
+            msg.distance_remaining_km !== undefined &&
+            msg.distance_remaining_km !== null
+          ) {
+            state.distanceRemainingKm = Number(msg.distance_remaining_km);
+          }
+          if (msg.eta_min !== undefined && msg.eta_min !== null) {
+            state.etaMin = Number(msg.eta_min);
+          }
+          if (msg.target) {
+            state.target = msg.target;
+          }
+          if (msg.ride_id) {
+            state.activeRideId = msg.ride_id;
+          }
+          break;
+        }
+
+        case 'location_ack': {
+          // Fallback if backend sends location_ack to rider
+          if (
+            msg.distance_remaining_km !== undefined &&
+            msg.distance_remaining_km !== null
+          ) {
+            state.distanceRemainingKm = Number(msg.distance_remaining_km);
+          }
+          if (msg.eta_min !== undefined && msg.eta_min !== null) {
+            state.etaMin = Number(msg.eta_min);
+          }
+          if (msg.target) {
+            state.target = msg.target;
           }
           break;
         }
@@ -241,6 +463,14 @@ export const riderSlice = createSlice({
             final_fare: msg.final_fare || msg.fare,
             payment_status: msg.payment_status || 'PAID',
           };
+          state.activeRideId = null;
+          state.activeRideData = null;
+          state.rideOtp = null;
+          state.driverDetails = null;
+          state.driverLocation = null;
+          state.distanceRemainingKm = null;
+          state.etaMin = null;
+          state.target = null;
           break;
 
         case 'ride_cancelled':
@@ -250,6 +480,14 @@ export const riderSlice = createSlice({
             ride_id: msg.ride_id,
             cancelled_by: msg.cancelled_by || 'DRIVER',
           };
+          state.activeRideId = null;
+          state.activeRideData = null;
+          state.rideOtp = null;
+          state.driverDetails = null;
+          state.driverLocation = null;
+          state.distanceRemainingKm = null;
+          state.etaMin = null;
+          state.target = null;
           break;
 
         case 'cancel_ride_success':
@@ -331,6 +569,7 @@ export const {
   setRideOtp,
   setDriverDetails,
   updateDriverLocation,
+  setTripEtaAndDistance,
   clearActionNotices,
   clearRiderTripState,
   handleIncomingRiderMessage,

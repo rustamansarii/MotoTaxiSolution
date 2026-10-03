@@ -42,9 +42,12 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
     activeRideId,
     driverLocation,
     rideOtp,
+    distanceRemainingKm,
+    etaMin,
   } = useSelector((state) => state.rider);
 
   const reduxBookingOtp = useSelector((state) => state.rides?.currentBooking?.otp);
+  const reduxLocation = useSelector((state) => state.location || {});
 
   const otp =
     route.params?.otp ||
@@ -67,17 +70,32 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
 
   const pickupLabel = useMemo(() => {
     const p = route.params?.pickup;
-    if (typeof p === 'string') return p;
-    return p?.shortAddress || p?.name || p?.address || t('rider.currentLocation', 'Current Location');
-  }, [route.params?.pickup, t]);
+    if (typeof p === 'string' && p.trim()) return p;
+    if (p?.shortAddress || p?.name || p?.address) {
+      return p.shortAddress || p.name || p.address;
+    }
+    const reduxAddr =
+      reduxLocation?.pickupLocation?.address ||
+      reduxLocation?.pickupLocation?.display_name ||
+      reduxLocation?.currentAddress?.display_name;
+    if (reduxAddr) return reduxAddr;
+    return t('rider.currentLocation', 'Current Location');
+  }, [route.params?.pickup, reduxLocation, t]);
+
+  const formattedPickupLabel = useMemo(() => {
+    if (!pickupLabel) return 'Pickup';
+    if (pickupLabel.toLowerCase().includes('(pickup)')) return pickupLabel;
+    return `${pickupLabel} (Pickup)`;
+  }, [pickupLabel]);
 
   const destinationLabel = useMemo(() => {
     const d = route.params?.destination;
-    if (typeof d === 'string') return d;
+    if (typeof d === 'string' && d.trim()) return d;
     return d?.shortAddress || d?.name || d?.address || 'Destination';
   }, [route.params?.destination]);
 
   const pickupCoords = useMemo(() => {
+    // 1. Explicit coordinates array from route params
     const p = route.params?.pickup;
     if (p?.coordinates && p.coordinates.length === 2) {
       return [Number(p.coordinates[0]), Number(p.coordinates[1])];
@@ -85,13 +103,35 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
     if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
       return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
     }
-    const pLon = route.params?.pickup_lon;
-    const pLat = route.params?.pickup_lat;
+    // 2. Individual lat/lon in route params or booking payload
+    const pLon =
+      route.params?.pickup_lon ??
+      route.params?.bookingPayload?.pickup_lon ??
+      route.params?.pickupData?.longitude ??
+      route.params?.pickupData?.lon;
+    const pLat =
+      route.params?.pickup_lat ??
+      route.params?.bookingPayload?.pickup_lat ??
+      route.params?.pickupData?.latitude ??
+      route.params?.pickupData?.lat;
     if (pLon && pLat) {
       return [Number(pLon), Number(pLat)];
     }
+    // 3. Redux location store
+    if (reduxLocation?.pickupLocation?.longitude && reduxLocation?.pickupLocation?.latitude) {
+      return [
+        Number(reduxLocation.pickupLocation.longitude),
+        Number(reduxLocation.pickupLocation.latitude),
+      ];
+    }
+    if (reduxLocation?.currentCoords?.longitude && reduxLocation?.currentCoords?.latitude) {
+      return [
+        Number(reduxLocation.currentCoords.longitude),
+        Number(reduxLocation.currentCoords.latitude),
+      ];
+    }
     return [76.7835809, 30.6948328];
-  }, [route.params]);
+  }, [route.params, reduxLocation]);
 
   const dropCoords = useMemo(() => {
     const d = route.params?.destination;
@@ -101,13 +141,27 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
     if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
       return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
     }
-    const dLon = route.params?.drop_lon;
-    const dLat = route.params?.drop_lat;
+    const dLon =
+      route.params?.drop_lon ??
+      route.params?.bookingPayload?.drop_lon ??
+      route.params?.destinationData?.longitude ??
+      route.params?.destinationData?.lon;
+    const dLat =
+      route.params?.drop_lat ??
+      route.params?.bookingPayload?.drop_lat ??
+      route.params?.destinationData?.latitude ??
+      route.params?.destinationData?.lat;
     if (dLon && dLat) {
       return [Number(dLon), Number(dLat)];
     }
+    if (reduxLocation?.dropoffLocation?.longitude && reduxLocation?.dropoffLocation?.latitude) {
+      return [
+        Number(reduxLocation.dropoffLocation.longitude),
+        Number(reduxLocation.dropoffLocation.latitude),
+      ];
+    }
     return [75.8573, 30.9005];
-  }, [route.params]);
+  }, [route.params, reduxLocation]);
 
   const driverCoords = useMemo(() => {
     if (driverLocation?.lng && driverLocation?.lat) {
@@ -152,6 +206,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         destination: route.params?.destination,
         pickupCoordinates: pickupCoords,
         dropCoordinates: dropCoords,
+        distance_km: route.params?.distance_km,
       });
     }
   }, [tripStatus, driver, totalFare, rideId, otp, navigation, route.params, pickupCoords, dropCoords]);
@@ -166,6 +221,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       destination: route.params?.destination,
       pickupCoordinates: pickupCoords,
       dropCoordinates: dropCoords,
+      distance_km: route.params?.distance_km,
     });
   };
 
@@ -181,14 +237,51 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
     }
   };
 
+  const formattedDistance = useMemo(() => {
+    if (distanceRemainingKm !== null && distanceRemainingKm !== undefined) {
+      if (distanceRemainingKm < 1) {
+        const meters = Math.round(distanceRemainingKm * 1000);
+        return `${Math.max(10, meters)} m`;
+      }
+      return `${distanceRemainingKm.toFixed(1)} km`;
+    }
+    return null;
+  }, [distanceRemainingKm]);
+
+  const formattedEtaText = useMemo(() => {
+    if (
+      tripStatus === 'driver_arrived' ||
+      (distanceRemainingKm !== null && distanceRemainingKm !== undefined && distanceRemainingKm <= 0.03)
+    ) {
+      return 'Driver has arrived at pickup!';
+    }
+    if (etaMin !== null && etaMin !== undefined) {
+      const etaStr = etaMin <= 1 ? `1 ${t('navigation.min')}` : `${etaMin} ${t('navigation.min')}`;
+      if (formattedDistance) {
+        return `${t('rider.driverArriving')} • ${etaStr} (${formattedDistance})`;
+      }
+      return `${t('rider.driverArriving')} • ${etaStr}`;
+    }
+    if (formattedDistance) {
+      return `${t('rider.driverArriving')} • ${formattedDistance}`;
+    }
+    return `${t('rider.driverArriving')} • 3 ${t('navigation.min')}`;
+  }, [tripStatus, etaMin, formattedDistance, distanceRemainingKm, t]);
+
   const mapPane = (
     <View style={isSplitLayout ? styles.mapAreaSplit : styles.mapArea}>
       <RidesRouteMap
         pickupCoords={driverCoords}
         dropCoords={pickupCoords}
         pickupLabel={driver?.name ? `${driver.name} (Driver)` : 'Driver'}
-        destinationLabel={pickupLabel}
-        distanceKm={1.4}
+        destinationLabel={formattedPickupLabel}
+        distanceKm={
+          distanceRemainingKm !== null && distanceRemainingKm !== undefined
+            ? Number(distanceRemainingKm)
+            : 1.4
+        }
+        isDriverEnRoute={true}
+        vehicleType={driver?.vehicle_type || route.params?.selectedRide?.vehicle_type || 'CAR'}
         style={{ flex: 1, width: '100%', height: '100%' }}
       />
 
@@ -197,9 +290,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         <View style={styles.etaBannerLeft}>
           <View style={styles.pulseDot} />
           <Text style={styles.etaBannerText}>
-            {tripStatus === 'driver_arrived'
-              ? 'Driver has arrived at pickup!'
-              : `${t('rider.driverArriving')} • 3 ${t('navigation.min')}`}
+            {formattedEtaText}
           </Text>
         </View>
         {otp ? (
@@ -243,38 +334,17 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Safety & Action Tools */}
-      <View style={styles.safetyRow}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => {}}
-          style={styles.safetyBtn}
-        >
-          <Icon name="share" size={16} color={COLORS.secondPrimary} />
-          <Text style={styles.safetyBtnText}>{t('rider.shareTrip')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => setShowEmergencyModal(true)}
-          style={[styles.safetyBtn, styles.emergencyBtn]}
-        >
-          <Icon name="shield" size={16} color={COLORS.danger} />
-          <Text style={[styles.safetyBtnText, styles.emergencyText]}>
-            {t('rider.safety')} SOS
-          </Text>
-        </TouchableOpacity>
-      </View>
+     
 
       {/* Action CTAs */}
-      <CustomButton
+      {/* <CustomButton
         title={`${t('driver.startTrip')} • Moto Taxi`}
         onPress={handleStartRide}
         variant="primary"
         icon="check-circle"
         iconPosition="right"
         style={styles.actionBtn}
-      />
+      /> */}
 
       <CustomButton
         title={t('rider.cancelRide')}
@@ -291,14 +361,6 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
       <Header
         title={t('rider.driverAssigned')}
         showBack={false}
-        rightComponent={
-          otp ? (
-            <View style={styles.headerOtpBadge}>
-              <Text style={styles.headerOtpLabel}>OTP: </Text>
-              <Text style={styles.headerOtpValue}>{otp}</Text>
-            </View>
-          ) : null
-        }
       />
 
       <AdaptiveSplitView
@@ -324,7 +386,7 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         visible={showEmergencyModal}
         onClose={() => setShowEmergencyModal(false)}
         title={t('rider.safety')}
-        message="Dial 911 or alert 24/7 Moto Taxi safety response team with your live GPS location?"
+        message=""
         confirmText="Emergency"
         cancelText="Dismiss"
         isDanger={true}

@@ -16,20 +16,19 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useResponsive } from '../../utils/responsive';
-import { CURRENT_LOCATION } from '../../data/mockLocations';
 import { useTranslation } from 'react-i18next';
 
 export const PickupLocationScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { isSplitLayout, insets } = useResponsive();
   const [pickupAddress, setPickupAddress] = useState(
-    route.params?.pickup || CURRENT_LOCATION.address
+    route.params?.pickup || 'Current Location'
   );
 
   const handleConfirm = () => {
     navigation.navigate('RideOptions', {
       pickup: pickupAddress,
-      destination: route.params?.destination || 'JFK International Airport',
+      destination: route.params?.destination || 'Destination',
     });
   };
 

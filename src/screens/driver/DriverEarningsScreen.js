@@ -1,13 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
   ScrollView,
+  RefreshControl,
+  ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -23,14 +26,60 @@ import {
   MOCK_WALLET,
   MOCK_DRIVER_EARNINGS_BREAKDOWN,
 } from '../../data/mockTransactions';
+import {
+  fetchDriverWallet,
+  fetchDriverWalletTransactions,
+  fetchDriverWalletSummary,
+} from '../../redux/features/driver/driverSlice';
 
 export const DriverEarningsScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
-  const { completedRide, activeRide } = useSelector((state) => state.driver);
+  const dispatch = useDispatch();
 
-  const currency = activeRide?.currency || completedRide?.currency || 'USD';
-  const currencySymbol = currency === 'USD' ? '$' : currency;
+  const {
+    completedRide,
+    activeRide,
+    wallet,
+    walletTransactions,
+    walletSummary,
+    isWalletLoading,
+    isTransactionsLoading,
+  } = useSelector((state) => state.driver);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCashoutModal, setShowCashoutModal] = useState(false);
+  const [cashoutSuccess, setCashoutSuccess] = useState(false);
+
+  // Load wallet, transactions, and summary from backend
+  const loadWalletData = useCallback(async () => {
+    try {
+      await Promise.allSettled([
+        dispatch(fetchDriverWallet()),
+        dispatch(fetchDriverWalletTransactions()),
+        dispatch(fetchDriverWalletSummary()),
+      ]);
+    } catch (e) {
+      console.warn('[DriverEarnings] Error fetching wallet data:', e);
+    }
+  }, [dispatch]);
+
+  useEffect(() => {
+    loadWalletData();
+  }, [loadWalletData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadWalletData();
+    setRefreshing(false);
+  }, [loadWalletData]);
+
+  const currency =
+    wallet?.currency ||
+    activeRide?.currency ||
+    completedRide?.currency ||
+    'USD';
+  const currencySymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency;
 
   const extraEarned = useMemo(() => {
     let extra = 0;
@@ -38,9 +87,99 @@ export const DriverEarningsScreen = ({ navigation }) => {
     return extra;
   }, [completedRide]);
 
-  const [balance, setBalance] = useState(MOCK_WALLET.driverBalance + extraEarned);
-  const [showCashoutModal, setShowCashoutModal] = useState(false);
-  const [cashoutSuccess, setCashoutSuccess] = useState(false);
+  // Balance from API with fallback
+  const balance = useMemo(() => {
+    const raw =
+      wallet?.balance ??
+      walletSummary?.current_balance ??
+      wallet?.available_balance ??
+      wallet?.total_balance ??
+      wallet?.amount;
+    if (raw !== undefined && raw !== null && !isNaN(Number(raw))) {
+      return Number(raw);
+    }
+    return 0 + extraEarned;
+  }, [wallet, walletSummary, extraEarned]);
+
+  const todayEarnings = Number(walletSummary?.today_earnings ?? 0);
+  const weekEarnings = Number(walletSummary?.week_earnings ?? 0);
+  const monthEarnings = Number(walletSummary?.month_earnings ?? 0);
+
+  const totalTrips =
+    walletSummary?.trips_count ??
+    walletSummary?.completed_trips ??
+    walletSummary?.total_trips;
+  const hoursOnline =
+    walletSummary?.hours_online ??
+    walletSummary?.online_hours ??
+    walletSummary?.total_hours;
+  const periodText =
+    walletSummary?.period_label ||
+    walletSummary?.period ||
+    'Wallet & Earnings Summary';
+
+  // Earnings Breakdown values
+  const standardFares = useMemo(() => {
+    const raw =
+      walletSummary?.standard_fares ??
+      walletSummary?.trip_fares ??
+      walletSummary?.fares;
+    if (raw !== undefined && raw !== null) return Number(raw);
+    if (walletSummary) return weekEarnings;
+    return extraEarned;
+  }, [walletSummary, weekEarnings, extraEarned]);
+
+  const bonuses = useMemo(() => {
+    const raw =
+      walletSummary?.bonuses ??
+      walletSummary?.surge_bonuses ??
+      walletSummary?.surge;
+    return raw !== undefined && raw !== null ? Number(raw) : 0;
+  }, [walletSummary]);
+
+  const tips = useMemo(() => {
+    const raw =
+      walletSummary?.tips ??
+      walletSummary?.passenger_tips;
+    return raw !== undefined && raw !== null ? Number(raw) : 0;
+  }, [walletSummary]);
+
+  // Transactions list
+  const transactions = useMemo(() => {
+    if (Array.isArray(walletTransactions) && walletTransactions.length > 0) {
+      return walletTransactions.map((tx, idx) => {
+        const rawType = (tx.transaction_type || tx.type || '').toUpperCase();
+        const isCredit =
+          rawType === 'CREDIT' ||
+          rawType === 'EARNING' ||
+          rawType === 'TRIP' ||
+          Number(tx.amount || 0) > 0;
+        const amt = Math.abs(Number(tx.amount || 0));
+        let title = tx.description || tx.title || tx.narration;
+        if (!title) {
+          title = isCredit ? 'Trip Earnings' : 'Payout Transfer';
+        }
+        let dateText = 'Recent';
+        if (tx.created_at || tx.timestamp || tx.date) {
+          try {
+            dateText = new Date(tx.created_at || tx.timestamp || tx.date).toLocaleDateString(
+              undefined,
+              { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+            );
+          } catch (_) {}
+        }
+        return {
+          id: tx.id || `tx_${idx}`,
+          title,
+          amount: amt,
+          isCredit,
+          date: dateText,
+          status: (tx.status || 'COMPLETED').toUpperCase(),
+        };
+      });
+    }
+    return [];
+  }, [walletTransactions]);
 
   const isMultiColumn = isFoldableOrTablet || isSplitLayout;
 
@@ -49,19 +188,27 @@ export const DriverEarningsScreen = ({ navigation }) => {
   );
 
   const handleCashout = () => {
-    setBalance(0);
     setShowCashoutModal(false);
     setCashoutSuccess(true);
   };
 
   const heroBanner = (
     <View style={styles.earningsHero}>
-      <Text style={styles.heroPeriod}>This Week • Sep 14 - Sep 20</Text>
+      <View style={styles.heroTopRow}>
+        <Text style={styles.heroPeriod}>{periodText}</Text>
+        {isWalletLoading && (
+          <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />
+        )}
+      </View>
       <Text style={styles.heroAmount}>{formatCurrency(balance, currencySymbol)}</Text>
-      <Text style={styles.heroSub}>42 completed trips • 28.5 hrs online</Text>
+      <Text style={styles.heroSub}>
+        {totalTrips !== undefined && hoursOnline !== undefined
+          ? `${totalTrips} completed trips • ${hoursOnline} hrs online`
+          : 'Available Payout Balance'}
+      </Text>
 
       <CustomButton
-        title={t('driver.cashOut')}
+        title={t('driver.cashOut', 'Cash Out')}
         onPress={() => setShowCashoutModal(true)}
         disabled={balance <= 0}
         variant="primary"
@@ -69,6 +216,40 @@ export const DriverEarningsScreen = ({ navigation }) => {
         size="small"
         style={styles.cashoutBtn}
       />
+    </View>
+  );
+
+  const periodSummaryCard = (
+    <View style={styles.periodSummaryGrid}>
+      <View style={styles.periodSummaryCard}>
+        <View style={styles.periodIconCircle}>
+          <Icon name="clock" size={13} color={COLORS.primary} />
+        </View>
+        <Text style={styles.periodSummaryLabel}>Today</Text>
+        <Text style={styles.periodSummaryValue}>
+          {formatCurrency(todayEarnings, currencySymbol)}
+        </Text>
+      </View>
+
+      <View style={styles.periodSummaryCard}>
+        <View style={styles.periodIconCircle}>
+          <Icon name="trending-up" size={13} color={COLORS.primary} />
+        </View>
+        <Text style={styles.periodSummaryLabel}>This Week</Text>
+        <Text style={styles.periodSummaryValue}>
+          {formatCurrency(weekEarnings, currencySymbol)}
+        </Text>
+      </View>
+
+      <View style={styles.periodSummaryCard}>
+        <View style={styles.periodIconCircle}>
+          <Icon name="calendar" size={13} color={COLORS.primary} />
+        </View>
+        <Text style={styles.periodSummaryLabel}>This Month</Text>
+        <Text style={styles.periodSummaryValue}>
+          {formatCurrency(monthEarnings, currencySymbol)}
+        </Text>
+      </View>
     </View>
   );
 
@@ -123,7 +304,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
           <Icon name="car" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Standard Trip Fares</Text>
         </View>
-        <Text style={styles.rowVal}>{formatCurrency(620 + extraEarned, currencySymbol)}</Text>
+        <Text style={styles.rowVal}>{formatCurrency(standardFares, currencySymbol)}</Text>
       </View>
 
       <View style={styles.breakdownRow}>
@@ -131,7 +312,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
           <Icon name="trending-up" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Surge & Zone Bonuses</Text>
         </View>
-        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(134.5, currencySymbol)}</Text>
+        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(bonuses, currencySymbol)}</Text>
       </View>
 
       <View style={styles.breakdownRow}>
@@ -139,7 +320,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
           <Icon name="star" size={16} color={COLORS.primary} />
           <Text style={styles.rowLabel}>Passenger Tips (100%)</Text>
         </View>
-        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(88.0, currencySymbol)}</Text>
+        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(tips, currencySymbol)}</Text>
       </View>
 
       <View style={styles.divider} />
@@ -151,14 +332,95 @@ export const DriverEarningsScreen = ({ navigation }) => {
     </View>
   );
 
+  const transactionsCard = (
+    <View style={styles.card}>
+      <View style={styles.transactionsHeader}>
+        <Text style={styles.cardTitle}>Recent Transactions</Text>
+        <TouchableOpacity activeOpacity={0.7} onPress={loadWalletData}>
+          <Text style={styles.refreshLink}>Refresh</Text>
+        </TouchableOpacity>
+      </View>
+
+      {isTransactionsLoading && transactions.length === 0 ? (
+        <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: SPACING.md }} />
+      ) : transactions.length === 0 ? (
+        <View style={styles.emptyTxContainer}>
+          <View style={styles.emptyTxIconBox}>
+            <Icon name="file-text" size={22} color={COLORS.textLight} />
+          </View>
+          <Text style={styles.emptyTxTitle}>No Transactions Yet</Text>
+          <Text style={styles.emptyTxSub}>
+            Earnings from completed trips and payout transfers will appear here.
+          </Text>
+        </View>
+      ) : (
+        transactions.map((tx, idx) => (
+          <View
+            key={tx.id || idx}
+            style={[
+              styles.txRow,
+              idx === transactions.length - 1 && styles.txRowLast,
+            ]}
+          >
+            <View
+              style={[
+                styles.txIconBox,
+                tx.isCredit ? styles.txIconBoxCredit : styles.txIconBoxDebit,
+              ]}
+            >
+              <Icon
+                name={tx.isCredit ? 'arrow-down' : 'arrow-up'}
+                size={14}
+                color={tx.isCredit ? COLORS.primary : COLORS.danger}
+              />
+            </View>
+
+            <View style={styles.txTextCol}>
+              <Text numberOfLines={1} style={styles.txTitle}>
+                {tx.title}
+              </Text>
+              <Text style={styles.txDate}>{tx.date}</Text>
+            </View>
+
+            <View style={styles.txAmountCol}>
+              <Text
+                style={[
+                  styles.txAmount,
+                  tx.isCredit ? styles.positiveVal : styles.txAmountDebit,
+                ]}
+              >
+                {tx.isCredit ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
+              </Text>
+              <View
+                style={[
+                  styles.txStatusBadge,
+                  tx.status === 'COMPLETED' ? styles.txStatusSuccess : styles.txStatusPending,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.txStatusText,
+                    tx.status === 'COMPLETED' ? styles.txStatusSuccessText : styles.txStatusPendingText,
+                  ]}
+                >
+                  {tx.status}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
   const bankCard = (
     <View style={styles.bankCard}>
       <View style={styles.bankIcon}>
         <Icon name="wallet" size={20} color={COLORS.secondPrimary} />
       </View>
       <View style={styles.bankInfo}>
-        <Text style={styles.bankName}>Chase Bank •••• 5612</Text>
-        <Text style={styles.bankSub}>Standard weekly payout on Tuesday</Text>
+        <Text style={styles.bankName}>Direct Bank Account</Text>
+        <Text style={styles.bankSub}>Automated weekly payouts on Tuesdays</Text>
       </View>
       <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
     </View>
@@ -169,7 +431,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ResponsiveContainer maxWidth={960} style={{ flex: 1 }}>
         <Header
-          title={t('driver.tripEarnings')}
+          title={t('driver.tripEarnings', 'Driver Wallet & Earnings')}
           showBack={false}
           variant="light"
         />
@@ -180,23 +442,35 @@ export const DriverEarningsScreen = ({ navigation }) => {
             { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+              tintColor={COLORS.primary}
+            />
+          }
         >
           {isMultiColumn ? (
             <View style={styles.splitRow}>
               <View style={styles.splitCol}>
                 {heroBanner}
+                {periodSummaryCard}
                 {chartCard}
+                {bankCard}
               </View>
               <View style={styles.splitCol}>
                 {breakdownCard}
-                {bankCard}
+                {transactionsCard}
               </View>
             </View>
           ) : (
             <>
               {heroBanner}
+              {periodSummaryCard}
               {chartCard}
               {breakdownCard}
+              {transactionsCard}
               {bankCard}
             </>
           )}
@@ -208,7 +482,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
         visible={showCashoutModal}
         onClose={() => setShowCashoutModal(false)}
         title="Instant Cash Out"
-        message={`Transfer ${formatCurrency(balance)} immediately to Chase Bank (•••• 5612)? Funds arrive in 1-2 minutes.`}
+        message={`Transfer ${formatCurrency(balance, currencySymbol)} immediately to your linked bank account? Funds arrive within minutes.`}
         confirmText="Transfer Funds"
         cancelText="Cancel"
         onConfirm={handleCashout}
@@ -219,7 +493,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
         visible={cashoutSuccess}
         onClose={() => setCashoutSuccess(false)}
         title="Transfer Initiated!"
-        message="Your payout is on the way to your linked bank account. Reference ID: TXN-893247."
+        message="Your payout is on the way to your linked bank account."
         confirmText="Done"
         showCancel={false}
         onConfirm={() => setCashoutSuccess(false)}
@@ -259,6 +533,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 3,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   heroPeriod: {
     ...TYPOGRAPHY.caption,
@@ -368,7 +646,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.title,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: SPACING.md,
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -408,6 +685,88 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.text,
   },
+  transactionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  refreshLink: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  txRowLast: {
+    borderBottomWidth: 0,
+  },
+  txIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  txIconBoxCredit: {
+    backgroundColor: '#ECFDF5',
+  },
+  txIconBoxDebit: {
+    backgroundColor: '#FEF2F2',
+  },
+  txTextCol: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  txTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  txDate: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 10,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  txAmountCol: {
+    alignItems: 'flex-end',
+  },
+  txAmount: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+  },
+  txAmountDebit: {
+    color: COLORS.text,
+  },
+  txStatusBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  txStatusSuccess: {
+    backgroundColor: '#ECFDF5',
+  },
+  txStatusPending: {
+    backgroundColor: '#FEF3C7',
+  },
+  txStatusText: {
+    fontSize: 8,
+    fontWeight: '800',
+  },
+  txStatusSuccessText: {
+    color: '#059669',
+  },
+  txStatusPendingText: {
+    color: '#D97706',
+  },
   bankCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -438,6 +797,67 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
+  },
+  periodSummaryGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  periodSummaryCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.medium,
+    padding: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  periodIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  periodSummaryLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginBottom: 2,
+  },
+  periodSummaryValue: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  emptyTxContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.md,
+  },
+  emptyTxIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  emptyTxTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  emptyTxSub: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });
 

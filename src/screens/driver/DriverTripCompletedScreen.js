@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   StatusBar,
   ScrollView,
+  BackHandler,
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
@@ -18,30 +21,144 @@ import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
-import { resetActiveRideState } from '../../redux/features/driver/driverSlice';
+import {
+  resetActiveRideState,
+  driverCompleteTrip,
+} from '../../redux/features/driver/driverSlice';
+
+const COMPLIMENT_OPTIONS = [
+  { id: 'polite', label: 'Polite & Friendly', icon: 'smile' },
+  { id: 'ontime', label: 'Ready on Time', icon: 'clock' },
+  { id: 'clean', label: 'Respectful Rider', icon: 'shield' },
+  { id: 'tip', label: 'Generous Tipper', icon: 'heart' },
+];
 
 export const DriverTripCompletedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { insets } = useResponsive();
   const dispatch = useDispatch();
-  const { completedRide, activeRide } = useSelector((state) => state.driver);
+  const { completedRide, activeRide, actionLoading } = useSelector((state) => state.driver);
   const ride = completedRide || activeRide;
 
+  const pickup =
+    route.params?.pickup ||
+    ride?.pickup_address ||
+    ride?.pickup ||
+    'Pickup Location';
+  const destination =
+    route.params?.destination ||
+    ride?.drop_address ||
+    ride?.destination_address ||
+    ride?.destination ||
+    'Drop-off Destination';
   const fare = route.params?.fare ?? ride?.driver_payout ?? ride?.fare ?? 28.5;
   const currency = route.params?.currency || ride?.currency || 'USD';
-  const passengerName = route.params?.passengerName || ride?.rider_name || ride?.passengerName || 'Rider';
-  const distance = route.params?.distance || (ride?.distance_km !== undefined ? `${ride.distance_km} km` : '16.4 mi');
-  const duration = route.params?.duration || '32 mins';
+  const passengerName =
+    route.params?.passengerName ||
+    ride?.rider_name ||
+    ride?.passengerName ||
+    'Rider';
+  const distance =
+    route.params?.distance ||
+    (ride?.distance_km !== undefined ? `${ride.distance_km} km` : '2.1 km');
+  const duration = route.params?.duration || '12 mins';
+  const vehicleType =
+    route.params?.vehicleType || ride?.vehicle_type || 'Moto Taxi';
 
   const [rating, setRating] = useState(5);
+  const [selectedCompliments, setSelectedCompliments] = useState(['polite', 'ontime']);
+  const [isFinishing, setIsFinishing] = useState(false);
+
   const surgeBonus = 3.5;
   const tipBonus = 5.0;
   const totalEarned = fare + surgeBonus + tipBonus;
 
-  const handleFinish = () => {
-    dispatch(resetActiveRideState());
-    navigation.navigate('DriverHome');
+  const toggleCompliment = (id) => {
+    setSelectedCompliments((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
+
+  const getRatingFeedback = (score) => {
+    switch (score) {
+      case 5:
+        return '🌟 Outstanding Rider!';
+      case 4:
+        return '👍 Great Experience';
+      case 3:
+        return '😐 Average Trip';
+      case 2:
+        return '👎 Below Expectation';
+      case 1:
+        return '⚠️ Poor Experience';
+      default:
+        return 'Rate Experience';
+    }
+  };
+
+  const handleFinish = useCallback(() => {
+    if (isFinishing) return;
+    setIsFinishing(true);
+
+    const effectiveRideId =
+      Number(
+        route.params?.ride_id ||
+          route.params?.rideId ||
+          ride?.ride_id ||
+          ride?.id,
+      ) || 1;
+
+    console.log(
+      '[DriverTripCompleted] Done pressed. Sending complete_trip socket message for ride_id:',
+      effectiveRideId,
+    );
+
+    // 1. Emit WebSocket message: {"type": "complete_trip", "ride_id": effectiveRideId}
+    dispatch(
+      driverCompleteTrip({
+        rideId: effectiveRideId,
+        fare: totalEarned || fare,
+      }),
+    );
+
+    // 2. Clear active ride state in Redux
+    dispatch(resetActiveRideState());
+
+    // 3. Smooth transition back to DriverHome
+    setTimeout(() => {
+      try {
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'DriverTabs',
+              params: { screen: 'DriverHome' },
+            },
+          ],
+        });
+      } catch (e) {
+        console.warn(
+          '[DriverTripCompleted] navigation.reset failed, falling back to navigate:',
+          e,
+        );
+        navigation.navigate('DriverHome');
+      }
+    }, 450);
+  }, [dispatch, navigation, ride, route.params, totalEarned, fare, isFinishing]);
+
+  useEffect(() => {
+    const backAction = () => {
+      handleFinish();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction,
+    );
+
+    return () => backHandler.remove();
+  }, [handleFinish]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -51,93 +168,205 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+            { paddingBottom: Math.max(insets.bottom + SPACING.xl, SPACING.xxxl) },
           ]}
           showsVerticalScrollIndicator={false}
         >
-        <View style={styles.checkCircle}>
-          <Icon name="check" size={36} color={COLORS.primaryDark} />
-        </View>
+          {/* Success Checkmark Circle */}
+          <View style={styles.checkCircleOuter}>
+            <View style={styles.checkCircle}>
+              <Icon name="check" size={34} color={COLORS.primaryDark} />
+            </View>
+          </View>
 
-        <Text style={styles.title}>{t('driver.completeTrip')}</Text>
-        <Text style={styles.subtitle}>
-          Your earnings have been added to your daily wallet.
-        </Text>
-
-        {/* Total Earned Card */}
-        <View style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>{t('driver.totalEarnings')}</Text>
-          <Text style={styles.earningsAmount}>
-            {formatCurrency(totalEarned, currency === 'USD' ? '$' : currency)}
+          <Text style={styles.title}>{t('driver.completeTrip', 'Trip Completed!')}</Text>
+          <Text style={styles.subtitle}>
+            Great job! Earnings have been credited to your active driver wallet.
           </Text>
 
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Base Ride Fare</Text>
-            <Text style={styles.breakdownVal}>
-              {formatCurrency(fare, currency === 'USD' ? '$' : currency)}
-            </Text>
+          {/* Passenger Identity Pill */}
+          <View style={styles.passengerBar}>
+            <View style={styles.passengerAvatar}>
+              <Text style={styles.passengerInitial}>
+                {passengerName ? passengerName.charAt(0).toUpperCase() : 'R'}
+              </Text>
+            </View>
+            <View style={styles.passengerMeta}>
+              <Text style={styles.passengerName} numberOfLines={1}>
+                {passengerName}
+              </Text>
+              <View style={styles.passengerRatingRow}>
+                <Icon name="star" size={11} color="#F59E0B" />
+                <Text style={styles.passengerRatingText}>5.0 ★ Rider</Text>
+              </View>
+            </View>
+            <View style={styles.paidBadge}>
+              <Icon name="check" size={12} color="#047857" />
+              <Text style={styles.paidBadgeText}>Paid</Text>
+            </View>
           </View>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Surge Zone Bonus</Text>
-            <Text style={styles.surgeVal}>
-              +{formatCurrency(surgeBonus, currency === 'USD' ? '$' : currency)}
-            </Text>
-          </View>
-          <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Passenger Tip</Text>
-            <Text style={styles.tipVal}>
-              +{formatCurrency(tipBonus, currency === 'USD' ? '$' : currency)}
-            </Text>
-          </View>
-        </View>
 
-        {/* Trip Stats */}
-        <View style={styles.statsCard}>
-          <View style={styles.statCol}>
-            <Text style={styles.statNum}>{distance}</Text>
-            <Text style={styles.statLabel}>{t('navigation.distance')}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCol}>
-            <Text style={styles.statNum}>{duration}</Text>
-            <Text style={styles.statLabel}>Duration</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCol}>
-            <Text style={styles.statNum}>Comfort</Text>
-            <Text style={styles.statLabel}>Category</Text>
-          </View>
-        </View>
+          {/* Total Earned Card */}
+          <View style={styles.earningsCard}>
+            <View style={styles.earningsHeaderRow}>
+              <Text style={styles.earningsLabel}>
+                {t('driver.totalEarnings', 'TOTAL EARNED')}
+              </Text>
+              <View style={styles.walletCreditedChip}>
+                <Icon name="wallet" size={12} color={COLORS.primaryDark} />
+                <Text style={styles.walletCreditedText}>In Wallet</Text>
+              </View>
+            </View>
 
-        {/* Rate Rider Card */}
-        <View style={styles.rateCard}>
-          <Text style={styles.rateTitle}>{t('rider.rateExperience')}</Text>
-          <Text style={styles.rateSubtitle}>
-            How was your experience driving {passengerName}?
-          </Text>
+            <Text style={styles.earningsAmount}>
+              {formatCurrency(totalEarned, currency === 'USD' ? '$' : currency)}
+            </Text>
 
-          <RatingStars
-            rating={rating}
-            size={34}
-            interactive={true}
-            onRatingChange={setRating}
-            style={styles.stars}
+            <View style={styles.breakdownDivider} />
+
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Base Ride Fare</Text>
+              <Text style={styles.breakdownVal}>
+                {formatCurrency(fare, currency === 'USD' ? '$' : currency)}
+              </Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <View style={styles.labelWithIconRow}>
+                <Text style={styles.breakdownLabel}>Surge Zone Bonus</Text>
+              </View>
+              <Text style={styles.surgeVal}>
+                +{formatCurrency(surgeBonus, currency === 'USD' ? '$' : currency)}
+              </Text>
+            </View>
+            <View style={styles.breakdownRow}>
+              <View style={styles.labelWithIconRow}>
+                <Text style={styles.breakdownLabel}>Passenger Tip</Text>
+              </View>
+              <Text style={styles.tipVal}>
+                +{formatCurrency(tipBonus, currency === 'USD' ? '$' : currency)}
+              </Text>
+            </View>
+          </View>
+
+          {/* Pick and Drop Route Summary */}
+          <View style={styles.routeCard}>
+            <View style={styles.routeTimeline}>
+              <View style={styles.pickupDot} />
+              <View style={styles.routeLine} />
+              <View style={styles.dropSquare} />
+            </View>
+            <View style={styles.routeAddresses}>
+              <View style={styles.addressBlock}>
+                <Text style={styles.addressLabel}>
+                  {t('rider.pickupLocation', 'PICKUP')}
+                </Text>
+                <Text numberOfLines={1} style={styles.addressText}>
+                  {pickup}
+                </Text>
+              </View>
+              <View style={[styles.addressBlock, { marginTop: SPACING.sm }]}>
+                <Text style={styles.addressLabel}>
+                  {t('rider.dropoffLocation', 'DROPOFF')}
+                </Text>
+                <Text numberOfLines={1} style={styles.addressText}>
+                  {destination}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Trip Metrics Pills */}
+          <View style={styles.statsCard}>
+            <View style={styles.statCol}>
+              <Text style={styles.statNum}>{distance}</Text>
+              <Text style={styles.statLabel}>{t('navigation.distance', 'Distance')}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCol}>
+              <Text style={styles.statNum}>{duration}</Text>
+              <Text style={styles.statLabel}>Duration</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCol}>
+              <Text style={styles.statNum}>{vehicleType}</Text>
+              <Text style={styles.statLabel}>Vehicle</Text>
+            </View>
+          </View>
+
+          {/* Rate & Compliments Card */}
+          <View style={styles.rateCard}>
+            <Text style={styles.rateTitle}>
+              {t('rider.rateExperience', 'Rate Passenger')}
+            </Text>
+            <Text style={styles.rateSubtitle}>
+              How was your trip with {passengerName}?
+            </Text>
+
+            <RatingStars
+              rating={rating}
+              size={36}
+              interactive={true}
+              onRatingChange={setRating}
+              style={styles.stars}
+            />
+
+            <Text style={styles.ratingFeedbackBadge}>
+              {getRatingFeedback(rating)}
+            </Text>
+
+            {/* Quick Compliment Chips */}
+            <View style={styles.complimentsContainer}>
+              {COMPLIMENT_OPTIONS.map((opt) => {
+                const isSelected = selectedCompliments.includes(opt.id);
+                return (
+                  <TouchableOpacity
+                    key={opt.id}
+                    activeOpacity={0.8}
+                    onPress={() => toggleCompliment(opt.id)}
+                    style={[
+                      styles.complimentChip,
+                      isSelected && styles.complimentChipSelected,
+                    ]}
+                  >
+                    <Icon
+                      name={opt.icon}
+                      size={13}
+                      color={isSelected ? COLORS.primaryDark : COLORS.textLight}
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text
+                      style={[
+                        styles.complimentText,
+                        isSelected && styles.complimentTextSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Finish & Go Online Button */}
+          <CustomButton
+            title={
+              isFinishing || actionLoading
+                ? 'Completing Ride...'
+                : t('common.done', 'Done • Back to Online')
+            }
+            onPress={handleFinish}
+            loading={isFinishing || actionLoading}
+            disabled={isFinishing || actionLoading}
+            variant="primary"
+            icon={isFinishing || actionLoading ? undefined : 'arrow-right'}
+            iconPosition="right"
+            style={styles.nextBtn}
           />
-        </View>
-
-        {/* Action Button */}
-        <CustomButton
-          title={t('common.done')}
-          onPress={handleFinish}
-          variant="primary"
-          icon="arrow-right"
-          iconPosition="right"
-          style={styles.nextBtn}
-        />
-      </ScrollView>
-    </ResponsiveContainer>
-  </SafeAreaView>
-);
+        </ScrollView>
+      </ResponsiveContainer>
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -145,40 +374,102 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  topLangBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xs,
-  },
   content: {
-    padding: SPACING.xl,
-    paddingBottom: SPACING.xxxl,
+    padding: SPACING.lg,
     alignItems: 'center',
   },
+  checkCircleOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
   checkCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: RADIUS.round,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: COLORS.primaryLight,
     borderWidth: 2,
     borderColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.md,
   },
   title: {
     ...TYPOGRAPHY.h2,
     fontWeight: '800',
     color: COLORS.text,
+    textAlign: 'center',
   },
   subtitle: {
     ...TYPOGRAPHY.bodySmall,
     color: COLORS.textLight,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+  },
+  passengerBar: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.medium,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  passengerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
+  passengerInitial: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: COLORS.white,
+  },
+  passengerMeta: {
+    flex: 1,
+  },
+  passengerName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  passengerRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  passengerRatingText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textLight,
+    marginLeft: 3,
+  },
+  paidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+  },
+  paidBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#047857',
+    marginLeft: 3,
   },
   earningsCard: {
     width: '100%',
@@ -194,45 +485,132 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: SPACING.md,
   },
+  earningsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   earningsLabel: {
     ...TYPOGRAPHY.caption,
+    fontWeight: '800',
+    color: COLORS.textLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  walletCreditedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: RADIUS.round,
+  },
+  walletCreditedText: {
+    fontSize: 10,
     fontWeight: '700',
     color: COLORS.primaryDark,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    textAlign: 'center',
+    marginLeft: 4,
   },
   earningsAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 36,
-    fontWeight: '800',
-    color: COLORS.text,
+    fontSize: 38,
+    fontWeight: '900',
+    color: COLORS.primaryDark,
     textAlign: 'center',
     marginVertical: SPACING.xs,
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: SPACING.sm,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginVertical: 4,
+  },
+  labelWithIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   breakdownLabel: {
     ...TYPOGRAPHY.bodySmall,
     color: COLORS.textLight,
+    fontSize: 13,
   },
   breakdownVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '600',
     color: COLORS.text,
+    fontSize: 13,
   },
   surgeVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.primaryDark,
+    color: '#059669',
+    fontSize: 13,
   },
   tipVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
-    color: COLORS.primaryDark,
+    color: '#059669',
+    fontSize: 13,
+  },
+  routeCard: {
+    width: '100%',
+    flexDirection: 'row',
+    backgroundColor: COLORS.inputBg,
+    padding: SPACING.md,
+    borderRadius: RADIUS.large,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  routeTimeline: {
+    alignItems: 'center',
+    width: 20,
+    marginRight: SPACING.sm,
+    paddingVertical: 4,
+  },
+  pickupDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primaryDark,
+  },
+  routeLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 22,
+    backgroundColor: COLORS.border,
+    marginVertical: 3,
+  },
+  dropSquare: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: COLORS.secondPrimary,
+  },
+  routeAddresses: {
+    flex: 1,
+  },
+  addressBlock: {
+    justifyContent: 'center',
+  },
+  addressLabel: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '800',
+    color: COLORS.textLight,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  addressText: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 2,
   },
   statsCard: {
     width: '100%',
@@ -270,22 +648,63 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.large,
     padding: SPACING.lg,
     alignItems: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
     borderWidth: 1.5,
     borderColor: COLORS.border,
   },
   rateTitle: {
     ...TYPOGRAPHY.title,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.text,
   },
   rateSubtitle: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
+    textAlign: 'center',
   },
   stars: {
     marginVertical: SPACING.md,
+  },
+  ratingFeedbackBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.text,
+    backgroundColor: COLORS.inputBg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+    marginBottom: SPACING.md,
+  },
+  complimentsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  complimentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.round,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  complimentChipSelected: {
+    backgroundColor: COLORS.primaryLight,
+    borderColor: COLORS.primary,
+  },
+  complimentText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textLight,
+  },
+  complimentTextSelected: {
+    color: COLORS.primaryDark,
+    fontWeight: '700',
   },
   nextBtn: {
     width: '100%',

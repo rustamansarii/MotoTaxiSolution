@@ -150,6 +150,11 @@ export const RideRequestScreen = ({ navigation, route }) => {
       timeToPickup,
       pickupCoordinates: pickupCoords,
       dropCoordinates: dropCoords,
+      pickup_lat: pickupCoords?.[1],
+      pickup_lon: pickupCoords?.[0],
+      drop_lat: dropCoords?.[1],
+      drop_lon: dropCoords?.[0],
+      distance_km: numDistanceKm,
     });
   }, [
     rideId,
