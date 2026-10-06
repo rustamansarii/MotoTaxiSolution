@@ -14,8 +14,9 @@ import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
+import { LanguageButton } from '../../components/LanguageButton';
 import { saveRole, setGuestMode } from '../../utils/storage';
 
 const GREEN = '#17baa1';
@@ -107,6 +108,18 @@ export const RoleSelectionScreen = ({ navigation, route }) => {
           >
             <Icon name="arrow-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
+
+          {/* Language Selector Button */}
+          <View
+            style={{
+              position: 'absolute',
+              top: Math.max(insets.top, 16),
+              right: 16,
+              zIndex: 20,
+            }}
+          >
+            <LanguageButton variant="dark" short={true} />
+          </View>
 
           {/* Logo */}
           <View style={styles.logoBox}>
@@ -504,27 +517,18 @@ const styles = StyleSheet.create({
 
   brandName: {
     color: '#FFFFFF',
-
-    fontSize: 36,
-
+    fontSize: responsiveFont(36),
     fontWeight: '500',
-
     marginTop: 12,
-
     letterSpacing: 0.2,
-
     zIndex: 5,
   },
 
   heroText: {
     color: 'rgba(255,255,255,0.88)',
-
-    fontSize: 14,
-
+    fontSize: responsiveFont(14),
     fontWeight: '500',
-
     marginTop: 4,
-
     zIndex: 5,
   },
 
@@ -534,26 +538,18 @@ const styles = StyleSheet.create({
 
   skyline: {
     position: 'absolute',
-
     bottom: 0,
-
     left: -10,
     right: -10,
-
     height: 100,
-
     flexDirection: 'row',
-
     alignItems: 'flex-end',
-
     justifyContent: 'space-around',
-
     opacity: 0.16,
   },
 
   building: {
     backgroundColor: '#FFFFFF',
-
     borderTopLeftRadius: 2,
     borderTopRightRadius: 2,
   },
@@ -564,9 +560,7 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 20,
-
     paddingTop: 28,
-
     paddingBottom: 35,
   },
 
@@ -583,25 +577,21 @@ const styles = StyleSheet.create({
   },
 
   guestModePillText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: GREEN,
   },
 
   title: {
-    fontSize: 23,
-
-    lineHeight: 30,
-
+    fontSize: responsiveFont(23),
+    lineHeight: Math.round(responsiveFont(23) * 1.3),
     fontWeight: '800',
-
     color: '#151515',
-
     textAlign: 'center',
   },
 
   subtitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
 
     lineHeight: 20,
 
@@ -708,20 +698,15 @@ const styles = StyleSheet.create({
   },
 
   roleTitle: {
-    fontSize: 18,
-
+    fontSize: responsiveFont(18),
     fontWeight: '700',
-
     color: '#171717',
   },
 
   roleDescription: {
-    fontSize: 12.5,
-
-    lineHeight: 18,
-
+    fontSize: responsiveFont(12.5),
+    lineHeight: Math.round(responsiveFont(12.5) * 1.45),
     color: '#858585',
-
     marginTop: 5,
   },
 
@@ -732,14 +717,10 @@ const styles = StyleSheet.create({
   selectedBadge: {
     width: 20,
     height: 20,
-
     borderRadius: 10,
-
     backgroundColor: GREEN,
-
     alignItems: 'center',
     justifyContent: 'center',
-
     marginLeft: 8,
   },
 
@@ -750,16 +731,11 @@ const styles = StyleSheet.create({
   radio: {
     width: 22,
     height: 22,
-
     borderRadius: 11,
-
     borderWidth: 2,
-
     borderColor: '#D5D5D5',
-
     alignItems: 'center',
     justifyContent: 'center',
-
     marginLeft: 7,
   },
 
@@ -770,9 +746,7 @@ const styles = StyleSheet.create({
   radioDot: {
     width: 11,
     height: 11,
-
     borderRadius: 6,
-
     backgroundColor: GREEN,
   },
 
@@ -790,41 +764,29 @@ const styles = StyleSheet.create({
 
   previewButton: {
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'center',
-
     marginTop: 18,
-
     paddingVertical: 8,
   },
 
   previewText: {
-    fontSize: 14,
-
+    fontSize: responsiveFont(14),
     fontWeight: '700',
-
     color: '#444444',
   },
 
   previewArrow: {
-    fontSize: 18,
-
+    fontSize: responsiveFont(18),
     color: GREEN,
-
     marginLeft: 7,
-
     fontWeight: '700',
   },
 
   previewSubtext: {
-    fontSize: 11,
-
+    fontSize: responsiveFont(11),
     color: '#AAAAAA',
-
     textAlign: 'center',
-
     marginTop: 1,
   },
 });

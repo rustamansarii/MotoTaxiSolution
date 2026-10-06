@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 export const VehicleCard = ({
@@ -128,7 +129,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.text,
   },
 });

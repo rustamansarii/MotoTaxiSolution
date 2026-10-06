@@ -17,7 +17,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   fareAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 38,
+    fontSize: responsiveFont(38),
     fontWeight: '800',
     color: COLORS.text,
     marginTop: 2,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   passengerRow: {
     flexDirection: 'row',

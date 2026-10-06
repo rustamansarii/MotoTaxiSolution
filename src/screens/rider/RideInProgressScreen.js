@@ -18,7 +18,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import {
   clearActionNotices,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   speedUnit: {
     ...TYPOGRAPHY.caption,
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '700',
     color: COLORS.primaryDark,
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   liveStatusText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: '#047857',
     letterSpacing: 0.5,
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   etaHeroTime: {
     ...TYPOGRAPHY.h2,
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
   },
   progressEndpointText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     flexShrink: 1,
   },
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginLeft: 4,
     fontWeight: '600',
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
 
   sosBtn: {
@@ -1182,7 +1182,7 @@ export default RideInProgressScreen;
 //   },
 //   speedUnit: {
 //     ...TYPOGRAPHY.caption,
-//     fontSize: 9,
+//     fontSize: responsiveFont(9),
 //     fontWeight: '700',
 //     color: COLORS.primaryDark,
 //   },

@@ -16,7 +16,7 @@ import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import { clearRiderTripState } from '../../redux/features/rider/riderSlice';
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
   fareAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 34,
+    fontSize: responsiveFont(34),
     fontWeight: '800',
     color: COLORS.text,
     marginVertical: SPACING.xs,

@@ -21,7 +21,7 @@ import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import {
   riderCancelRide,
@@ -465,13 +465,13 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primary,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   etaOtpValue: {
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
     color: COLORS.primary,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     letterSpacing: 1.2,
   },
   headerOtpBadge: {
@@ -488,13 +488,13 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primary,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   headerOtpValue: {
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
     color: COLORS.primary,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     letterSpacing: 1.2,
   },
   sheetContainer: {
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   },
   routeSub: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
     fontWeight: '700',
     textTransform: 'uppercase',

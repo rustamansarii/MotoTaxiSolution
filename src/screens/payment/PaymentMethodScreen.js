@@ -17,7 +17,7 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
   PaymentMethodSelector,
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: COLORS.textLight,
     letterSpacing: 0.8,

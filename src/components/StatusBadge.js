@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 
 export const StatusBadge = ({
   status = 'active', // 'online' | 'offline' | 'completed' | 'in_progress' | 'cancelled' | 'pending' | 'warning'
@@ -126,11 +127,11 @@ const styles = StyleSheet.create({
   badgeText: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     letterSpacing: 0.5,
   },
   smallBadgeText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
 });
 

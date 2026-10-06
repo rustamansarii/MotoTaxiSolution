@@ -17,7 +17,7 @@ import { RidesRouteMap } from '../../components/navigation/RidesRouteMap';
 import RideCard from '../../components/RideCard';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatDuration, formatCurrency } from '../../utils/formatters';
 import { MOCK_RIDES } from '../../data/mockRides';
 import { MOCK_PAYMENT_METHODS } from '../../data/mockTransactions';
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   floatingTitleText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: '#0F172A',
     letterSpacing: -0.2,
@@ -408,13 +408,13 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   tripChipValue: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: '#0F172A',
     marginLeft: 4,
   },
   tripChipDot: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: '#94A3B8',
     marginHorizontal: 6,
   },
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   liveEstimatingText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.primary,
   },
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   errorText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.danger,
     flex: 1,
     marginLeft: 6,
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   retryText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.danger,
   },
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fullLoadingText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: '#64748B',
     marginTop: 10,
   },
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   paymentText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
     color: '#0F172A',
   },
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   changePaymentText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '600',
     color: '#64748B',
     marginRight: 2,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   confirmBtnText: {
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '700',
     color: COLORS.white,
     letterSpacing: -0.2,
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   btnPriceText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '800',
     color: COLORS.white,
   },

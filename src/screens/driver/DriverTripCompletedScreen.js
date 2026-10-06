@@ -19,7 +19,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
   resetActiveRideState,
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     marginRight: SPACING.sm,
   },
   passengerInitial: {
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '800',
     color: COLORS.white,
   },
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   passengerName: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   passengerRatingText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.textLight,
     marginLeft: 3,
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   paidBadgeText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: '#047857',
     marginLeft: 3,
@@ -507,14 +507,14 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   walletCreditedText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.primaryDark,
     marginLeft: 4,
   },
   earningsAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 38,
+    fontSize: responsiveFont(38),
     fontWeight: '900',
     color: COLORS.primaryDark,
     textAlign: 'center',
@@ -538,25 +538,25 @@ const styles = StyleSheet.create({
   breakdownLabel: {
     ...TYPOGRAPHY.bodySmall,
     color: COLORS.textLight,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
   },
   breakdownVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '600',
     color: COLORS.text,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
   },
   surgeVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
     color: '#059669',
-    fontSize: 13,
+    fontSize: responsiveFont(13),
   },
   tipVal: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
     color: '#059669',
-    fontSize: 13,
+    fontSize: responsiveFont(13),
   },
   routeCard: {
     width: '100%',
@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
     color: COLORS.textLight,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     letterSpacing: 0.5,
   },
   addressText: {
@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.md,
   },
   ratingFeedbackBadge: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: COLORS.text,
     backgroundColor: COLORS.inputBg,
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   complimentText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.textLight,
   },

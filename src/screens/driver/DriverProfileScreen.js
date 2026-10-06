@@ -24,10 +24,11 @@ import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import LanguageButton from '../../components/LanguageButton';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
-import { clearTokens } from '../../utils/storage';
+import { clearTokens, isGuestMode } from '../../utils/storage';
 import { fetchUserProfile } from '../../redux/features/auth/authSlice';
 import { fetchDriverDocuments } from '../../redux/features/driver/driverSlice';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 
 /**
  * Format document date string
@@ -132,6 +133,31 @@ export const DriverProfileScreen = ({ navigation }) => {
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = (
+    msgKey = 'auth.loginRequiredGeneralMsg',
+    defMsg = 'Please log in first to access this feature.'
+  ) => {
+    setGuestLoginModal({
+      visible: true,
+      title: t('auth.loginRequired', 'Login Required'),
+      message: t(msgKey, defMsg),
+    });
+  };
+
   useEffect(() => {
     dispatch(fetchUserProfile());
   }, [dispatch]);
@@ -152,7 +178,7 @@ export const DriverProfileScreen = ({ navigation }) => {
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
     }
-    return t('driver.driver', 'Driver');
+    return t('auth.guestDriver', 'Guest Driver');
   }, [authUser, t]);
 
   const displayPhone = authUser?.phone_number || authUser?.phone || '';
@@ -251,19 +277,65 @@ export const DriverProfileScreen = ({ navigation }) => {
           isOnline={true}
           showStatus={true}
           showEdit={true}
-          onEditPress={() => navigation.navigate('PersonalDetails')}
+          onEditPress={() => {
+            if (isGuest) {
+              promptGuestLogin(
+                'auth.loginRequiredProfileMsg',
+                'Please log in first to edit and save your personal details.'
+              );
+              return;
+            }
+            navigation.navigate('PersonalDetails');
+          }}
         />
 
         <Text style={styles.driverName}>{displayName}</Text>
+
+        {!authUser ? (
+          <View style={styles.guestBadgePill}>
+            <Icon name="user" size={12} color={COLORS.primary} />
+            <Text style={styles.guestBadgeText}>
+              {t('auth.guestMode', 'GUEST MODE')}
+            </Text>
+          </View>
+        ) : null}
+
         {displayPhone ? (
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('PersonalDetails')}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin(
+                  'auth.loginRequiredProfileMsg',
+                  'Please log in first to edit and save your personal details.'
+                );
+                return;
+              }
+              navigation.navigate('PersonalDetails');
+            }}
           >
             <Text style={styles.driverPhone}>{displayPhone}</Text>
           </TouchableOpacity>
         ) : null}
         {displayEmail ? <Text style={styles.driverEmail}>{displayEmail}</Text> : null}
+
+        {(!authUser || isGuest) ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              promptGuestLogin(
+                'auth.loginRequiredProfileMsg',
+                'Please log in first to access driver profile features.'
+              );
+            }}
+            style={styles.guestSignInPrompt}
+          >
+            <Text style={styles.guestSignInPromptText}>
+              {t('auth.guestLoginPrompt', 'Sign in to access all features')}
+            </Text>
+            <Icon name="arrow-right" size={13} color={COLORS.primary} />
+          </TouchableOpacity>
+        ) : null}
 
         <View style={styles.statsPillsRow}>
           <View style={styles.statPill}>
@@ -296,7 +368,18 @@ export const DriverProfileScreen = ({ navigation }) => {
       </View>
 
       {/* Driver Verification Status Banner */}
-      <View style={styles.verificationCard}>
+      <TouchableOpacity
+        activeOpacity={isGuest ? 0.75 : 1}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin(
+              'auth.loginRequiredDocsMsg',
+              'Please log in first to view official verification documents.'
+            );
+          }
+        }}
+        style={styles.verificationCard}
+      >
         <View style={styles.verificationHeader}>
           <View
             style={[
@@ -326,7 +409,7 @@ export const DriverProfileScreen = ({ navigation }) => {
             </Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     </>
   );
 
@@ -341,7 +424,16 @@ export const DriverProfileScreen = ({ navigation }) => {
         {/* Personal Details */}
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => navigation.navigate('PersonalDetails')}
+          onPress={() => {
+            if (isGuest) {
+              promptGuestLogin(
+                'auth.loginRequiredProfileMsg',
+                'Please log in first to edit and save your personal details.'
+              );
+              return;
+            }
+            navigation.navigate('PersonalDetails');
+          }}
           style={styles.menuRow}
         >
           <View style={[styles.menuIconBox, { backgroundColor: '#EEF2FF' }]}>
@@ -364,7 +456,16 @@ export const DriverProfileScreen = ({ navigation }) => {
         {/* Check Document Details Button */}
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={handleCheckDocuments}
+          onPress={() => {
+            if (isGuest) {
+              promptGuestLogin(
+                'auth.loginRequiredDocsMsg',
+                'Please log in first to view official verification documents.'
+              );
+              return;
+            }
+            handleCheckDocuments();
+          }}
           style={styles.menuRow}
         >
           <View style={[styles.menuIconBox, styles.menuIconBoxHighlight]}>
@@ -397,7 +498,16 @@ export const DriverProfileScreen = ({ navigation }) => {
         {/* Delete Account */}
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => navigation.navigate('DeleteAccount')}
+          onPress={() => {
+            if (isGuest) {
+              promptGuestLogin(
+                'auth.loginRequiredGeneralMsg',
+                'Please log in first to access this feature.'
+              );
+              return;
+            }
+            navigation.navigate('DeleteAccount');
+          }}
           style={[styles.menuRow, { borderBottomWidth: 0 }]}
         >
           <View style={[styles.menuIconBox, { backgroundColor: '#FEE2E2' }]}>
@@ -418,14 +528,33 @@ export const DriverProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Logout */}
+      {/* Logout / Exit Guest */}
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => setShowLogoutModal(true)}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin(
+              'auth.loginRequiredGeneralMsg',
+              'Please log in first to access this feature.'
+            );
+            return;
+          }
+          if (!authUser) {
+            navigation.replace('DriverLogin');
+          } else {
+            setShowLogoutModal(true);
+          }
+        }}
         style={styles.logoutBtn}
       >
-        <Icon name="close" size={16} color={COLORS.danger} />
-        <Text style={styles.logoutText}>{t('rider.logout', 'Log Out')}</Text>
+        <Icon
+          name={isGuest ? 'arrow-right' : 'close'}
+          size={16}
+          color={isGuest ? COLORS.primary : COLORS.danger}
+        />
+        <Text style={[styles.logoutText, isGuest && { color: COLORS.primary }]}>
+          {isGuest ? t('auth.login', 'Log In / Sign In') : t('rider.logout', 'Log Out')}
+        </Text>
       </TouchableOpacity>
     </>
   );
@@ -438,7 +567,7 @@ export const DriverProfileScreen = ({ navigation }) => {
           title={t('driver.driverProfile')}
           showBack={false}
           variant="light"
-          rightComponent={<LanguageButton />}
+          // rightComponent={}
         />
 
         <ScrollView
@@ -455,11 +584,13 @@ export const DriverProfileScreen = ({ navigation }) => {
               </View>
               <View style={styles.splitCol}>
                 {driverDetails}
+                <LanguageButton />
               </View>
             </View>
           ) : (
             <>
               {driverOverview}
+              <LanguageButton />
               {driverDetails}
             </>
           )}
@@ -853,6 +984,26 @@ export const DriverProfileScreen = ({ navigation }) => {
         onConfirm={handleLogout}
         icon="alert-triangle"
       />
+
+      {/* Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('DriverLogin');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -904,6 +1055,42 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary || '#64748B',
     marginTop: 2,
     fontWeight: '500',
+  },
+  guestBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E6FAF7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.round,
+    marginTop: 6,
+  },
+  guestBadgeText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(10),
+    fontWeight: '800',
+    color: '#0e7061',
+    letterSpacing: 0.5,
+  },
+  guestSignInPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: RADIUS.medium,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: SPACING.sm,
+  },
+  guestSignInPromptText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(12),
+    fontWeight: '700',
+    color: COLORS.primary,
   },
   statsPillsRow: {
     flexDirection: 'row',
@@ -1035,7 +1222,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -1176,7 +1363,7 @@ const styles = StyleSheet.create({
   verificationBannerSub: {
     ...TYPOGRAPHY.caption,
     color: COLORS.primaryDark,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     marginTop: 1,
   },
   docSection: {
@@ -1219,7 +1406,7 @@ const styles = StyleSheet.create({
   },
   docDateText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginTop: 2,
   },
@@ -1235,7 +1422,7 @@ const styles = StyleSheet.create({
   },
   docNumberText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: COLORS.text,
     fontFamily: 'monospace',
@@ -1254,12 +1441,12 @@ const styles = StyleSheet.create({
   },
   docDateLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
   },
   docDateVal: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -1274,7 +1461,7 @@ const styles = StyleSheet.create({
   rejectionText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.danger,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     flex: 1,
   },
   docPreviewRow: {
@@ -1301,12 +1488,12 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.text,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   tapToViewText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.primaryDark,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '600',
   },
   docsCloseCta: {

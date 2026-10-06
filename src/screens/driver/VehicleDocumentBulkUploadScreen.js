@@ -18,7 +18,7 @@ import Header from '../../components/Header';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { usePopup } from '../../context/PopupContext';
 import { useKeyboardSafe } from '../../components/keyboard';
@@ -430,6 +430,7 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
       <Header
         title="Vehicle Documents Upload"
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView
@@ -1019,7 +1020,7 @@ const styles = StyleSheet.create({
   docNumberText: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 13,
+    fontSize: responsiveFont(13),
   },
   sectionTitleText: {
     ...TYPOGRAPHY.bodySmall,
@@ -1034,7 +1035,7 @@ const styles = StyleSheet.create({
   },
   badgeSuccessText: {
     color: GREEN,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
   },
   previewContainer: {
@@ -1067,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   previewFileName: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     flex: 1,
     marginRight: 8,
@@ -1083,7 +1084,7 @@ const styles = StyleSheet.create({
   },
   galleryTriggerText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
   },
   inputGap: {
@@ -1124,7 +1125,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateTriggerValue: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -1169,7 +1170,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     fontWeight: '800',
     color: '#0F172A',
   },
@@ -1177,7 +1178,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: '#64748B',
     marginBottom: SPACING.lg,
   },
@@ -1256,7 +1257,7 @@ const styles = StyleSheet.create({
   },
   modalDoneBtnText: {
     color: '#334155',
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '700',
   },
   nativeNoticeCard: {
@@ -1274,12 +1275,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nativeNoticeTitle: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: '#92400E',
   },
   nativeNoticeSub: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: '#B45309',
     marginTop: 2,
     lineHeight: 15,

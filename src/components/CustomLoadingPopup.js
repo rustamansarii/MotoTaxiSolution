@@ -11,6 +11,7 @@ import {
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 export const CustomLoadingPopup = ({
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     ...TYPOGRAPHY.bodySmall,
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '700',
     color: COLORS.text,
     textAlign: 'center',
@@ -177,7 +178,7 @@ const styles = StyleSheet.create({
   },
   subtitleText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: COLORS.textLight,
     marginTop: 4,
     textAlign: 'center',

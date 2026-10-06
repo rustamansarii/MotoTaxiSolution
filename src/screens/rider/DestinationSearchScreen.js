@@ -17,7 +17,7 @@ import Header from '../../components/Header';
 import LocationInput from '../../components/LocationInput';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { getCurrentLocation } from '../../utils/locationService';
 import {
@@ -31,6 +31,8 @@ import {
   loadRecentSearches,
   addRecentSearch,
 } from '../../redux/features/location/locationSlice';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
+import { isGuestMode } from '../../utils/storage';
 
 export const DestinationSearchScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -49,6 +51,22 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     recentSearches,
   } = useSelector((state) => state.location);
   const authRiderProfile = useSelector((state) => state.auth?.riderProfile);
+  const authUser = useSelector((state) => state.auth?.user);
+
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const userSavedPlaces = useMemo(() => {
     const list = [];
@@ -288,6 +306,17 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       dispatch(clearSearchResults());
       setActiveField('destination');
     } else {
+      if (isGuest) {
+        setGuestLoginModal({
+          visible: true,
+          title: t('auth.loginRequired', 'Login Required'),
+          message: t(
+            'auth.loginRequiredDropoffMsg',
+            'Please log in first to choose a drop-off location and book a ride.'
+          ),
+        });
+        return;
+      }
       setDestination(selectedAddress);
       setUserTypedDestination(false);
       dispatch(setDropoffLocation(loc));
@@ -536,6 +565,26 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
           />
         </View>
       </ResponsiveContainer>
+
+      {/* Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In / Sign In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('Login');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -643,7 +692,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   liveBadgeText: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '800',
     color: COLORS.primary,
     letterSpacing: 0.3,
@@ -659,7 +708,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   autoFillBadgeText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.primary,
   },
@@ -716,7 +765,7 @@ const styles = StyleSheet.create({
   },
   estDistText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
     marginTop: 2,
   },

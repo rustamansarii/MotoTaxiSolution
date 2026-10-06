@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import CustomButton from '../CustomButton';
 import Icon from '../Icon';
 
@@ -235,13 +235,13 @@ const styles = StyleSheet.create({
   },
   metricVal: {
     ...TYPOGRAPHY.h2,
-    fontSize: 24,
+    fontSize: responsiveFont(24),
     fontWeight: '800',
     color: COLORS.text,
   },
   metricSub: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.textLight,
     letterSpacing: 0.5,
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   instructionTextCompact: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   destinationContainer: {
     flexDirection: 'row',
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   destinationLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.textLight,
     textTransform: 'uppercase',

@@ -49,6 +49,7 @@ export const DriverOTPScreen = ({ navigation, route }) => {
       <Header
         title={t('auth.otpVerification')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView

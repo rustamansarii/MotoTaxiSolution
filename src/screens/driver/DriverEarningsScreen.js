@@ -22,13 +22,15 @@ import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
   fetchDriverWallet,
   fetchDriverWalletTransactions,
   fetchDriverWalletSummary,
 } from '../../redux/features/driver/driverSlice';
+import { isGuestMode } from '../../utils/storage';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 
 /**
  * Format ISO datetime string to user-friendly label
@@ -135,8 +137,38 @@ export const DriverEarningsScreen = ({ navigation }) => {
   const [cashoutSuccess, setCashoutSuccess] = useState(false);
   const [selectedTx, setSelectedTx] = useState(null);
 
+  const authUser = useSelector((state) => state.auth?.user);
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = useCallback(
+    (
+      msgKey = 'auth.loginRequiredEarningsMsg',
+      defMsg = 'Please log in first to view real earnings and withdraw payouts.'
+    ) => {
+      setGuestLoginModal({
+        visible: true,
+        title: t('auth.loginRequired', 'Login Required'),
+        message: t(msgKey, defMsg),
+      });
+    },
+    [t]
+  );
+
   // Fetch real wallet, transactions, and summary from backend
   const loadWalletData = useCallback(async () => {
+    if (isGuest) return;
     try {
       await Promise.allSettled([
         dispatch(fetchDriverWallet()),
@@ -146,17 +178,21 @@ export const DriverEarningsScreen = ({ navigation }) => {
     } catch (e) {
       console.warn('[DriverEarnings] Error fetching wallet data:', e);
     }
-  }, [dispatch]);
+  }, [dispatch, isGuest]);
 
   useEffect(() => {
     loadWalletData();
   }, [loadWalletData]);
 
   const onRefresh = useCallback(async () => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     setRefreshing(true);
     await loadWalletData();
     setRefreshing(false);
-  }, [loadWalletData]);
+  }, [loadWalletData, isGuest, promptGuestLogin]);
 
   // Real balance from API
   const balance = useMemo(() => {
@@ -191,6 +227,30 @@ export const DriverEarningsScreen = ({ navigation }) => {
     setCashoutSuccess(true);
   };
 
+  const guestNoticeCard = isGuest ? (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      onPress={() => promptGuestLogin()}
+      style={styles.guestNoticeCard}
+    >
+      <View style={styles.guestNoticeIconBox}>
+        <Icon name="user" size={16} color={COLORS.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.guestNoticeTitle}>
+          {t('auth.guestMode', 'GUEST MODE')}
+        </Text>
+        <Text style={styles.guestNoticeSub}>
+          {t(
+            'auth.guestEarningsNotice',
+            'Guest Mode: Log in to view your real earnings and withdraw payouts.'
+          )}
+        </Text>
+      </View>
+      <Icon name="arrow-right" size={16} color={COLORS.primary} />
+    </TouchableOpacity>
+  ) : null;
+
   // 1. Balance Hero Card
   const heroBanner = (
     <View style={styles.earningsHero}>
@@ -223,8 +283,14 @@ export const DriverEarningsScreen = ({ navigation }) => {
 
       <CustomButton
         title={t('driver.cashOut', 'Cash Out')}
-        onPress={() => setShowCashoutModal(true)}
-        disabled={balance <= 0}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin();
+            return;
+          }
+          setShowCashoutModal(true);
+        }}
+        disabled={balance <= 0 && !isGuest}
         variant="primary"
         icon="wallet"
         size="small"
@@ -281,7 +347,13 @@ export const DriverEarningsScreen = ({ navigation }) => {
         </View>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={loadWalletData}
+          onPress={() => {
+            if (isGuest) {
+              promptGuestLogin();
+              return;
+            }
+            loadWalletData();
+          }}
           style={styles.refreshBtn}
         >
           <Icon name="refresh" size={13} color={COLORS.primary} />
@@ -322,7 +394,13 @@ export const DriverEarningsScreen = ({ navigation }) => {
             <TouchableOpacity
               key={tx.id || idx}
               activeOpacity={0.75}
-              onPress={() => setSelectedTx(tx)}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin();
+                  return;
+                }
+                setSelectedTx(tx);
+              }}
               style={[styles.txRow, isLast && styles.txRowLast]}
             >
               {/* Type Icon Badge */}
@@ -410,6 +488,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
           title={t('driver.walletAndEarnings', 'Driver Wallet & Earnings')}
           showBack={false}
           variant="light"
+          showLanguage={true}
         />
 
         {isInitialLoading ? (
@@ -435,6 +514,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
               />
             }
           >
+            {guestNoticeCard}
             {isMultiColumn ? (
               <View style={styles.splitRow}>
                 <View style={styles.splitCol}>
@@ -607,6 +687,26 @@ export const DriverEarningsScreen = ({ navigation }) => {
         onConfirm={() => setCashoutSuccess(false)}
         icon="check-circle"
       />
+
+      {/* Guest Mode Restriction Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('DriverLogin');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -675,7 +775,7 @@ const styles = StyleSheet.create({
   },
   heroAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 40,
+    fontSize: responsiveFont(40),
     fontWeight: '800',
     color: COLORS.text,
     marginVertical: SPACING.xs,
@@ -714,7 +814,7 @@ const styles = StyleSheet.create({
   },
   periodSummaryLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginBottom: 2,
     fontWeight: '600',
@@ -756,7 +856,7 @@ const styles = StyleSheet.create({
   },
   txCountBadgeText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: COLORS.primaryDark,
   },
@@ -828,19 +928,19 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   rideIdTagText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.secondPrimaryDark,
   },
   txDate: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginTop: 2,
   },
   balanceAfterText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textMuted,
     marginTop: 1,
   },
@@ -870,7 +970,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
   txTypeText: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '800',
   },
   txTextCredit: {
@@ -984,7 +1084,7 @@ const styles = StyleSheet.create({
   modalGridLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   modalGridVal: {
     ...TYPOGRAPHY.bodySmall,
@@ -1002,6 +1102,40 @@ const styles = StyleSheet.create({
   modalCloseBtnText: {
     ...TYPOGRAPHY.button,
     color: COLORS.text,
+  },
+  guestNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: '#E6FAF7',
+    borderWidth: 1,
+    borderColor: '#B2F0E6',
+    borderRadius: RADIUS.medium,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  guestNoticeIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestNoticeTitle: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(11),
+    fontWeight: '800',
+    color: '#0e7061',
+    letterSpacing: 0.5,
+  },
+  guestNoticeSub: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(11),
+    color: COLORS.text,
+    marginTop: 2,
+    lineHeight: 16,
   },
 });
 

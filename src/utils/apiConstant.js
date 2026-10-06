@@ -19,6 +19,7 @@ const ApiConstant = {
   DriverWallet: 'drivers/wallet/',
   DriverWalletTransactions: 'drivers/wallet/transactions/',
   DriverWalletSummary: 'drivers/wallet/summary/',
+  DriverHomeStats: 'drivers/stats/home/',
   DeleteAccount: 'auth/delete-account/',
 };
 

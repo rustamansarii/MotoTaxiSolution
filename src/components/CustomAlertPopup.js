@@ -11,6 +11,7 @@ import {
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 const { width } = Dimensions.get('window');
@@ -189,7 +190,8 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   card: {
-    width: Math.min(width - 48, 380),
+    width: Math.min(width - 48, 440),
+    maxWidth: 440,
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     paddingTop: 32,
@@ -212,7 +214,7 @@ const styles = StyleSheet.create({
   },
   titleText: {
     ...TYPOGRAPHY.h3,
-    fontSize: 19,
+    fontSize: responsiveFont(19),
     fontWeight: '700',
     color: COLORS.text,
     textAlign: 'center',
@@ -220,7 +222,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     ...TYPOGRAPHY.bodySmall,
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     lineHeight: 20,
     color: '#6B7280',
     textAlign: 'center',
@@ -241,7 +243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '600',
     color: '#4B5563',
   },
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   confirmButtonText: {
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '700',
     color: '#FFFFFF',
   },

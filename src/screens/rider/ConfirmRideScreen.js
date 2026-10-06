@@ -16,7 +16,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { MOCK_RIDES } from '../../data/mockRides';
 import { bookRide } from '../../redux/features/rides/ridesSlice';
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   routeSublabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.textLight,
     letterSpacing: 0.5,
@@ -479,10 +479,10 @@ const styles = StyleSheet.create({
   },
   routeAddressText: {
     ...TYPOGRAPHY.bodySmall,
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: COLORS.text,
-    lineHeight: 20,
+    lineHeight: Math.round(responsiveFont(14) * 1.4),
   },
 
   // Vehicle Card Layout
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   },
   vehicleNameText: {
     ...TYPOGRAPHY.title,
-    fontSize: 17,
+    fontSize: responsiveFont(17),
     fontWeight: '800',
     color: COLORS.text,
   },
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   },
   etaBadgeText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.secondPrimaryDark,
   },
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   },
   capacityBadgeText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.text,
   },
@@ -561,13 +561,13 @@ const styles = StyleSheet.create({
   },
   fareAmountText: {
     ...TYPOGRAPHY.h2,
-    fontSize: 22,
+    fontSize: responsiveFont(22),
     fontWeight: '900',
     color: COLORS.text,
   },
   fareSubText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.textLight,
     marginTop: 1,
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   },
   perkText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.textLight,
   },
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   },
   safetyGuaranteeText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '500',
     color: COLORS.textLight,
     textAlign: 'center',

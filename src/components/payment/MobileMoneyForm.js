@@ -11,6 +11,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import {
   MOBILE_MONEY_PROVIDERS,
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.textLight,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   providerDot: {
     width: 6,
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   flagText: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
   },
   countryCodeText: {
     ...TYPOGRAPHY.bodySmall,
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.danger,
     marginTop: 4,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   infoCallout: {
     flexDirection: 'row',
@@ -317,7 +318,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: '#374151',
     lineHeight: 16,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   modalOverlay: {
     flex: 1,
@@ -330,6 +331,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: RADIUS.extraLarge,
     padding: SPACING.lg,
     maxHeight: '60%',
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -356,7 +360,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.inputBg,
   },
   itemFlag: {
-    fontSize: 22,
+    fontSize: responsiveFont(22),
     marginRight: SPACING.sm,
   },
   itemCountryName: {

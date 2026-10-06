@@ -54,6 +54,7 @@ export const OTPScreen = ({ navigation, route }) => {
       <Header
         title={t('auth.otpTitle', 'Verification Code')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView

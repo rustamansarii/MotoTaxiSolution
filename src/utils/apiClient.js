@@ -6,18 +6,22 @@ import i18next from "../i18n/i18n";
 
 /**
  * Helper to get the language parameter for APIs.
- * Defaults to 'fr' as requested (?lang=fr), or uses active i18next language if selected.
+ * Defaults to 'en'. Uses active i18next language ('fr', 'hi', 'en') when user chooses a language.
  */
 export const getActiveLanguage = () => {
   try {
     const currentLang = i18next?.language;
-    if (currentLang && currentLang !== "en") {
-      return currentLang;
+    if (currentLang) {
+      const cleanLang = String(currentLang).split('-')[0].toLowerCase();
+      if (cleanLang === 'fr' || cleanLang === 'hi' || cleanLang === 'en') {
+        return cleanLang;
+      }
+      return cleanLang;
     }
   } catch {
     // fallback
   }
-  return "fr";
+  return "en";
 };
 
 /**

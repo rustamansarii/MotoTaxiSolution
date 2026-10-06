@@ -26,7 +26,7 @@ import EmptyState from '../../components/EmptyState';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { isGuestMode, getAccessToken } from '../../utils/storage';
 import { fetchMyRides } from '../../redux/features/rides/ridesSlice';
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   metaText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   otpPill: {
     backgroundColor: COLORS.secondPrimaryLight,
@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.secondPrimaryDark,
     fontWeight: '700',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   cancelNoticeRow: {
     flexDirection: 'row',
@@ -1021,7 +1021,7 @@ const styles = StyleSheet.create({
   cancelReasonText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.danger,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     flex: 1,
   },
   cardFooter: {
@@ -1149,7 +1149,7 @@ const styles = StyleSheet.create({
   modalLocLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   modalLocText: {
     ...TYPOGRAPHY.bodySmall,
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   infoValue: {
     ...TYPOGRAPHY.bodySmall,
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textLight,
     letterSpacing: 0.5,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   guestTitle: {
     ...TYPOGRAPHY.heading2,
@@ -1306,7 +1306,7 @@ const styles = StyleSheet.create({
   guestFeatureItemDesc: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     marginTop: 1,
   },
   guestButtonsCol: {

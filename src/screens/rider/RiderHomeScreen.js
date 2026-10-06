@@ -19,7 +19,7 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import { RiderLiveMap } from '../../components/navigation';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
 import {
@@ -34,6 +34,8 @@ import {
   loadRecentSearches,
   addRecentSearch,
 } from '../../redux/features/location/locationSlice';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
+import { isGuestMode } from '../../utils/storage';
 
 export const RiderHomeScreen = ({ navigation }) => {
   // Hook 1
@@ -83,6 +85,30 @@ export const RiderHomeScreen = ({ navigation }) => {
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState('');
   const [referralSuccessMsg, setReferralSuccessMsg] = useState('');
+
+  // Guest detection & login prompt popup state
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = (messageKey, defaultMessage) => {
+    setGuestLoginModal({
+      visible: true,
+      title: t('auth.loginRequired', 'Login Required'),
+      message: t(messageKey, defaultMessage),
+    });
+  };
 
   const handleApplyReferral = () => {
     if (!referralCodeInput.trim()) return;
@@ -245,8 +271,8 @@ export const RiderHomeScreen = ({ navigation }) => {
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
     }
-    return 'Rider';
-  }, [authUser]);
+    return t('auth.guestUser', 'Guest');
+  }, [authUser, t]);
 
   const displayedSuggestions =
     recentSearches && recentSearches.length > 0
@@ -293,6 +319,13 @@ export const RiderHomeScreen = ({ navigation }) => {
 
   // 1-Tap Destination Selection: jumps straight to RideOptions or DestinationSearch
   const handleSelectDestination = (loc, preferredVehicle = null) => {
+    if (isGuest) {
+      promptGuestLogin(
+        'auth.loginRequiredDropoffMsg',
+        'Please log in first to choose a drop-off location and book a ride.'
+      );
+      return;
+    }
     dispatch(addRecentSearch(loc));
     const destAddress = loc.address || loc.display_name || loc.title;
     const destLat = loc.latitude ?? loc.lat;
@@ -602,7 +635,16 @@ export const RiderHomeScreen = ({ navigation }) => {
       {/* 1. Promotional Moto Taxi Hero Banner */}
       <TouchableOpacity
         activeOpacity={0.92}
-        onPress={() => navigation.navigate('DestinationSearch')}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin(
+              'auth.loginRequiredDropoffMsg',
+              'Please log in first to choose a drop-off location and book a ride.'
+            );
+            return;
+          }
+          navigation.navigate('DestinationSearch');
+        }}
         style={styles.bannerCard}
       >
         <Image
@@ -615,7 +657,16 @@ export const RiderHomeScreen = ({ navigation }) => {
       {/* 2. "Where would you like to go?" Teal CTA Button */}
       <TouchableOpacity
         activeOpacity={0.88}
-        onPress={() => navigation.navigate('DestinationSearch')}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin(
+              'auth.loginRequiredDropoffMsg',
+              'Please log in first to choose a drop-off location and book a ride.'
+            );
+            return;
+          }
+          navigation.navigate('DestinationSearch');
+        }}
         style={styles.whereToGoBtn}
       >
         <Text style={styles.whereToGoText}>
@@ -634,6 +685,13 @@ export const RiderHomeScreen = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
+            if (isGuest) {
+              promptGuestLogin(
+                'auth.loginRequiredHomeMsg',
+                'Please log in first to set and manage your home address.'
+              );
+              return;
+            }
             if (riderProfile?.home_address) {
               handleSelectDestination({
                 title: 'Home',
@@ -647,7 +705,7 @@ export const RiderHomeScreen = ({ navigation }) => {
           }}
           style={styles.addPlacePill}
         >
-          <Icon name="plus-circle" size={19} color={COLORS.primary} />
+          <Icon name="plus-circle" size={25} color={COLORS.primary} />
           <Text style={styles.addPlacePillText}>
             {riderProfile?.home_address
               ? t('rider.home', 'Home')
@@ -659,6 +717,13 @@ export const RiderHomeScreen = ({ navigation }) => {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
+            if (isGuest) {
+              promptGuestLogin(
+                'auth.loginRequiredWorkMsg',
+                'Please log in first to set and manage your work address.'
+              );
+              return;
+            }
             if (riderProfile?.work_address) {
               handleSelectDestination({
                 title: 'Work',
@@ -672,7 +737,7 @@ export const RiderHomeScreen = ({ navigation }) => {
           }}
           style={styles.addPlacePill}
         >
-          <Icon name="plus-circle" size={19} color={COLORS.primary} />
+          <Icon name="plus-circle" size={25} color={COLORS.primary} />
           <Text style={styles.addPlacePillText}>
             {riderProfile?.work_address
               ? t('rider.work', 'Work')
@@ -693,19 +758,7 @@ export const RiderHomeScreen = ({ navigation }) => {
       />
 
       {/* Floating Referral Code Pill (Top-Right of Map) */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => setShowReferralModal(true)}
-        style={[
-          styles.floatingReferralBtn,
-          { top: Math.max(insets.top + 8, 14) },
-        ]}
-      >
-        <Icon name="megaphone" size={16} color="#111827" />
-        <Text style={styles.floatingReferralText}>
-          {t('rider.gotReferralCode', 'Got a Referral Code?')}
-        </Text>
-      </TouchableOpacity>
+      
 
       {/* Floating Active Trip Bar on Map */}
       {hasActiveRiderTrip && (
@@ -857,6 +910,26 @@ export const RiderHomeScreen = ({ navigation }) => {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In / Sign In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('Login');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -913,7 +986,7 @@ const styles = StyleSheet.create({
   },
   greetingText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
   },
   userName: {
@@ -959,7 +1032,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   roleBadgeText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -1004,7 +1077,7 @@ const styles = StyleSheet.create({
     marginRight: SPACING.xs,
   },
   pickupPrompt: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '600',
     color: COLORS.textLight,
     textTransform: 'uppercase',
@@ -1027,7 +1100,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   changePickupText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.primary,
   },
@@ -1058,7 +1131,7 @@ const styles = StyleSheet.create({
   },
   searchPlaceholder: {
     ...TYPOGRAPHY.title,
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '700',
     color: COLORS.text,
     flex: 1,
@@ -1078,7 +1151,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.text,
     marginLeft: 4,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   servicesRow: {
     flexDirection: 'row',
@@ -1105,7 +1178,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   serviceTitle: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 4,
@@ -1117,7 +1190,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   serviceTagText: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '800',
     color: COLORS.primary,
     textTransform: 'uppercase',
@@ -1135,14 +1208,14 @@ const styles = StyleSheet.create({
   },
   sectionHeaderSubtitle: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
   },
   sectionHeaderLink: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primary,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   savedPlacesRow: {
     flexDirection: 'row',
@@ -1181,12 +1254,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   placeTitle: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: COLORS.text,
   },
   placeAddress: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
     marginTop: 1,
   },
@@ -1212,7 +1285,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   managePlacesText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.primary,
   },
@@ -1248,12 +1321,12 @@ const styles = StyleSheet.create({
     marginRight: SPACING.xs,
   },
   suggestionTitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: COLORS.text,
   },
   suggestionAddress: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginTop: 1,
   },
@@ -1286,13 +1359,13 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   promoTag: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '800',
     color: '#B45309',
     letterSpacing: 0.5,
   },
   promoCodeBadge: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '800',
     color: '#D97706',
     backgroundColor: '#FEF3C7',
@@ -1303,12 +1376,12 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   promoTitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: '#92400E',
   },
   promoSubtitle: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: '#B45309',
     marginTop: 1,
   },
@@ -1353,7 +1426,7 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
     fontWeight: '600',
     marginTop: 1,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   activeRideCard: {
     backgroundColor: COLORS.white,
@@ -1400,7 +1473,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   activeRideStageText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -1417,7 +1490,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   activeRideOtpValue: {
     ...TYPOGRAPHY.caption,
@@ -1491,7 +1564,7 @@ const styles = StyleSheet.create({
   },
   activeRideEtaLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
     textTransform: 'uppercase',
   },
@@ -1541,7 +1614,7 @@ const styles = StyleSheet.create({
   },
   bannerImage: {
     width: '100%',
-    height: 94,
+    height: 130,
     borderRadius: 16,
   },
   whereToGoBtn: {
@@ -1562,7 +1635,7 @@ const styles = StyleSheet.create({
   },
   whereToGoText: {
     color: COLORS.white,
-    fontSize: 16,
+    fontSize: responsiveFont(18),
     fontWeight: '700',
     letterSpacing: 0.1,
   },
@@ -1589,14 +1662,14 @@ const styles = StyleSheet.create({
     marginRight: SPACING.sm,
   },
   recentDestTitle: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: '#111827',
     marginBottom: 3,
     letterSpacing: 0.2,
   },
   recentDestSubtitle: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: '#6B7280',
     fontWeight: '400',
   },
@@ -1629,7 +1702,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   addPlacePillText: {
-    fontSize: 13,
+    fontSize: responsiveFont(18),
     fontWeight: '600',
     color: '#111827',
     marginLeft: 7,
@@ -1654,7 +1727,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   floatingReferralText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
     color: '#111827',
   },
@@ -1724,7 +1797,7 @@ const styles = StyleSheet.create({
   },
   referralTextInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '700',
     color: COLORS.text,
     letterSpacing: 0.8,

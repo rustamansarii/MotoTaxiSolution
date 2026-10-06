@@ -21,6 +21,5 @@ export { LanguageButton } from './LanguageButton';
 export { CountryPickerModal } from './CountryPickerModal';
 export { CustomLoadingPopup } from './CustomLoadingPopup';
 export { CustomAlertPopup } from './CustomAlertPopup';
+export { MainText, SubText } from './Typography';
 export * from './keyboard';
-
-

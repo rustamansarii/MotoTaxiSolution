@@ -9,6 +9,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -283,7 +284,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   liveTagText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: COLORS.secondPrimary,
     letterSpacing: 0.5,
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   qrFrameContainer: {
     padding: 16,
@@ -360,14 +361,14 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.textLight,
     letterSpacing: 0.5,
   },
   amountValue: {
     ...TYPOGRAPHY.h1,
-    fontSize: 28,
+    fontSize: responsiveFont(28),
     fontWeight: '900',
     color: COLORS.text,
     marginTop: 2,

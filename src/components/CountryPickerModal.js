@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 import { useTranslation } from 'react-i18next';
 
@@ -176,6 +177,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    maxWidth: 540,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -196,7 +200,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...TYPOGRAPHY.h3,
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -218,7 +222,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: '100%',
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     color: COLORS.text,
     paddingVertical: 0,
   },
@@ -240,14 +244,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F8F5',
   },
   flagText: {
-    fontSize: 26,
+    fontSize: responsiveFont(26),
     marginRight: 14,
   },
   countryInfo: {
     flex: 1,
   },
   countryName: {
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '600',
     color: COLORS.text,
   },
@@ -256,7 +260,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   isoCode: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: COLORS.textLight,
     marginTop: 2,
   },
@@ -268,7 +272,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   dialCodeText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: '#444444',
   },
@@ -290,7 +294,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     color: COLORS.textLight,
   },
   emptyContainer: {
@@ -299,13 +303,13 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '600',
     color: COLORS.text,
     marginTop: 12,
   },
   emptySubText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: COLORS.textLight,
     marginTop: 4,
     textAlign: 'center',

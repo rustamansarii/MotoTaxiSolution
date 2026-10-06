@@ -8,6 +8,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import RouteLayer from './RouteLayer';
 import MapPlaceholder from '../MapPlaceholder';
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   pickupPillText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -544,7 +545,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   dropPillText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.white,
   },
@@ -645,7 +646,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   routeLoadingText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.secondPrimary,
   },

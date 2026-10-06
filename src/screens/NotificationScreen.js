@@ -19,7 +19,7 @@ import {
   responsiveHeight,
   responsiveFont,
   moderateScale,
-} from "../../../utils/responsive";
+} from "../utils/responsive";
 import {
   listNotifications,
   markNotificationAsRead,

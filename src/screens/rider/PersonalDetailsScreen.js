@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -21,7 +22,7 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import {
   updateUserProfile,
@@ -32,6 +33,8 @@ import {
 import AppDatePicker from '../../components/AppDatePicker';
 import { pickFromGallery, captureFromCamera } from '../../utils/imagePickerHelper';
 import { CountryPickerModal } from '../../components/CountryPickerModal';
+import { isGuestMode, getRole } from '../../utils/storage';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 
 const DEFAULT_COUNTRY = {
   name: 'India',
@@ -207,6 +210,53 @@ export const PersonalDetailsScreen = ({ navigation }) => {
   const [previewPhotoUri, setPreviewPhotoUri] = useState(authUser?.profile_photo || null);
   const [photoFile, setPhotoFile] = useState(null); // { uri, name, type }
 
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = useCallback(
+    (
+      msgKey = 'auth.loginRequiredProfileMsg',
+      defMsg = 'Please log in first to edit and save your personal details.'
+    ) => {
+      Keyboard.dismiss();
+      setGuestLoginModal({
+        visible: true,
+        title: t('auth.loginRequired', 'Login Required'),
+        message: t(msgKey, defMsg),
+      });
+    },
+    [t]
+  );
+
+  const handleLoginConfirm = useCallback(async () => {
+    setGuestLoginModal({ visible: false, title: '', message: '' });
+    try {
+      const storedRole = await getRole();
+      if (storedRole === 'DRIVER' || authUser?.role === 'DRIVER') {
+        navigation.navigate('DriverLogin');
+        return;
+      }
+    } catch (e) {}
+    navigation.navigate('Login');
+  }, [authUser, navigation]);
+
+  const handleInputFocus = useCallback(() => {
+    if (isGuest) {
+      promptGuestLogin();
+    }
+  }, [isGuest, promptGuestLogin]);
+
   /**
    * Applies API response data (from GET /api/v1/auth/profile/) directly to form fields
    */
@@ -277,6 +327,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
    * Fetches latest profile data from GET /api/v1/auth/profile/
    */
   const loadProfileData = useCallback(async () => {
+    if (isGuest) return;
     setIsProfileLoading(true);
     try {
       console.log('[PersonalDetails] Fetching latest user profile from auth/profile/...');
@@ -291,7 +342,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
     } finally {
       setIsProfileLoading(false);
     }
-  }, [dispatch, applyProfileToForm]);
+  }, [dispatch, applyProfileToForm, isGuest]);
 
   // Load profile from auth/profile/ on mount
   useEffect(() => {
@@ -306,12 +357,16 @@ export const PersonalDetailsScreen = ({ navigation }) => {
   }, [authUser, riderProfile, applyProfileToForm]);
 
   const handlePickPhoto = () => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     Alert.alert(
-      'Profile Photo',
-      'Select an option to update your profile photo',
+      t('profile.profilePhoto', 'Profile Photo'),
+      t('profile.selectPhotoOption', 'Select an option to update your profile photo'),
       [
         {
-          text: 'Take Photo',
+          text: t('profile.takePhoto', 'Take Photo'),
           onPress: async () => {
             const res = await captureFromCamera();
             if (res.success && res.uri) {
@@ -322,12 +377,12 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               });
               setPreviewPhotoUri(res.uri);
             } else if (res.error && !res.didCancel) {
-              Alert.alert('Camera', res.error);
+              Alert.alert(t('profile.camera', 'Camera'), res.error);
             }
           },
         },
         {
-          text: 'Choose from Gallery',
+          text: t('profile.chooseFromGallery', 'Choose from Gallery'),
           onPress: async () => {
             const res = await pickFromGallery();
             if (res.success && res.uri) {
@@ -338,12 +393,12 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               });
               setPreviewPhotoUri(res.uri);
             } else if (res.error && !res.didCancel) {
-              Alert.alert('Gallery', res.error);
+              Alert.alert(t('profile.gallery', 'Gallery'), res.error);
             }
           },
         },
         {
-          text: 'Cancel',
+          text: t('common.cancel', 'Cancel'),
           style: 'cancel',
         },
       ]
@@ -351,8 +406,12 @@ export const PersonalDetailsScreen = ({ navigation }) => {
   };
 
   const handleSave = async () => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     if (!fullName.trim()) {
-      Alert.alert('Required', 'Please enter your full name.');
+      Alert.alert(t('profile.required', 'Required'), t('profile.enterFullNameRequired', 'Please enter your full name.'));
       return;
     }
 
@@ -425,8 +484,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
       await loadProfileData();
 
       Alert.alert(
-        'Success',
-        'Your personal details have been updated successfully.'
+        t('common.success', 'Success'),
+        t('profile.profileUpdatedSuccess', 'Your personal details have been updated successfully.')
       );
     } catch (err) {
       console.warn('[PersonalDetails] Update error:', err);
@@ -434,7 +493,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
         typeof err === 'string'
           ? err
           : err?.detail || err?.message || 'Failed to update personal details. Please try again.';
-      Alert.alert('Notice', errMsg);
+      Alert.alert(t('profile.notice', 'Notice'), errMsg);
     } finally {
       setIsSaving(false);
     }
@@ -445,9 +504,10 @@ export const PersonalDetailsScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={760} style={{ flex: 1 }}>
         <Header
-          title={t('rider.personalDetails', 'Personal Details')}
+          title={t('profile.title', 'Personal Details')}
           onBack={() => navigation.goBack()}
           variant="light"
+          showLanguage={true}
         />
 
         <ScrollView
@@ -469,7 +529,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
           <View style={styles.avatarSection}>
             <ProfileAvatar
               imageUri={previewPhotoUri || authUser?.profile_photo}
-              name={fullName || 'User'}
+              name={fullName || t('auth.guestUser', 'User')}
               size={88}
               showEdit={true}
               onEditPress={handlePickPhoto}
@@ -479,11 +539,11 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               onPress={handlePickPhoto}
               style={styles.changePhotoBtn}
             >
-              <Text style={styles.changePhotoText}>Change Photo</Text>
+              <Text style={styles.changePhotoText}>{t('profile.changePhoto', 'Change Photo')}</Text>
             </TouchableOpacity>
 
             <Text style={styles.avatarName}>
-              {fullName || 'Rider'}
+              {fullName || t('auth.guestRider', 'Rider')}
             </Text>
 
             {/* Profile Stats from auth/profile/ */}
@@ -498,7 +558,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               <View style={styles.statItem}>
                 <Icon name="navigation" size={13} color={COLORS.primary} />
                 <Text style={styles.statText}>
-                  {riderProfile?.total_rides !== undefined ? riderProfile.total_rides : 0} Rides
+                  {riderProfile?.total_rides !== undefined ? riderProfile.total_rides : 0} {t('profile.rides', 'Rides')}
                 </Text>
               </View>
               {authUser?.date_joined ? (
@@ -507,47 +567,65 @@ export const PersonalDetailsScreen = ({ navigation }) => {
                   <View style={styles.statItem}>
                     <Icon name="calendar" size={13} color={COLORS.textLight} />
                     <Text style={styles.statText}>
-                      Since {formatJoinedDate(authUser.date_joined)}
+                      {t('profile.since', 'Since')} {formatJoinedDate(authUser.date_joined)}
                     </Text>
                   </View>
                 </>
               ) : null}
             </View>
 
-            <View style={styles.verifiedBadge}>
-              <Icon name="check-circle" size={13} color={COLORS.primary} />
-              <Text style={styles.verifiedText}>
-                {authUser?.is_active ? 'Verified Account' : 'Active Account'}
-              </Text>
-            </View>
+            {isGuest ? (
+              <View style={styles.guestBadgePill}>
+                <Icon name="user" size={12} color={COLORS.primary} />
+                <Text style={styles.guestBadgeText}>
+                  {t('auth.guestMode', 'GUEST MODE')}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.verifiedBadge}>
+                <Icon name="check-circle" size={13} color={COLORS.primary} />
+                <Text style={styles.verifiedText}>
+                  {authUser?.is_active
+                    ? t('profile.verifiedAccount', 'Verified Account')
+                    : t('profile.activeAccount', 'Active Account')}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Card 1: Basic Information */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Basic Information</Text>
+            <Text style={styles.cardTitle}>{t('profile.basicInformation', 'Basic Information')}</Text>
 
             <CustomInput
-              label="Full Name *"
+              label={t('profile.fullNameLabel', 'Full Name *')}
               value={fullName}
               onChangeText={setFullName}
-              placeholder="e.g. Rahul Kumar Sharma"
+              placeholder={t('profile.fullNamePlaceholder', 'e.g. Rahul Kumar Sharma')}
               leftIcon="user"
+              onFocus={handleInputFocus}
             />
 
             {/* Gender Selection */}
-            <Text style={styles.inputLabel}>Gender</Text>
+            <Text style={styles.inputLabel}>{t('profile.gender', 'Gender')}</Text>
             <View style={styles.genderRow}>
               {[
-                { label: 'Male', val: 'MALE' },
-                { label: 'Female', val: 'FEMALE' },
-                { label: 'Other', val: 'OTHER' },
+                { label: t('profile.male', 'Male'), val: 'MALE' },
+                { label: t('profile.female', 'Female'), val: 'FEMALE' },
+                { label: t('profile.other', 'Other'), val: 'OTHER' },
               ].map((item) => {
                 const isActive = gender === item.val;
                 return (
                   <TouchableOpacity
                     key={item.val}
                     activeOpacity={0.8}
-                    onPress={() => setGender(item.val)}
+                    onPress={() => {
+                      if (isGuest) {
+                        promptGuestLogin();
+                        return;
+                      }
+                      setGender(item.val);
+                    }}
                     style={[
                       styles.genderPill,
                       isActive && styles.genderPillActive,
@@ -573,10 +651,16 @@ export const PersonalDetailsScreen = ({ navigation }) => {
 
             {/* Date of Birth Picker (DD-MM-YYYY) */}
             <View style={styles.dobContainer}>
-              <Text style={styles.inputLabel}>Date of Birth (DD-MM-YYYY)</Text>
+              <Text style={styles.inputLabel}>{t('profile.dobLabel', 'Date of Birth (DD-MM-YYYY)')}</Text>
               <TouchableOpacity
                 activeOpacity={0.75}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => {
+                  if (isGuest) {
+                    promptGuestLogin();
+                    return;
+                  }
+                  setShowDatePicker(true);
+                }}
                 style={[
                   styles.dobTriggerBtn,
                   showDatePicker && styles.dobTriggerBtnActive,
@@ -594,18 +678,18 @@ export const PersonalDetailsScreen = ({ navigation }) => {
                       !dateOfBirth && styles.dobPlaceholder,
                     ]}
                   >
-                    {dateOfBirth || 'DD-MM-YYYY (e.g. 14-05-1998)'}
+                    {dateOfBirth || t('profile.dobPlaceholder', 'DD-MM-YYYY (e.g. 14-05-1998)')}
                   </Text>
                 </View>
                 <Icon name="calendar" size={18} color={COLORS.primary} />
               </TouchableOpacity>
               <Text style={styles.dobHelperText}>
-                Tap to select your date of birth
+                {t('profile.dobHelper', 'Tap to select your date of birth')}
               </Text>
             </View>
 
             <CustomInput
-              label="Email Address"
+              label={t('profile.emailAddress', 'Email Address')}
               value={email}
               onChangeText={setEmail}
               placeholder="name@example.com"
@@ -613,15 +697,21 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               autoCapitalize="none"
               leftIcon="message"
               editable={false}
-              helperText="Email is linked to your account"
+              helperText={t('profile.emailLinkedHelper', 'Email is linked to your account')}
             />
 
             {/* Phone Number with Country Code */}
-            <Text style={styles.inputLabel}>Phone Number</Text>
+            <Text style={styles.inputLabel}>{t('profile.phoneNumber', 'Phone Number')}</Text>
             <View style={styles.phoneSection}>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => setShowPhoneCountryPicker(true)}
+                onPress={() => {
+                  if (isGuest) {
+                    promptGuestLogin();
+                    return;
+                  }
+                  setShowPhoneCountryPicker(true);
+                }}
                 style={styles.countryBox}
               >
                 <Text style={styles.flag}>{phoneCountry.flag || '🇮🇳'}</Text>
@@ -637,7 +727,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
                   keyboardType="phone-pad"
                   leftIcon="phone"
                   containerStyle={styles.inputNoMargin}
-                  helperText="Registered phone number"
+                  helperText={t('profile.phoneHelper', 'Registered phone number')}
+                  onFocus={handleInputFocus}
                 />
               </View>
             </View>
@@ -645,85 +736,101 @@ export const PersonalDetailsScreen = ({ navigation }) => {
 
           {/* Card 2: Residential Address */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Residential Address</Text>
+            <Text style={styles.cardTitle}>{t('profile.residentialAddress', 'Residential Address')}</Text>
 
             <CustomInput
-              label="Address Line"
+              label={t('profile.addressLine', 'Address Line')}
               value={addressLine}
               onChangeText={setAddressLine}
-              placeholder="e.g. House 12, Sector 15"
+              placeholder={t('profile.addressPlaceholder', 'e.g. House 12, Sector 15')}
               leftIcon="home"
+              onFocus={handleInputFocus}
             />
 
             <View style={styles.row}>
               <View style={styles.halfCol}>
                 <CustomInput
-                  label="City"
+                  label={t('profile.city', 'City')}
                   value={city}
                   onChangeText={setCity}
-                  placeholder="e.g. Meerut"
+                  placeholder={t('profile.cityPlaceholder', 'e.g. Meerut')}
+                  onFocus={handleInputFocus}
                 />
               </View>
               <View style={styles.halfCol}>
                 <CustomInput
-                  label="State"
+                  label={t('profile.state', 'State')}
                   value={stateName}
                   onChangeText={setStateName}
-                  placeholder="e.g. Uttar Pradesh"
+                  placeholder={t('profile.statePlaceholder', 'e.g. Uttar Pradesh')}
+                  onFocus={handleInputFocus}
                 />
               </View>
             </View>
 
             <CustomInput
-              label="Pincode"
+              label={t('profile.pincode', 'Pincode')}
               value={pincode}
               onChangeText={setPincode}
-              placeholder="e.g. 250001"
+              placeholder={t('profile.pincodePlaceholder', 'e.g. 250001')}
               keyboardType="numeric"
               maxLength={6}
               leftIcon="map-pin"
+              onFocus={handleInputFocus}
             />
 
             <CustomInput
-              label="Saved Home Address (For Rides)"
+              label={t('profile.savedHomeAddress', 'Saved Home Address (For Rides)')}
               value={homeAddress}
               onChangeText={setHomeAddress}
-              placeholder="e.g. Phase 2, Chandigarh"
+              placeholder={t('profile.savedHomePlaceholder', 'e.g. Phase 2, Chandigarh')}
               leftIcon="navigation"
-              helperText="One-tap home destination on your home screen"
+              helperText={t('profile.savedHomeHelper', 'One-tap home destination on your home screen')}
+              onFocus={handleInputFocus}
             />
 
             <CustomInput
-              label="Saved Work Address (For Rides)"
+              label={t('profile.savedWorkAddress', 'Saved Work Address (For Rides)')}
               value={workAddress}
               onChangeText={setWorkAddress}
-              placeholder="e.g. IT Park, Chandigarh"
+              placeholder={t('profile.savedWorkPlaceholder', 'e.g. IT Park, Chandigarh')}
               leftIcon="briefcase"
-              helperText="One-tap work destination on your home screen"
+              helperText={t('profile.savedWorkHelper', 'One-tap work destination on your home screen')}
+              onFocus={handleInputFocus}
             />
           </View>
 
           {/* Card 3: Emergency Contact */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Emergency Contact</Text>
+            <Text style={styles.cardTitle}>{t('profile.emergencyContact', 'Emergency Contact')}</Text>
             <Text style={styles.cardSubtitle}>
-              Shared with safety teams and emergency services during trips if SOS is triggered.
+              {t(
+                'profile.emergencySubtitle',
+                'Shared with safety teams and emergency services during trips if SOS is triggered.'
+              )}
             </Text>
 
             <CustomInput
-              label="Contact Name"
+              label={t('profile.contactName', 'Contact Name')}
               value={emergencyContactName}
               onChangeText={setEmergencyContactName}
-              placeholder="e.g. Priya Sharma"
+              placeholder={t('profile.contactNamePlaceholder', 'e.g. Priya Sharma')}
               leftIcon="user"
+              onFocus={handleInputFocus}
             />
 
             {/* Contact Phone with Country Code */}
-            <Text style={styles.inputLabel}>Contact Phone</Text>
+            <Text style={styles.inputLabel}>{t('profile.contactPhone', 'Contact Phone')}</Text>
             <View style={styles.phoneSection}>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => setShowEmergencyCountryPicker(true)}
+                onPress={() => {
+                  if (isGuest) {
+                    promptGuestLogin();
+                    return;
+                  }
+                  setShowEmergencyCountryPicker(true);
+                }}
                 style={styles.countryBox}
               >
                 <Text style={styles.flag}>{emergencyCountry.flag || '🇮🇳'}</Text>
@@ -739,7 +846,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
                   keyboardType="phone-pad"
                   leftIcon="phone"
                   containerStyle={styles.inputNoMargin}
-                  helperText="Emergency contact phone number"
+                  helperText={t('profile.emergencyPhoneHelper', 'Emergency contact phone number')}
+                  onFocus={handleInputFocus}
                 />
               </View>
             </View>
@@ -747,7 +855,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
 
           {/* Save Button */}
           <CustomButton
-            title={isSaving ? 'Saving Changes...' : 'Save Changes'}
+            title={isSaving ? t('profile.savingChanges', 'Saving Changes...') : t('profile.saveChanges', 'Save Changes')}
             onPress={handleSave}
             loading={isSaving}
             variant="primary"
@@ -760,7 +868,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
       <AppDatePicker
         open={showDatePicker}
         value={dateOfBirth}
-        title="Select Date of Birth"
+        title={t('profile.selectDob', 'Select Date of Birth')}
         returnFormat="DD-MM-YYYY"
         maximumDate={new Date()}
         defaultDate={new Date(2000, 0, 1)}
@@ -795,6 +903,23 @@ export const PersonalDetailsScreen = ({ navigation }) => {
           setShowPhoneCountryPicker(false);
         }}
         loading={countryCodesLoading}
+      />
+
+      {/* Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={handleLoginConfirm}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
       />
     </SafeAreaView>
   );
@@ -849,7 +974,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.text,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   statDivider: {
     width: 1,
@@ -868,10 +993,28 @@ const styles = StyleSheet.create({
   },
   verifiedText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.primaryDark,
     marginLeft: 4,
+  },
+  guestBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLORS.primaryLight || '#E8F5E9',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.round,
+    marginTop: 6,
+    alignSelf: 'center',
+  },
+  guestBadgeText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    fontSize: responsiveFont(11),
+    color: COLORS.primaryDark,
+    letterSpacing: 0.5,
   },
   card: {
     backgroundColor: COLORS.white,
@@ -970,7 +1113,7 @@ const styles = StyleSheet.create({
   },
   dobHelperText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginTop: 4,
     marginLeft: 2,
@@ -997,7 +1140,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   flag: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     marginRight: 4,
   },
   countryCode: {
@@ -1006,7 +1149,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   arrow: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginLeft: 3,
   },

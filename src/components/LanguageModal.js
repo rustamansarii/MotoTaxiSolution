@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
-import { TYPOGRAPHY } from '../theme/typography';
+import { TYPOGRAPHY, responsiveFont } from '../theme/typography';
 import Icon from './Icon';
 
 export const SUPPORTED_LANGUAGES = [
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...TYPOGRAPHY.h3,
-    fontSize: 17,
+    fontSize: responsiveFont(17),
     fontWeight: '700',
     color: COLORS.text,
     marginLeft: 6,
@@ -201,15 +201,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   flag: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: responsiveFont(24),
+    lineHeight: Math.round(responsiveFont(24) * 1.15),
   },
   nameCol: {
     justifyContent: 'center',
   },
   langNativeName: {
     ...TYPOGRAPHY.body,
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   langSublabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: COLORS.textLight,
     marginTop: 1,
   },

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,9 +25,11 @@ import StatusBadge from '../../components/StatusBadge';
 import EmptyState from '../../components/EmptyState';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { fetchDriverRides } from '../../redux/features/driver/driverSlice';
+import { isGuestMode } from '../../utils/storage';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 
 /**
  * Format ISO datetime string to user-friendly string
@@ -197,6 +199,35 @@ export const DriverTripsScreen = ({ navigation }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState(null);
 
+  const authUser = useSelector((state) => state.auth?.user);
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = useCallback(
+    (
+      msgKey = 'auth.loginRequiredTripsMsg',
+      defMsg = 'Please log in first to view and manage your trips.'
+    ) => {
+      setGuestLoginModal({
+        visible: true,
+        title: t('auth.loginRequired', 'Login Required'),
+        message: t(msgKey, defMsg),
+      });
+    },
+    [t]
+  );
+
   // Redux driver rides state
   const {
     driverRides = [],
@@ -211,16 +242,24 @@ export const DriverTripsScreen = ({ navigation }) => {
   // Fetch page 1 when screen gains focus
   useFocusEffect(
     useCallback(() => {
+      if (isGuest) {
+        promptGuestLogin();
+        return;
+      }
       dispatch(fetchDriverRides({ page: 1, page_size: 10 }));
-    }, [dispatch])
+    }, [dispatch, isGuest, promptGuestLogin])
   );
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     setIsRefreshing(true);
     await dispatch(fetchDriverRides({ page: 1, page_size: 10 }));
     setIsRefreshing(false);
-  }, [dispatch]);
+  }, [dispatch, isGuest, promptGuestLogin]);
 
   // Infinite scroll pagination: load next page
   const handleLoadMore = () => {
@@ -253,7 +292,13 @@ export const DriverTripsScreen = ({ navigation }) => {
     return (
       <TouchableOpacity
         activeOpacity={0.88}
-        onPress={() => setSelectedTrip(item)}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin();
+            return;
+          }
+          setSelectedTrip(item);
+        }}
         style={[styles.tripCard, isFoldableOrTablet && { flex: 1 }]}
       >
         {/* Top Header Row */}
@@ -383,12 +428,44 @@ export const DriverTripsScreen = ({ navigation }) => {
           title={t('driver.tripHistory', 'Trip History')}
           showBack={false}
           variant="light"
+          showLanguage={true}
         />
+
+        {/* Guest Mode Notice Banner */}
+        {isGuest && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => promptGuestLogin()}
+            style={styles.guestNoticeCard}
+          >
+            <View style={styles.guestNoticeIconBox}>
+              <Icon name="user" size={16} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.guestNoticeTitle}>
+                {t('auth.guestMode', 'GUEST MODE')}
+              </Text>
+              <Text style={styles.guestNoticeSub}>
+                {t(
+                  'auth.guestTripsNotice',
+                  'Guest Mode: Log in to view your real trip history and completed rides.'
+                )}
+              </Text>
+            </View>
+            <Icon name="arrow-right" size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+        )}
 
         {/* Filter Tabs */}
         <View style={styles.filterBar}>
           <TouchableOpacity
-            onPress={() => setFilter('all')}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin();
+                return;
+              }
+              setFilter('all');
+            }}
             style={[styles.filterBtn, filter === 'all' && styles.activeFilterBtn]}
           >
             <Text
@@ -403,7 +480,13 @@ export const DriverTripsScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setFilter('today')}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin();
+                return;
+              }
+              setFilter('today');
+            }}
             style={[
               styles.filterBtn,
               filter === 'today' && styles.activeFilterBtn,
@@ -420,7 +503,13 @@ export const DriverTripsScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setFilter('completed')}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin();
+                return;
+              }
+              setFilter('completed');
+            }}
             style={[
               styles.filterBtn,
               filter === 'completed' && styles.activeFilterBtn,
@@ -443,7 +532,13 @@ export const DriverTripsScreen = ({ navigation }) => {
             <Icon name="alert-circle" size={18} color={COLORS.danger} />
             <Text style={styles.errorText}>{String(driverRidesError)}</Text>
             <TouchableOpacity
-              onPress={() => dispatch(fetchDriverRides({ page: 1, page_size: 10 }))}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin();
+                  return;
+                }
+                dispatch(fetchDriverRides({ page: 1, page_size: 10 }));
+              }}
               style={styles.retryBtn}
             >
               <Text style={styles.retryBtnText}>{t('common.retry', 'Retry')}</Text>
@@ -486,10 +581,19 @@ export const DriverTripsScreen = ({ navigation }) => {
           />
         ) : (
           <EmptyState
-            icon="clock"
-            title={t('driver.noTripsFoundTitle', 'No Trips Found')}
+            icon={isGuest ? 'lock' : 'clock'}
+            title={
+              isGuest
+                ? t('auth.loginRequired', 'Login Required')
+                : t('driver.noTripsFoundTitle', 'No Trips Found')
+            }
             description={
-              filter === 'today'
+              isGuest
+                ? t(
+                    'auth.loginRequiredTripsMsg',
+                    'Please log in first to view and manage your trips.'
+                  )
+                : filter === 'today'
                 ? t(
                     'driver.noTripsTodayDesc',
                     "You haven't completed any trips today. Go online to start receiving ride requests!"
@@ -499,8 +603,18 @@ export const DriverTripsScreen = ({ navigation }) => {
                     'No trips match this filter. When you complete trips, they will appear here.'
                   )
             }
-            buttonTitle={t('driver.goToDashboard', 'Go to Dashboard')}
-            onButtonPress={() => navigation.navigate('DriverHome')}
+            buttonTitle={
+              isGuest
+                ? t('auth.login', 'Log In')
+                : t('driver.goToDashboard', 'Go to Dashboard')
+            }
+            onButtonPress={() => {
+              if (isGuest) {
+                navigation.navigate('DriverLogin');
+                return;
+              }
+              navigation.navigate('DriverHome');
+            }}
             style={styles.emptyContainer}
           />
         )}
@@ -678,6 +792,26 @@ export const DriverTripsScreen = ({ navigation }) => {
             </Pressable>
           </Pressable>
         </Modal>
+
+        {/* Guest Mode Login Required Alert Popup */}
+        <CustomAlertPopup
+          visible={guestLoginModal.visible}
+          type="warning"
+          title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+          message={guestLoginModal.message}
+          confirmText={t('auth.login', 'Log In')}
+          cancelText={t('common.cancel', 'Cancel')}
+          onConfirm={() => {
+            setGuestLoginModal({ visible: false, title: '', message: '' });
+            navigation.navigate('DriverLogin');
+          }}
+          onCancel={() => {
+            setGuestLoginModal({ visible: false, title: '', message: '' });
+          }}
+          onClose={() => {
+            setGuestLoginModal({ visible: false, title: '', message: '' });
+          }}
+        />
       </ResponsiveContainer>
     </SafeAreaView>
   );
@@ -687,6 +821,42 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  guestNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    backgroundColor: '#E6FAF7',
+    borderWidth: 1,
+    borderColor: '#B2F0E6',
+    borderRadius: RADIUS.medium,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xs,
+  },
+  guestNoticeIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestNoticeTitle: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(11),
+    fontWeight: '800',
+    color: '#0e7061',
+    letterSpacing: 0.5,
+  },
+  guestNoticeSub: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(11),
+    color: COLORS.text,
+    marginTop: 2,
+    lineHeight: 16,
   },
   filterBar: {
     flexDirection: 'row',
@@ -823,7 +993,7 @@ const styles = StyleSheet.create({
   fareSubText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     marginTop: 1,
   },
   routeBox: {
@@ -882,7 +1052,7 @@ const styles = StyleSheet.create({
   metaPillText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   otpPill: {
     backgroundColor: COLORS.secondPrimaryLight,
@@ -891,7 +1061,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.secondPrimaryDark,
     fontWeight: '700',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   cancelBox: {
     flexDirection: 'row',
@@ -906,7 +1076,7 @@ const styles = StyleSheet.create({
   cancelText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.danger,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     flex: 1,
   },
   cardFooter: {
@@ -921,7 +1091,7 @@ const styles = StyleSheet.create({
   tapDetailsHint: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   footerLoader: {
     paddingVertical: SPACING.md,
@@ -1009,7 +1179,7 @@ const styles = StyleSheet.create({
   modalCustomerFareLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     marginTop: 2,
   },
   modalRouteBlock: {
@@ -1027,7 +1197,7 @@ const styles = StyleSheet.create({
   modalLocLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   modalLocText: {
     ...TYPOGRAPHY.bodySmall,
@@ -1049,7 +1219,7 @@ const styles = StyleSheet.create({
   modalGridLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   modalGridValue: {
     ...TYPOGRAPHY.bodySmall,

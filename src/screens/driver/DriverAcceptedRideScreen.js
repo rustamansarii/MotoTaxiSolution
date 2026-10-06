@@ -19,7 +19,7 @@ import CustomModal from '../../components/CustomModal';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import {
   driverMarkArrived,
   driverStartTrip,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
     color: COLORS.primaryDark,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
   },
   nearPill: {
     backgroundColor: '#10B98120',
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
   },
   nearPillText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: '#059669',
     letterSpacing: 0.5,
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
     color: COLORS.primary,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   pickupAddress: {
     ...TYPOGRAPHY.bodySmall,

@@ -17,7 +17,7 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { usePopup } from '../../context/PopupContext';
 import { useKeyboardSafe } from '../../components/keyboard';
 import { API_URL } from '../../utils/apiUrl';
@@ -143,6 +143,7 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
       <Header
         title={t('driver.vehicleSetup', 'Vehicle Details')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
     borderColor: GREEN,
   },
   typeChipText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '600',
     color: '#64748B',
   },

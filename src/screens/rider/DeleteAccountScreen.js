@@ -19,7 +19,7 @@ import CustomModal from '../../components/CustomModal';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { deleteUserAccount } from '../../redux/features/auth/authSlice';
 import { clearTokens } from '../../utils/storage';
@@ -328,9 +328,9 @@ const styles = StyleSheet.create({
   },
   pointText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: COLORS.text,
-    lineHeight: 19,
+    lineHeight: Math.round(responsiveFont(13) * 1.45),
     flex: 1,
   },
   reasonOption: {
@@ -398,11 +398,11 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '600',
     color: COLORS.text,
     flex: 1,
-    lineHeight: 18,
+    lineHeight: Math.round(responsiveFont(12) * 1.5),
   },
   actionsContainer: {
     gap: SPACING.md,

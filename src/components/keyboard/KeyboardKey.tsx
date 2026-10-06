@@ -2,6 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import { StyleSheet, Text, Pressable, Platform, View, ViewStyle } from 'react-native';
 import { KeyboardKeyConfig } from './layouts';
 import { colors } from '../../theme/colors';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 
 interface KeyboardKeyProps {
@@ -207,12 +208,12 @@ const styles = StyleSheet.create({
     }),
   },
   keyText: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     fontWeight: '500',
     letterSpacing: -0.2,
   },
   spaceText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '500',
     letterSpacing: 0.5,
     textTransform: 'uppercase',

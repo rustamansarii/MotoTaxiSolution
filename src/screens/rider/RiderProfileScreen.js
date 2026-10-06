@@ -18,13 +18,14 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import ProfileAvatar from '../../components/ProfileAvatar';
 import CustomModal from '../../components/CustomModal';
+import CustomAlertPopup from '../../components/CustomAlertPopup';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import LanguageModal from '../../components/LanguageModal';
 import LanguageButton from '../../components/LanguageButton';
 import { useApp } from '../../context/AppContext';
-import { useResponsive } from '../../utils/responsive';
-import { clearTokens } from '../../utils/storage';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
+import { clearTokens, isGuestMode } from '../../utils/storage';
 import { fetchUserProfile } from '../../redux/features/auth/authSlice';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -125,6 +126,9 @@ const MENU_SECTIONS = [
 
 const APP_VERSION = '1.0 (1)';
 
+/* Items guests can't access */
+const GUEST_BLOCKED_ITEMS = ['personal_details', 'places', 'delete_account'];
+
 export const RiderProfileScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
@@ -136,10 +140,54 @@ export const RiderProfileScreen = ({ navigation }) => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
 
+  // Guest login-required popup state
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
   const authUser = useSelector((s) => s.auth?.user);
   const riderProfile = useSelector((s) => s.auth?.riderProfile);
 
-  // Re-fetch latest user profile on mount and whenever screen comes into focus
+  const [isGuestStored, setIsGuestStored] = useState(false);
+
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+
+  // Single source of truth: is this user a guest?
+  const isGuest = !authUser || isGuestStored;
+
+  // Reset popup on blur to prevent stale state
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setGuestLoginModal({ visible: false, title: '', message: '' });
+      };
+    }, [])
+  );
+
+  // Helper: opens the login-required popup
+  const requireLogin = useCallback(
+    (message) => {
+      setGuestLoginModal({
+        visible: true,
+        title: t('auth.loginRequired', 'Login Required'),
+        message:
+          message ||
+          t(
+            'auth.loginRequiredMessage',
+            'Please log in to access this feature.'
+          ),
+      });
+    },
+    [t]
+  );
+
+  // Re-fetch latest user profile on focus
   useFocusEffect(
     useCallback(() => {
       dispatch(fetchUserProfile());
@@ -148,12 +196,8 @@ export const RiderProfileScreen = ({ navigation }) => {
 
   /* -------------------- Derived display values -------------------- */
   const currentLanguageInfo = useMemo(() => {
-    if (language === 'hi') {
-      return { flag: '🇮🇳', name: 'हिन्दी' };
-    }
-    if (language === 'fr') {
-      return { flag: '🇫🇷', name: 'Français' };
-    }
+    if (language === 'hi') return { flag: '🇮🇳', name: 'हिन्दी' };
+    if (language === 'fr') return { flag: '🇫🇷', name: 'Français' };
     return { flag: '🇺🇸', name: 'English' };
   }, [language]);
 
@@ -164,7 +208,7 @@ export const RiderProfileScreen = ({ navigation }) => {
         ? `${authUser.first_name} ${authUser.last_name || ''}`.trim()
         : null) ||
       authUser?.name;
-    if (!raw) return t('rider.fallbackName', 'Rider');
+    if (!raw) return t('auth.guestUser', 'Guest');
     return raw
       .split(' ')
       .filter(Boolean)
@@ -181,15 +225,16 @@ export const RiderProfileScreen = ({ navigation }) => {
   const displayEmergencyPhone = authUser?.emergency_contact_phone || '';
 
   const ratingValue = riderProfile?.rating_avg ?? authUser?.rating ?? null;
-  const displayRating = ratingValue != null ? Number(ratingValue).toFixed(2) : null;
+  const displayRating =
+    ratingValue != null ? Number(ratingValue).toFixed(2) : null;
   const tripsCount = riderProfile?.total_rides ?? 0;
-  const displayTrips = t('rider.tripsCount', '{{count}} Trips', { count: tripsCount });
 
   const memberSince = useMemo(() => {
     const raw = authUser?.created_at || authUser?.date_joined;
     if (!raw) return null;
     try {
-      const locale = language === 'fr' ? 'fr-FR' : language === 'hi' ? 'hi-IN' : 'en-US';
+      const locale =
+        language === 'fr' ? 'fr-FR' : language === 'hi' ? 'hi-IN' : 'en-US';
       return new Date(raw).toLocaleDateString(locale, {
         month: 'short',
         year: 'numeric',
@@ -210,6 +255,38 @@ export const RiderProfileScreen = ({ navigation }) => {
 
   const handleMenuPress = useCallback(
     (item) => {
+      // ✅ Guest gate — feature-specific messages
+      if (isGuest && GUEST_BLOCKED_ITEMS.includes(item.id)) {
+        let msg;
+        switch (item.id) {
+          case 'delete_account':
+            msg = t(
+              'auth.guestDeleteAccount',
+              'You are browsing as a guest. There is no account to delete. Please log in first to manage your account.'
+            );
+            break;
+          case 'personal_details':
+            msg = t(
+              'auth.guestPersonalDetails',
+              'Please log in to view and manage your personal details.'
+            );
+            break;
+          case 'places':
+            msg = t(
+              'auth.guestSavedPlaces',
+              'Please log in to manage your saved places.'
+            );
+            break;
+          default:
+            msg = t(
+              'auth.guestRestrictedFeature',
+              'This feature is available after you log in. Please sign in to continue.'
+            );
+        }
+        requireLogin(msg);
+        return;
+      }
+
       switch (item.id) {
         case 'personal_details':
           navigation.navigate('PersonalDetails');
@@ -233,8 +310,31 @@ export const RiderProfileScreen = ({ navigation }) => {
           break;
       }
     },
-    [navigation]
+    [navigation, isGuest, requireLogin, t]
   );
+
+  const handleLogoutPress = useCallback(() => {
+    if (isGuest) {
+      requireLogin(
+        t(
+          'auth.guestLogoutPrompt',
+          'You are browsing as a guest. Please log in to manage your account.'
+        )
+      );
+      return;
+    }
+    setShowLogoutModal(true);
+  }, [isGuest, requireLogin, t]);
+
+  const handleEditProfilePress = useCallback(() => {
+    if (isGuest) {
+      requireLogin(
+        t('auth.guestEditProfile', 'Log in to edit your profile details.')
+      );
+      return;
+    }
+    navigation.navigate('PersonalDetails');
+  }, [isGuest, requireLogin, navigation, t]);
 
   const isMultiColumn = isFoldableOrTablet || isSplitLayout;
 
@@ -247,7 +347,7 @@ export const RiderProfileScreen = ({ navigation }) => {
           name={displayName}
           size={84}
           showEdit
-          onEditPress={() => navigation.navigate('PersonalDetails')}
+          onEditPress={handleEditProfilePress}
         />
       </View>
 
@@ -255,29 +355,45 @@ export const RiderProfileScreen = ({ navigation }) => {
         {displayName}
       </Text>
 
+      {isGuest ? (
+        <View style={styles.guestBadgePill}>
+          <Icon name="user" size={12} color={COLORS.primary} />
+          <Text style={styles.guestBadgeText}>
+            {t('auth.guestMode', 'GUEST MODE')}
+          </Text>
+        </View>
+      ) : null}
+
       {displayEmail ? (
         <Text style={styles.userContact} numberOfLines={1}>
           {displayEmail}
         </Text>
       ) : null}
       {displayPhone ? (
-        <Pressable
-          onPress={() => navigation.navigate('PersonalDetails')}
-          hitSlop={6}
-        >
+        <Pressable onPress={handleEditProfilePress} hitSlop={6}>
           <Text style={styles.userContact} numberOfLines={1}>
             {displayPhone}
           </Text>
         </Pressable>
       ) : null}
       {displayEmergencyPhone && displayEmergencyPhone !== displayPhone ? (
-        <Pressable
-          onPress={() => navigation.navigate('PersonalDetails')}
-          hitSlop={6}
-        >
+        <Pressable onPress={handleEditProfilePress} hitSlop={6}>
           <Text style={styles.userContactSub} numberOfLines={1}>
-            {t('rider.emergencyContact', 'Emergency Contact')}: {displayEmergencyPhone}
+            {t('rider.emergencyContact', 'Emergency Contact')}:{' '}
+            {displayEmergencyPhone}
           </Text>
+        </Pressable>
+      ) : null}
+
+      {isGuest ? (
+        <Pressable
+          onPress={() => navigation.navigate('Login')}
+          style={styles.guestSignInPrompt}
+        >
+          <Text style={styles.guestSignInPromptText}>
+            {t('auth.guestLoginPrompt', 'Sign in to access all features')}
+          </Text>
+          <Icon name="arrow-right" size={13} color={COLORS.primary} />
         </Pressable>
       ) : null}
 
@@ -319,6 +435,9 @@ export const RiderProfileScreen = ({ navigation }) => {
             {section.items.map((item, index) => {
               const isDanger = item.isDanger;
               const isLast = index === section.items.length - 1;
+              const isGuestBlocked =
+                isGuest && GUEST_BLOCKED_ITEMS.includes(item.id);
+
               return (
                 <Pressable
                   key={item.id}
@@ -329,6 +448,7 @@ export const RiderProfileScreen = ({ navigation }) => {
                     styles.menuItem,
                     !isLast && styles.menuItemBorder,
                     pressed && styles.menuItemPressed,
+                    isGuestBlocked && styles.menuItemGuestBlocked,
                   ]}
                 >
                   <View
@@ -349,23 +469,24 @@ export const RiderProfileScreen = ({ navigation }) => {
                     >
                       {t(item.titleKey, item.titleDefault)}
                     </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={styles.menuSubtitle}
-                    >
+                    <Text numberOfLines={1} style={styles.menuSubtitle}>
                       {t(item.subtitleKey, item.subtitleDefault)}
                     </Text>
                   </View>
 
                   {item.id === 'language' ? (
                     <View style={styles.langBadgePill}>
-                      <Text style={styles.langBadgePillFlag}>{currentLanguageInfo.flag}</Text>
-                      <Text style={styles.langBadgePillText}>{currentLanguageInfo.name}</Text>
+                      <Text style={styles.langBadgePillFlag}>
+                        {currentLanguageInfo.flag}
+                      </Text>
+                      <Text style={styles.langBadgePillText}>
+                        {currentLanguageInfo.name}
+                      </Text>
                     </View>
                   ) : null}
 
                   <Icon
-                    name="chevron-right"
+                    name={isGuestBlocked ? 'lock' : 'chevron-right'}
                     size={18}
                     color={isDanger ? COLORS.danger : COLORS.iconLight}
                   />
@@ -381,7 +502,7 @@ export const RiderProfileScreen = ({ navigation }) => {
   const footerActions = (
     <View style={styles.footer}>
       <Pressable
-        onPress={() => setShowLogoutModal(true)}
+        onPress={handleLogoutPress}
         accessibilityRole="button"
         accessibilityLabel={t('rider.logout', 'Log Out')}
         style={({ pressed }) => [
@@ -390,13 +511,13 @@ export const RiderProfileScreen = ({ navigation }) => {
         ]}
       >
         <Icon name="log-out" size={18} color={COLORS.danger} />
-        <Text style={styles.logoutText}>
-          {t('rider.logout', 'Log Out')}
-        </Text>
+        <Text style={styles.logoutText}>{t('rider.logout', 'Log Out')}</Text>
       </Pressable>
 
       <Text style={styles.appVersion}>
-        {t('rider.appVersion', 'Moto Taxi · v{{version}}', { version: APP_VERSION })}
+        {t('rider.appVersion', 'Moto Taxi · v{{version}}', {
+          version: APP_VERSION,
+        })}
       </Text>
     </View>
   );
@@ -409,7 +530,6 @@ export const RiderProfileScreen = ({ navigation }) => {
           title={t('rider.profile', 'Profile')}
           showBack={false}
           centerTitle={true}
-      
         />
 
         <ScrollView
@@ -493,6 +613,26 @@ export const RiderProfileScreen = ({ navigation }) => {
         visible={showLanguageModal}
         onClose={() => setShowLanguageModal(false)}
       />
+
+      {/* ✅ Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('Login');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 };
@@ -535,7 +675,6 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     alignItems: 'center',
     marginBottom: SPACING.xl,
-    // Soft shadow
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
@@ -567,7 +706,43 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark || COLORS.textLight,
     marginTop: 2,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: responsiveFont(12),
+  },
+  guestBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E6FAF7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.round,
+    marginTop: 4,
+  },
+  guestBadgeText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(10),
+    fontWeight: '800',
+    color: '#0e7061',
+    letterSpacing: 0.5,
+  },
+  guestSignInPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: RADIUS.medium,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: SPACING.sm,
+  },
+  guestSignInPromptText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(12),
+    fontWeight: '700',
+    color: COLORS.primary,
   },
 
   /* Stats */
@@ -593,7 +768,7 @@ const styles = StyleSheet.create({
   statLabel: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   statDivider: {
     width: 1,
@@ -643,6 +818,9 @@ const styles = StyleSheet.create({
   menuItemPressed: {
     backgroundColor: COLORS.inputBg,
   },
+  menuItemGuestBlocked: {
+    opacity: 0.65,
+  },
   menuIconBox: {
     width: 40,
     height: 40,
@@ -675,13 +853,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   langBadgePillFlag: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     marginRight: 4,
     includeFontPadding: false,
   },
   langBadgePillText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '600',
     color: COLORS.text,
     includeFontPadding: false,

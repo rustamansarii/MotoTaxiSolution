@@ -8,6 +8,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -163,14 +164,14 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: '#92400E',
     letterSpacing: 0.8,
   },
   amountValue: {
     ...TYPOGRAPHY.h1,
-    fontSize: 32,
+    fontSize: responsiveFont(32),
     fontWeight: '900',
     color: '#78350F',
     marginVertical: 4,
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   exactChangeText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: '#065F46',
   },
@@ -239,7 +240,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: '#B45309',
     marginTop: 2,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   successStatusBanner: {
     flexDirection: 'row',
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: '#047857',
     marginTop: 2,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
 });
 

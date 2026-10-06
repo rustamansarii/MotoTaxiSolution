@@ -17,7 +17,7 @@ import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { usePopup } from '../../context/PopupContext';
 import { useKeyboardSafe } from '../../components/keyboard';
 import { API_URL } from '../../utils/apiUrl';
@@ -143,6 +143,7 @@ export const DriverLicenseCheckScreen = ({ navigation, route }) => {
       <Header
         title={t('driver.licenseVerification', 'License Verification')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#D32F2F',
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     flex: 1,
     fontWeight: '500',
   },

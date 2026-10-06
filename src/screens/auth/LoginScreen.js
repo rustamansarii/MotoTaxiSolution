@@ -19,7 +19,7 @@ import { loginUser, clearError, fetchCountryCodes } from '../../redux/features/a
 import Icon from '../../components/Icon';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { LanguageButton } from '../../components/LanguageButton';
 import { KeyboardTextInput, useKeyboardSafe } from '../../components/keyboard';
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
   },
 
   activeTabText: {
-    fontSize: 22,
+    fontSize: responsiveFont(22),
 
     fontWeight: '700',
 
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
   },
 
   inactiveTabText: {
-    fontSize: 22,
+    fontSize: responsiveFont(22),
 
     fontWeight: '400',
 
@@ -829,7 +829,7 @@ const styles = StyleSheet.create({
   },
 
   formTitle: {
-    fontSize: 22,
+    fontSize: responsiveFont(22),
 
     fontWeight: '700',
 
@@ -839,7 +839,7 @@ const styles = StyleSheet.create({
   },
 
   formSubtitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
 
     color: '#9B9B9B',
 
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   },
 
   methodText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
 
     fontWeight: '600',
 
@@ -950,13 +950,13 @@ const styles = StyleSheet.create({
   },
 
   flag: {
-    fontSize: 17,
+    fontSize: responsiveFont(17),
 
     marginRight: 5,
   },
 
   countryCode: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
 
     fontWeight: '600',
 
@@ -964,7 +964,7 @@ const styles = StyleSheet.create({
   },
 
   arrow: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
 
     color: '#555',
 
@@ -980,7 +980,7 @@ const styles = StyleSheet.create({
   ======================================== */
 
   terms: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
 
     lineHeight: 17,
 
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
   },
 
   orText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
 
     color: '#AAAAAA',
 
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
   },
 
   guestButtonText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: GREEN,
   },
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
   facebookIcon: {
     color: '#FFFFFF',
 
-    fontSize: 23,
+    fontSize: responsiveFont(23),
 
     fontWeight: '700',
 
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
   facebookText: {
     color: '#FFFFFF',
 
-    fontSize: 14,
+    fontSize: responsiveFont(14),
 
     fontWeight: '600',
   },
@@ -1129,7 +1129,7 @@ const styles = StyleSheet.create({
   },
 
   appleIcon: {
-    fontSize: 20,
+    fontSize: responsiveFont(20),
 
     color: '#111111',
 
@@ -1137,7 +1137,7 @@ const styles = StyleSheet.create({
   },
 
   googleIcon: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
 
     fontWeight: '700',
 
@@ -1147,7 +1147,7 @@ const styles = StyleSheet.create({
   },
 
   socialText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
 
     color: '#333333',
 
@@ -1166,12 +1166,12 @@ const styles = StyleSheet.create({
   },
 
   noAccountText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: '#888888',
   },
 
   signupLinkText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: GREEN,
   },
@@ -1192,7 +1192,7 @@ const styles = StyleSheet.create({
 
   errorText: {
     color: '#D32F2F',
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '500',
     flex: 1,
   },
@@ -1204,7 +1204,7 @@ const styles = StyleSheet.create({
   },
 
   otpOptionText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
     color: GREEN,
   },
@@ -1241,7 +1241,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: '#D97706',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     marginTop: 1,
   },
   kycBannerText: {

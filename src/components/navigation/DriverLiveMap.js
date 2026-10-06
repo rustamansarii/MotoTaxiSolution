@@ -9,6 +9,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import DriverMarker from './DriverMarker';
 import RouteLayer from './RouteLayer';
@@ -439,7 +440,7 @@ const styles = StyleSheet.create({
   },
   requestPinFare: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: COLORS.white,
   },
@@ -497,7 +498,7 @@ const styles = StyleSheet.create({
   },
   pickupPillText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: COLORS.white,
     maxWidth: 100,
@@ -524,7 +525,7 @@ const styles = StyleSheet.create({
   },
   dropPillText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: COLORS.white,
     maxWidth: 100,

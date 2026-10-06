@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../theme/colors';
 import { TYPOGRAPHY } from '../theme/typography';
-import { useResponsive } from '../utils/responsive';
+import { useResponsive, responsiveFont } from '../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 
@@ -38,11 +38,14 @@ const RiderTabs = () => {
     backgroundColor: COLORS.white,
     borderTopColor: COLORS.border,
     borderTopWidth: 1,
-    height: 56 + Math.max(insets.bottom, 6),
-    paddingBottom: Math.max(insets.bottom, 6),
-    paddingTop: 6,
+    height: (isFoldableOrTablet ? 66 : 56) + Math.max(insets.bottom, 6),
+    paddingBottom: Math.max(insets.bottom, isFoldableOrTablet ? 8 : 6),
+    paddingTop: isFoldableOrTablet ? 8 : 6,
     paddingHorizontal: isLandscape ? Math.max(insets.left, insets.right, 16) : 0,
+    justifyContent: isFoldableOrTablet ? 'center' : 'space-around',
   };
+
+  const iconSize = isFoldableOrTablet ? 26 : 22;
 
   return (
     <Tab.Navigator
@@ -52,7 +55,7 @@ const RiderTabs = () => {
         tabBarInactiveTintColor: COLORS.iconLight,
         tabBarStyle: tabBarStyle,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: isFoldableOrTablet ? { maxWidth: 180 } : undefined,
+        tabBarItemStyle: isFoldableOrTablet ? { maxWidth: 220, alignSelf: 'center' } : undefined,
       }}
     >
       <Tab.Screen
@@ -60,8 +63,8 @@ const RiderTabs = () => {
         component={RiderHomeScreen}
         options={{
           tabBarLabel: t('tabs.home', 'Home'),
-          tabBarIcon: ({ color, focused }) => (
-            <Icon name="bike" size={22} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Icon name="bike" size={iconSize} color={color} />
           ),
         }}
       />
@@ -70,8 +73,8 @@ const RiderTabs = () => {
         component={ActivityScreen}
         options={{
           tabBarLabel: t('tabs.live', 'Live'),
-          tabBarIcon: ({ color, focused }) => (
-            <Icon name="live" size={22} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Icon name="live" size={iconSize} color={color} />
           ),
         }}
       />
@@ -81,8 +84,8 @@ const RiderTabs = () => {
         component={RiderProfileScreen}
         options={{
           tabBarLabel: t('tabs.profile', 'Profile'),
-          tabBarIcon: ({ color, focused }) => (
-            <Icon name="user" size={22} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Icon name="user" size={iconSize} color={color} />
           ),
         }}
       />
@@ -124,7 +127,8 @@ const styles = StyleSheet.create({
   tabLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
+    lineHeight: Math.round(responsiveFont(11) * 1.3),
   },
 });
 

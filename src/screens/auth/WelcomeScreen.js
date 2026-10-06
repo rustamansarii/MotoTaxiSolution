@@ -13,8 +13,10 @@ import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import LanguageButton from '../../components/LanguageButton';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
+import { setGuestMode } from '../../utils/storage';
 
 const ONBOARDING_SLIDES = [
   {
@@ -149,8 +151,9 @@ export const WelcomeScreen = ({ navigation }) => {
               </Text>
             </View>
 
-            {/* Skip Button */}
+            {/* Language & Skip Button */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <LanguageButton short style={{ marginRight: 8 }} />
               {!isLastSlide ? (
                 <TouchableOpacity
                   onPress={() => navigation.navigate('RoleSelection')}
@@ -274,6 +277,25 @@ export const WelcomeScreen = ({ navigation }) => {
                 <Text style={styles.secondaryActionChevron}>›</Text>
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={async () => {
+                try {
+                  await setGuestMode(true);
+                } catch (e) {}
+                navigation.navigate('RoleSelection', { isGuest: true });
+              }}
+              style={styles.guestAction}
+              hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
+            >
+              <View style={styles.guestActionRow}>
+                <Icon name="user" size={14} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.guestActionText}>
+                  {t('auth.continueAsGuest', 'Continue as Guest')}
+                </Text>
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -329,7 +351,7 @@ const styles = StyleSheet.create({
   },
   logoText: {
     ...TYPOGRAPHY.title,
-    fontSize: 20,
+    fontSize: responsiveFont(20),
     fontWeight: '800',
     color: '#0F172A',
     marginLeft: SPACING.xs + 2,
@@ -346,7 +368,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
     color: '#64748B',
   },
@@ -387,7 +409,7 @@ const styles = StyleSheet.create({
   },
   slideTitle: {
     ...TYPOGRAPHY.h2,
-    fontSize: 27,
+    fontSize: responsiveFont(27),
     fontWeight: '800',
     color: '#0F172A',
     textAlign: 'center',
@@ -396,7 +418,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   slideTitleCompact: {
-    fontSize: 23,
+    fontSize: responsiveFont(23),
     lineHeight: 28,
   },
   titleHighlight: {
@@ -404,7 +426,7 @@ const styles = StyleSheet.create({
   },
   slideDescription: {
     ...TYPOGRAPHY.body,
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '400',
     color: '#64748B',
     textAlign: 'center',
@@ -412,7 +434,7 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   slideDescriptionCompact: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     lineHeight: 19,
     maxWidth: 290,
   },
@@ -469,7 +491,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     ...TYPOGRAPHY.bodyMedium,
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '700',
     color: COLORS.white,
     marginRight: SPACING.xs,
@@ -483,14 +505,31 @@ const styles = StyleSheet.create({
   },
   secondaryActionText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
     color: '#64748B',
   },
   secondaryActionChevron: {
     color: COLORS.primary,
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: responsiveFont(15),
+  },
+  guestAction: {
+    marginTop: SPACING.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xs,
+  },
+  guestActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestActionText: {
+    ...TYPOGRAPHY.bodySmall,
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: responsiveFont(13),
   },
 });
 

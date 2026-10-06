@@ -9,6 +9,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import DriverMarker from './DriverMarker';
 import MapPlaceholder from '../MapPlaceholder';
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
   },
   userCalloutText: {
     color: COLORS.white,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
   },
   userCalloutArrow: {
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
   },
   requestPinFare: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: COLORS.white,
   },

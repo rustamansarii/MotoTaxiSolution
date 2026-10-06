@@ -9,6 +9,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 import {
   detectCardBrand,
@@ -279,14 +280,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#D97706',
   },
   previewBrandText: {
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '900',
     color: COLORS.white,
     letterSpacing: 1,
   },
   previewCardNumber: {
     fontFamily: 'monospace',
-    fontSize: 19,
+    fontSize: responsiveFont(19),
     fontWeight: '700',
     color: COLORS.white,
     letterSpacing: 2,
@@ -304,14 +305,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   previewLabel: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '700',
     color: '#94A3B8',
     letterSpacing: 0.8,
     marginBottom: 2,
   },
   previewValue: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: COLORS.white,
     letterSpacing: 0.5,
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   brandBadgeText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: COLORS.primaryDark,
   },
@@ -378,7 +379,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.danger,
     marginTop: 4,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   securityRow: {
     flexDirection: 'row',
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: '#166534',
     flex: 1,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
 });
 

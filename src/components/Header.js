@@ -3,8 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
-import { useResponsive } from '../utils/responsive';
+import { useResponsive, responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
+import LanguageButton from './LanguageButton';
 
 export const Header = ({
   title,
@@ -14,6 +15,7 @@ export const Header = ({
   rightIcon,
   onRightPress,
   rightComponent,
+  showLanguage = false,
   transparent = false,
   variant = 'light', // 'light' | 'dark'
   centerTitle = true,
@@ -25,8 +27,12 @@ export const Header = ({
   const subtitleColor = isDark ? COLORS.textLight : COLORS.textLight;
   const { isCompact } = useResponsive();
 
+  const effectiveRightComponent = rightComponent || (showLanguage ? (
+    <LanguageButton variant={isDark ? 'dark' : 'light'} short />
+  ) : null);
+
   const hasLeft = Boolean(showBack && onBack);
-  const hasRight = Boolean(rightComponent || (rightIcon && onRightPress));
+  const hasRight = Boolean(effectiveRightComponent || (rightIcon && onRightPress));
   const slotWidth = isCompact ? 36 : 44;
 
   return (
@@ -38,7 +44,7 @@ export const Header = ({
         style,
       ]}
     >
-      <View
+      {/* <View
         style={[
           styles.leftSlot,
           !hasLeft && (!hasRight || !centerTitle) && styles.slotHidden,
@@ -59,7 +65,7 @@ export const Header = ({
             />
           </TouchableOpacity>
         ) : null}
-      </View>
+      </View> */}
 
       <View
         style={[
@@ -74,7 +80,7 @@ export const Header = ({
             numberOfLines={1}
             style={[
               styles.title,
-              isCompact && { fontSize: 16 },
+              isCompact && { fontSize: responsiveFont(16) },
               !centerTitle && { textAlign: 'left' },
               { color: textColor },
               titleStyle,
@@ -97,16 +103,16 @@ export const Header = ({
         ) : null}
       </View>
 
-      <View
+      {/* <View
         style={[
           styles.rightSlot,
-          rightComponent ? styles.rightSlotFlexible : (isCompact ? { width: 36 } : { width: 44 }),
+          effectiveRightComponent ? styles.rightSlotFlexible : (isCompact ? { width: 36 } : { width: 44 }),
           !hasRight && (!hasLeft || !centerTitle) && styles.slotHidden,
           !hasRight && hasLeft && centerTitle && { width: slotWidth, minWidth: slotWidth },
         ]}
       >
-        {rightComponent ? (
-          rightComponent
+        {effectiveRightComponent ? (
+          effectiveRightComponent
         ) : rightIcon && onRightPress ? (
           <TouchableOpacity
             activeOpacity={0.7}
@@ -120,7 +126,7 @@ export const Header = ({
             />
           </TouchableOpacity>
         ) : null}
-      </View>
+      </View> */}
     </View>
   );
 };

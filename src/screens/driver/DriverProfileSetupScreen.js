@@ -43,6 +43,7 @@ export const DriverProfileSetupScreen = ({ navigation }) => {
       <Header
         title={t('driver.driverProfile')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView

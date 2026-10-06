@@ -18,7 +18,7 @@ import CustomInput from '../../components/CustomInput';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
   MOCK_WALLET,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 36,
+    fontSize: responsiveFont(36),
     fontWeight: '800',
     color: COLORS.text,
     marginVertical: SPACING.sm,
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   defaultBadgeText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.text,
   },

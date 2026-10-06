@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 export const DriverCard = ({
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   },
   pinLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '600',
     color: COLORS.primaryDark,
   },

@@ -21,7 +21,7 @@ import Header from '../../components/Header';
 import Icon from '../../components/Icon';
 import CustomButton from '../../components/CustomButton';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { getCurrentLocation } from '../../utils/locationService';
 import {
@@ -47,6 +47,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
     isRiderProfileLoading,
     isRiderProfileUpdating,
     riderProfileError,
+    user: authUser,
   } = useSelector((state) => state.auth);
 
   const { searchResults, isSearching } = useSelector((state) => state.location);
@@ -194,9 +195,21 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
 
   // Save the form to the backend
   const handleSave = async () => {
+    if (!authUser || !authUser?.id) {
+      Alert.alert(
+        t('auth.loginRequired', 'Login Required'),
+        t('auth.loginRequiredGeneralMsg', 'Please log in first to access this feature.'),
+        [
+          { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+          { text: t('auth.login', 'Log In / Sign In'), onPress: () => navigation.navigate('Login') },
+        ]
+      );
+      return;
+    }
+
     if (!homeAddress.trim() && !workAddress.trim()) {
       Alert.alert(
-        'Required',
+        t('profile.required', 'Required'),
         'Please enter at least a Home or Work address to save.'
       );
       return;
@@ -618,7 +631,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     ...TYPOGRAPHY.title,
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -637,7 +650,7 @@ const styles = StyleSheet.create({
   },
   coordBadgeText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: COLORS.primary,
   },
@@ -684,11 +697,11 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     color: COLORS.primary,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   coordsDisplay: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
@@ -727,14 +740,14 @@ const styles = StyleSheet.create({
   },
   suggestionsTitle: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.textLight,
     letterSpacing: 0.6,
   },
   dismissText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.primary,
   },
@@ -765,13 +778,13 @@ const styles = StyleSheet.create({
   },
   suggestionAddress: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginTop: 1,
   },
   suggestionDist: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: COLORS.secondPrimary,
     marginLeft: SPACING.xs,

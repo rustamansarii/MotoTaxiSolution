@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 
 /**
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...TYPOGRAPHY.title,
-    fontSize: 17,
+    fontSize: responsiveFont(17),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   demoChipText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.primaryDark,
     letterSpacing: 0.5,

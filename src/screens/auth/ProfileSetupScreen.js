@@ -46,6 +46,7 @@ export const ProfileSetupScreen = ({ navigation, route }) => {
       <Header
         title={t('auth.profileSetupTitle', 'Set Up Profile')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView

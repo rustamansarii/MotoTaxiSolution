@@ -9,6 +9,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 
 export const PaymentButton = ({
@@ -89,7 +90,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.white,
     letterSpacing: 0.5,
-    fontSize: 15,
+    fontSize: responsiveFont(15),
   },
   amountPill: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   amountText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '800',
     color: COLORS.white,
   },

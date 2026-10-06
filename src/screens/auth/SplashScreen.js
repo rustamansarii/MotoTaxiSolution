@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { APP_NAME } from '../../utils/constants';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { getAccessToken, getUser, getRole } from '../../utils/storage';
 import { useDispatch } from 'react-redux';
 import { setAuthUser } from '../../redux/features/auth/authSlice';
@@ -133,7 +133,7 @@ export const SplashScreen = ({ navigation }) => {
           </View>
 
           {/* App Name */}
-          <Text style={[styles.appName, isCompact && { fontSize: 36 }]}>
+          <Text style={[styles.appName, isCompact && { fontSize: responsiveFont(36) }]}>
             {APP_NAME || 'Moto Taxi'}
           </Text>
         </Animated.View>
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
 
   appName: {
     color: WHITE,
-    fontSize: 48,
+    fontSize: responsiveFont(48),
     fontWeight: '700',
     letterSpacing: 0,
     textAlign: 'center',

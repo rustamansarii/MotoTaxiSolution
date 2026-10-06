@@ -14,7 +14,7 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 
 export const DriverWelcomeScreen = ({ navigation }) => {
@@ -49,6 +49,7 @@ export const DriverWelcomeScreen = ({ navigation }) => {
         title={t('driver.driverProfile', 'Driver Partner')}
         onBack={() => navigation.navigate('RoleSelection')}
         variant="light"
+        showLanguage={true}
       />
 
       <ScrollView
@@ -193,14 +194,14 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   estAmount: {
     ...TYPOGRAPHY.h3,
     fontWeight: '800',
     color: COLORS.primaryDark,
     marginTop: 2,
-    fontSize: 20,
+    fontSize: responsiveFont(20),
   },
   perksList: {
     gap: SPACING.md,
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: 3,
     lineHeight: 18,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
   },
   actions: {
     marginTop: SPACING.sm,

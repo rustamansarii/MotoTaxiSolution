@@ -10,6 +10,7 @@ import { numericOnlyLayout, numbersGeneralLayout } from './layouts/numbers';
 import { symbolsPage1Layout, symbolsPage2Layout } from './layouts/symbols';
 import Icon from '../Icon';
 import { COLORS } from '../../theme/colors';
+import { responsiveFont } from '../../utils/responsive';
 
 interface CustomKeyboardProps {
   isInModal?: boolean;
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   layoutBadgeText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   shortcutText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
   },
   doneButton: {
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
   doneButtonText: {
     color: COLORS.primary,
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     marginRight: 4,
   },
   keyboardInner: {

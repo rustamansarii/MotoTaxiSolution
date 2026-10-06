@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../theme/colors';
 import { TYPOGRAPHY } from '../theme/typography';
-import { useResponsive } from '../utils/responsive';
+import { useResponsive, responsiveFont } from '../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
 });
 

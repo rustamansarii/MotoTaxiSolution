@@ -49,6 +49,12 @@ const initialState = {
   isWalletLoading: false,
   isTransactionsLoading: false,
   isSummaryLoading: false,
+
+  // Driver Home Stats (GET /api/v1/drivers/stats/home/)
+  homeStats: null, // { rating, today: { online_hours, total_rides, total_earnings }, week: ..., all_time: ... }
+  isHomeStatsLoading: false,
+  homeStatsError: null,
+
   // Driver Rides History
   driverRides: [],
   driverRidesCount: 0,
@@ -209,6 +215,29 @@ export const fetchDriverWalletSummary = createAsyncThunk(
         error?.message ||
         'Failed to fetch wallet summary';
       console.warn('[DriverAPI] Summary fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/drivers/stats/home/
+ */
+export const fetchDriverHomeStats = createAsyncThunk(
+  'driver/fetchHomeStats',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('[DriverAPI] Fetching driver home stats from drivers/stats/home/...');
+      const response = await apiGet(ApiConstant.DriverHomeStats);
+      console.log('[DriverAPI] Home stats response:', response);
+      return response?.data || response;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch home stats';
+      console.warn('[DriverAPI] Home stats fetch error:', errorMsg);
       return rejectWithValue(errorMsg);
     }
   }
@@ -992,6 +1021,21 @@ export const driverSlice = createSlice({
       })
       .addCase(fetchDriverWalletSummary.rejected, (state) => {
         state.isSummaryLoading = false;
+      })
+
+      // fetchDriverHomeStats
+      .addCase(fetchDriverHomeStats.pending, (state) => {
+        state.isHomeStatsLoading = true;
+        state.homeStatsError = null;
+      })
+      .addCase(fetchDriverHomeStats.fulfilled, (state, action) => {
+        state.isHomeStatsLoading = false;
+        state.homeStats = action.payload;
+        state.homeStatsError = null;
+      })
+      .addCase(fetchDriverHomeStats.rejected, (state, action) => {
+        state.isHomeStatsLoading = false;
+        state.homeStatsError = action.payload;
       })
 
       // fetchDriverRides

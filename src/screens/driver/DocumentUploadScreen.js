@@ -17,7 +17,7 @@ import Header from '../../components/Header';
 import StatusBadge from '../../components/StatusBadge';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { usePopup } from '../../context/PopupContext';
 import { API_URL } from '../../utils/apiUrl';
@@ -228,6 +228,7 @@ export const DocumentUploadScreen = ({ navigation, route }) => {
       <Header
         title={t('driver.documents', 'Required Documents')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView
@@ -625,7 +626,7 @@ const styles = StyleSheet.create({
   },
   verifiedTagText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
   },
   imageOverlayBottom: {
@@ -646,12 +647,12 @@ const styles = StyleSheet.create({
   },
   overlayFileName: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
   },
   overlayMetaSub: {
     color: '#94A3B8',
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     marginTop: 1,
   },
   changeOverlayBtn: {
@@ -665,7 +666,7 @@ const styles = StyleSheet.create({
   },
   changeOverlayText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
   },
 
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
     color: '#0e7061',
   },
   galleryButtonSubtitle: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: '#135c51',
     marginTop: 2,
   },
@@ -793,7 +794,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     fontWeight: '800',
     color: '#151515',
   },
@@ -801,7 +802,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalSubtitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: '#777777',
     marginBottom: SPACING.lg,
   },
@@ -880,7 +881,7 @@ const styles = StyleSheet.create({
   },
   modalDoneBtnText: {
     color: '#334155',
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '700',
   },
   nativeNoticeCard: {
@@ -898,12 +899,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nativeNoticeTitle: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: '#92400E',
   },
   nativeNoticeSub: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: '#B45309',
     marginTop: 2,
     lineHeight: 15,

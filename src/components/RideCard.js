@@ -4,6 +4,7 @@ import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
 import { formatCurrency } from '../utils/formatters';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 export const RideCard = ({
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rideName: {
-    fontSize: 15,
+    fontSize: responsiveFont(15),
     fontWeight: '700',
     color: '#0F172A',
     marginRight: 6,
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.small,
   },
   seatsText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '600',
     color: '#64748B',
     marginLeft: 2,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   etaText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: '#64748B',
     fontWeight: '500',
     marginRight: 8,
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.small,
   },
   tagText: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     letterSpacing: 0.2,
   },
@@ -189,7 +190,7 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.sm,
   },
   priceText: {
-    fontSize: 17,
+    fontSize: responsiveFont(17),
     fontWeight: '700',
     color: '#0F172A',
     letterSpacing: -0.3,
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark || '#0F766E',
   },
   originalPriceText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: '#94A3B8',
     textDecorationLine: 'line-through',
     marginTop: 1,

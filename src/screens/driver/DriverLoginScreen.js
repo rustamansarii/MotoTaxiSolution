@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StatusBar,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
@@ -13,8 +14,10 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
+import Icon from '../../components/Icon';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
+import { setGuestMode } from '../../utils/storage';
 
 export const DriverLoginScreen = ({ navigation }) => {
   const { t } = useTranslation();
@@ -37,6 +40,7 @@ export const DriverLoginScreen = ({ navigation }) => {
       <Header
         title={t('driver.driverLoginTitle')}
         onBack={() => navigation.goBack()}
+        showLanguage={true}
       />
 
       <ScrollView
@@ -87,6 +91,25 @@ export const DriverLoginScreen = ({ navigation }) => {
             iconPosition="right"
             style={styles.submitBtn}
           />
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={async () => {
+              try {
+                await setGuestMode(true);
+              } catch (e) {}
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'DriverNavigator' }],
+              });
+            }}
+            style={styles.guestButton}
+          >
+            <Icon name="user" size={17} color={COLORS.primary} />
+            <Text style={styles.guestButtonText}>
+              {t('auth.continueAsGuest', 'Continue as Guest')}
+            </Text>
+          </TouchableOpacity>
         </View>
         </View>
       </ScrollView>
@@ -132,6 +155,29 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: SPACING.sm,
+  },
+  guestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 50,
+    borderRadius: RADIUS.large,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginTop: SPACING.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  guestButtonText: {
+    ...TYPOGRAPHY.bodySmall,
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+    fontSize: responsiveFont(14),
   },
 });
 

@@ -8,6 +8,7 @@ import {
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
+import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
 
 export const PAYMENT_METHODS = [
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   badgeText: {
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '800',
     color: COLORS.textLight,
     letterSpacing: 0.3,

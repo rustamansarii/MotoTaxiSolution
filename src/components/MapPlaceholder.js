@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 export const MapPlaceholder = ({
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
   },
   featureLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '600',
     color: COLORS.textLight,
   },
@@ -267,7 +268,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.primaryDark,
     fontWeight: '700',
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   routeContainer: {
     ...StyleSheet.absoluteFillObject,
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
   },
   driverEtaText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '700',
     color: COLORS.text,
   },
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.text,
     fontWeight: '700',
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   pickupPin: {
     width: 24,
@@ -422,7 +423,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.text,
     fontWeight: '700',
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   destinationPin: {
     width: 24,

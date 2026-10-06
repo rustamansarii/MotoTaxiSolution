@@ -10,6 +10,7 @@ import {
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
+import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 
 const GREEN = '#17baa1';
@@ -487,7 +488,7 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 420,
     backgroundColor: '#FFFFFF',
     borderRadius: RADIUS.large,
     padding: SPACING.lg,
@@ -504,12 +505,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: responsiveFont(16),
     fontWeight: '800',
     color: '#0F172A',
   },
   selectedDateBadge: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: GREEN,
     marginTop: 2,
@@ -534,7 +535,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   presetChipText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '700',
     color: '#475569',
   },
@@ -576,7 +577,7 @@ const styles = StyleSheet.create({
     borderColor: GREEN,
   },
   navToggleText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: '#0F172A',
   },
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
   weekdayLabel: {
     width: 40,
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: '#94A3B8',
   },
@@ -625,7 +626,7 @@ const styles = StyleSheet.create({
     borderColor: GREEN,
   },
   dayText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '600',
     color: '#0F172A',
   },
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   dayTextInactive: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: '#CBD5E1',
   },
   pickerGridContainer: {
@@ -646,7 +647,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   pickerGridHeading: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '700',
     color: '#64748B',
     marginBottom: 8,
@@ -673,7 +674,7 @@ const styles = StyleSheet.create({
     borderColor: GREEN,
   },
   monthChipText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: '#334155',
   },
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
     borderColor: GREEN,
   },
   yearChipText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: '#334155',
   },
@@ -724,7 +725,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '700',
     color: '#475569',
   },
@@ -741,7 +742,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   confirmBtnText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '800',
     color: '#FFFFFF',
   },

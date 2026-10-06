@@ -16,7 +16,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { ScrollView } from 'react-native';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   },
   speedLimit: {
     ...TYPOGRAPHY.caption,
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     fontWeight: '700',
     color: COLORS.warning,
   },
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   etaDist: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   routeCard: {
     flexDirection: 'row',
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '800',
     color: COLORS.textLight,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     letterSpacing: 0.5,
   },
   addressText: {
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     color: COLORS.primaryDark,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   endTripBtn: {
     width: '100%',

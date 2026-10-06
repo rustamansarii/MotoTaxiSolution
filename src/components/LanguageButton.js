@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
-import { TYPOGRAPHY } from '../theme/typography';
+import { TYPOGRAPHY, responsiveFont } from '../theme/typography';
 import Icon from './Icon';
 import { LanguageModal } from './LanguageModal';
 
@@ -111,14 +111,14 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   flagText: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     marginRight: 4,
     includeFontPadding: false,
-    lineHeight: 16,
+    lineHeight: Math.round(responsiveFont(14) * 1.2),
   },
   text: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '600',
     color: COLORS.text,
     includeFontPadding: false,

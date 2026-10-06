@@ -16,13 +16,14 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
 import { LanguageButton } from '../../components/LanguageButton';
 import { CountryPickerModal } from '../../components/CountryPickerModal';
 import { usePopup } from '../../context/PopupContext';
 import { useKeyboardSafe } from '../../components/keyboard';
 import { registerUser, clearError, fetchCountryCodes } from '../../redux/features/auth/authSlice';
+import { setGuestMode } from '../../utils/storage';
 
 const GREEN = '#17baa1';
 
@@ -338,6 +339,24 @@ export const DriverSignupScreen = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Guest Option */}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={async () => {
+                keyboard?.hideKeyboard?.();
+                try {
+                  await setGuestMode(true);
+                } catch (e) {}
+                navigation.navigate('RoleSelection', { isGuest: true });
+              }}
+              style={styles.guestRow}
+            >
+              <Icon name="user" size={14} color={GREEN} style={{ marginRight: 6 }} />
+              <Text style={styles.guestLinkText}>
+                {t('auth.continueAsGuest', 'Continue as Guest')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -405,13 +424,13 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   brandTitle: {
-    fontSize: 22,
+    fontSize: responsiveFont(22),
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
   brandSubtitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '500',
     color: 'rgba(255, 255, 255, 0.88)',
     marginTop: 2,
@@ -434,12 +453,12 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   formTitle: {
-    fontSize: 22,
+    fontSize: responsiveFont(22),
     fontWeight: '800',
     color: '#151515',
   },
   formSubtitle: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: '#8A8F98',
     marginTop: 4,
   },
@@ -474,16 +493,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   flag: {
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     marginRight: 4,
   },
   countryCode: {
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '600',
     color: '#333333',
   },
   arrow: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: '#555',
     marginLeft: 4,
   },
@@ -505,12 +524,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#D32F2F',
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     flex: 1,
     fontWeight: '500',
   },
   terms: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     lineHeight: 16,
     textAlign: 'center',
     color: '#8A8F98',
@@ -530,11 +549,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   alreadyHaveText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     color: '#666666',
   },
   signinLinkText: {
-    fontSize: 13,
+    fontSize: responsiveFont(13),
+    fontWeight: '700',
+    color: GREEN,
+  },
+  guestRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 14,
+    paddingVertical: 6,
+  },
+  guestLinkText: {
+    fontSize: responsiveFont(13),
     fontWeight: '700',
     color: GREEN,
   },

@@ -22,14 +22,17 @@ import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { formatCurrency } from '../../utils/formatters';
 import { MOCK_DRIVER_STATS, ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
+import LanguageButton from '../../components/LanguageButton';
 import { fetchUserProfile } from '../../redux/features/auth/authSlice';
 import {
   getCurrentLocation,
   watchLocation,
   clearLocationWatch,
 } from '../../utils/locationService';
-import { saveRole } from '../../utils/storage';
+import { saveRole, isGuestMode } from '../../utils/storage';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   driverGoOnline,
   driverGoOffline,
@@ -41,7 +44,22 @@ import {
   handleIncomingSocketMessage,
   fetchDriverWallet,
   fetchDriverWalletSummary,
+  fetchDriverHomeStats,
 } from '../../redux/features/driver/driverSlice';
+
+/**
+ * Format decimal hours to readable string like '6h 30m' or '0h'
+ */
+const formatOnlineHours = (hours) => {
+  if (hours == null || isNaN(Number(hours))) return '0h';
+  const num = Number(hours);
+  const h = Math.floor(num);
+  const m = Math.round((num - h) * 60);
+  if (h > 0 && m > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h`;
+  if (m > 0) return `${m}m`;
+  return '0h';
+};
 
 export const DriverHomeScreen = ({ navigation }) => {
   const { t } = useTranslation();
@@ -65,8 +83,40 @@ export const DriverHomeScreen = ({ navigation }) => {
     rideTakenNotice,
     wallet,
     walletSummary,
+    homeStats,
+    isHomeStatsLoading,
   } = useSelector((state) => state.driver);
   const authUser = useSelector((state) => state.auth?.user);
+
+  const [selectedPeriod, setSelectedPeriod] = useState('today'); // 'today' | 'week' | 'all_time'
+
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = useCallback(
+    (
+      msgKey = 'auth.loginRequiredGeneralMsg',
+      defMsg = 'Please log in first to access this feature.'
+    ) => {
+      setGuestLoginModal({
+        visible: true,
+        title: t('auth.loginRequired', 'Login Required'),
+        message: t(msgKey, defMsg),
+      });
+    },
+    [t]
+  );
 
   const driverDisplayName = useMemo(() => {
     const raw =
@@ -79,42 +129,89 @@ export const DriverHomeScreen = ({ navigation }) => {
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
     }
-    return 'Raj';
-  }, [authUser]);
+    return t('auth.guestDriver', 'Driver');
+  }, [authUser, t]);
 
   const driverRating = useMemo(() => {
+    if (homeStats?.rating !== undefined && homeStats?.rating !== null) {
+      return Number(homeStats.rating);
+    }
     return (
       authUser?.driver_profile?.rating_avg ||
       authUser?.rider_profile?.rating_avg ||
       authUser?.rating ||
       5.0
     );
-  }, [authUser]);
+  }, [homeStats, authUser]);
 
-  const todayEarningsFormatted = useMemo(() => {
-    let amount = 1250;
-    if (walletSummary?.today_earnings != null && Number(walletSummary.today_earnings) > 0) {
-      amount = Number(walletSummary.today_earnings);
-    } else if (wallet?.balance != null && Number(wallet.balance) > 0) {
-      amount = Number(wallet.balance);
+  const periodStats = useMemo(() => {
+    const statsObj = homeStats?.[selectedPeriod];
+    if (statsObj) {
+      return {
+        online_hours: Number(statsObj.online_hours || 0),
+        total_rides: Number(statsObj.total_rides || 0),
+        total_earnings: Number(statsObj.total_earnings || 0),
+      };
     }
-    return `${Number(amount).toLocaleString('en-IN')}`;
-  }, [walletSummary, wallet]);
+    if (selectedPeriod === 'today') {
+      const fallbackEarnings =
+        walletSummary?.today_earnings != null
+          ? Number(walletSummary.today_earnings)
+          : wallet?.balance != null
+            ? Number(wallet.balance)
+            : 0;
+      const fallbackRides =
+        walletSummary?.completed_rides != null
+          ? Number(walletSummary.completed_rides)
+          : authUser?.driver_profile?.total_rides || 0;
+      const fallbackHours = Number(authUser?.driver_profile?.online_hours || 0);
+      return {
+        online_hours: fallbackHours,
+        total_rides: fallbackRides,
+        total_earnings: fallbackEarnings,
+      };
+    }
+    return {
+      online_hours: 0,
+      total_rides: 0,
+      total_earnings: 0,
+    };
+  }, [homeStats, selectedPeriod, walletSummary, wallet, authUser]);
+
+  const earningsLabel = useMemo(() => {
+    switch (selectedPeriod) {
+      case 'week':
+        return t('driver.weekEarnings', "This Week's Earnings");
+      case 'all_time':
+        return t('driver.allTimeEarnings', 'All Time Earnings');
+      case 'today':
+      default:
+        return t('driver.todayEarnings', "Today's Earnings");
+    }
+  }, [selectedPeriod, t]);
+
+  const earningsValueFormatted = useMemo(() => {
+    const amount = Number(periodStats.total_earnings || 0);
+    return amount.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }, [periodStats.total_earnings]);
 
   const ridesCompletedDisplay = useMemo(() => {
-    return String(
-      walletSummary?.completed_rides ||
-      authUser?.driver_profile?.total_rides ||
-      6
-    );
-  }, [walletSummary, authUser]);
+    return String(periodStats.total_rides || 0);
+  }, [periodStats.total_rides]);
 
   const onlineTimeDisplay = useMemo(() => {
-    if (authUser?.driver_profile?.online_hours) {
-      return `${authUser.driver_profile.online_hours}h`;
+    return formatOnlineHours(periodStats.online_hours);
+  }, [periodStats.online_hours]);
+
+  const totalDriverRidesCount = useMemo(() => {
+    if (homeStats?.all_time?.total_rides !== undefined && homeStats?.all_time?.total_rides !== null) {
+      return homeStats.all_time.total_rides;
     }
-    return '6h 30m';
-  }, [authUser]);
+    return authUser?.driver_profile?.total_rides || periodStats.total_rides || 0;
+  }, [homeStats, authUser, periodStats]);
 
   const hasActiveDriverRide = Boolean(
     activeRide &&
@@ -237,12 +334,26 @@ export const DriverHomeScreen = ({ navigation }) => {
     };
   }, []);
 
-  // Fetch user profile from /api/v1/auth/profile/, wallet and summary on mount
+  // Fetch user profile from /api/v1/auth/profile/, wallet, summary, and home stats on mount
   useEffect(() => {
     dispatch(fetchUserProfile());
-    dispatch(fetchDriverWallet());
-    dispatch(fetchDriverWalletSummary());
-  }, [dispatch]);
+    if (!isGuest) {
+      dispatch(fetchDriverHomeStats());
+      dispatch(fetchDriverWallet());
+      dispatch(fetchDriverWalletSummary());
+    }
+  }, [dispatch, isGuest]);
+
+  // Refresh home stats and wallet when screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isGuest) {
+        dispatch(fetchDriverHomeStats());
+        dispatch(fetchDriverWallet());
+        dispatch(fetchDriverWalletSummary());
+      }
+    }, [dispatch, isGuest])
+  );
 
   const handleRecenterLocation = useCallback(async () => {
     try {
@@ -414,6 +525,10 @@ export const DriverHomeScreen = ({ navigation }) => {
 
   // Navigate back to ongoing screen/state when clicking Active Trip Card/Banner
   const handleResumeDriverTrip = useCallback(() => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     if (!activeRide) return;
     const parentNav = navigation.getParent();
     const targetNav = parentNav || navigation;
@@ -497,9 +612,15 @@ export const DriverHomeScreen = ({ navigation }) => {
     driverLocation,
     distanceRemainingKm,
     etaMin,
+    isGuest,
+    promptGuestLogin,
   ]);
 
   const handleAcceptIncomingRide = useCallback(() => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     if (!incomingRideRequest) return;
     const rideId = incomingRideRequest.ride_id;
     const req = incomingRideRequest;
@@ -536,25 +657,36 @@ export const DriverHomeScreen = ({ navigation }) => {
             : undefined,
       });
     }, 1000);
-  }, [dispatch, incomingRideRequest, navigation]);
+  }, [dispatch, incomingRideRequest, navigation, isGuest, promptGuestLogin]);
 
   const handleDeclineIncomingRide = useCallback(() => {
+    if (isGuest) {
+      promptGuestLogin();
+      return;
+    }
     if (!incomingRideRequest) return;
     const rideId = incomingRideRequest.ride_id;
     console.log('[DriverHome] Declining ride:', rideId);
     dispatch(driverRejectRide({ rideId }));
     dispatch(clearIncomingRideRequest());
-  }, [dispatch, incomingRideRequest]);
+  }, [dispatch, incomingRideRequest, isGuest, promptGuestLogin]);
 
   // Compute nearby dynamic ride requests / demand hotspots around driver live location
   const nearbyRequests = useMemo(() => {
     if (!driverLocation || !isOnline) return [];
     const [lng, lat] = driverLocation;
-   
+
   }, [driverLocation, isOnline]);
 
   const toggleOnline = useCallback(() => {
     if (onlineLoading) return;
+    if (isGuest) {
+      promptGuestLogin(
+        'auth.loginRequiredGoOnlineMsg',
+        'Please log in first to go online and receive ride requests.'
+      );
+      return;
+    }
     if (isOnline) {
       dispatch(driverGoOffline());
     } else {
@@ -563,7 +695,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         : null;
       dispatch(driverGoOnline(coords));
     }
-  }, [dispatch, isOnline, onlineLoading, driverLocation]);
+  }, [dispatch, isOnline, onlineLoading, driverLocation, isGuest, promptGuestLogin]);
 
   const handleSimulateRequest = () => {
     const simReq = {
@@ -594,8 +726,8 @@ export const DriverHomeScreen = ({ navigation }) => {
             ? socketConnected
               ? t('driver.online', 'Online (Live)')
               : socketConnecting
-              ? 'Connecting...'
-              : t('driver.online', 'Online')
+                ? 'Connecting...'
+                : t('driver.online', 'Online')
             : t('driver.offline', 'Offline')
         }
         target={
@@ -620,6 +752,8 @@ export const DriverHomeScreen = ({ navigation }) => {
         style={styles.fullMapStyle}
       />
 
+
+
       {/* Floating Active Trip Banner on Map */}
       {hasActiveDriverRide && (
         <TouchableOpacity
@@ -636,8 +770,8 @@ export const DriverHomeScreen = ({ navigation }) => {
               rideStatus === 'arrived'
                 ? { backgroundColor: '#10B981' }
                 : rideStatus === 'in_progress'
-                ? { backgroundColor: '#3B82F6' }
-                : { backgroundColor: '#F59E0B' },
+                  ? { backgroundColor: '#3B82F6' }
+                  : { backgroundColor: '#F59E0B' },
             ]}
           />
           <View style={styles.floatingActiveTextCol}>
@@ -645,8 +779,8 @@ export const DriverHomeScreen = ({ navigation }) => {
               {rideStatus === 'arrived'
                 ? '📍 Arrived at Pickup • Awaiting OTP'
                 : rideStatus === 'in_progress'
-                ? '🚗 Trip in Progress • On Route'
-                : '🟡 Active Ride • Heading to Pickup'}
+                  ? '🚗 Trip in Progress • On Route'
+                  : '🟡 Active Ride • Heading to Pickup'}
             </Text>
             <Text style={styles.floatingActiveSub}>
               Tap to return to active trip screen ›
@@ -694,8 +828,8 @@ export const DriverHomeScreen = ({ navigation }) => {
                 rideStatus === 'arrived'
                   ? styles.stageArrivedTag
                   : rideStatus === 'in_progress'
-                  ? styles.stageTripTag
-                  : styles.stageAcceptedTag,
+                    ? styles.stageTripTag
+                    : styles.stageAcceptedTag,
               ]}
             >
               <View
@@ -704,8 +838,8 @@ export const DriverHomeScreen = ({ navigation }) => {
                   rideStatus === 'arrived'
                     ? { backgroundColor: '#10B981' }
                     : rideStatus === 'in_progress'
-                    ? { backgroundColor: '#3B82F6' }
-                    : { backgroundColor: '#F59E0B' },
+                      ? { backgroundColor: '#3B82F6' }
+                      : { backgroundColor: '#F59E0B' },
                 ]}
               />
               <Text
@@ -714,15 +848,15 @@ export const DriverHomeScreen = ({ navigation }) => {
                   rideStatus === 'arrived'
                     ? { color: '#047857' }
                     : rideStatus === 'in_progress'
-                    ? { color: '#1D4ED8' }
-                    : { color: '#B45309' },
+                      ? { color: '#1D4ED8' }
+                      : { color: '#B45309' },
                 ]}
               >
                 {rideStatus === 'arrived'
                   ? 'ARRIVED AT PICKUP'
                   : rideStatus === 'in_progress'
-                  ? 'TRIP IN PROGRESS'
-                  : 'HEADING TO PICKUP'}
+                    ? 'TRIP IN PROGRESS'
+                    : 'HEADING TO PICKUP'}
               </Text>
             </View>
 
@@ -732,10 +866,10 @@ export const DriverHomeScreen = ({ navigation }) => {
                 {rideStatus === 'arrived'
                   ? 'Waiting for Rider'
                   : etaMin !== null && etaMin !== undefined
-                  ? `${etaMin} min away`
-                  : distanceRemainingKm !== null && distanceRemainingKm !== undefined
-                  ? `${distanceRemainingKm} km`
-                  : 'Active'}
+                    ? `${etaMin} min away`
+                    : distanceRemainingKm !== null && distanceRemainingKm !== undefined
+                      ? `${distanceRemainingKm} km`
+                      : 'Active'}
               </Text>
             </View>
           </View>
@@ -773,16 +907,16 @@ export const DriverHomeScreen = ({ navigation }) => {
               rideStatus === 'arrived'
                 ? { backgroundColor: '#10B981' }
                 : rideStatus === 'in_progress'
-                ? { backgroundColor: '#2563EB' }
-                : { backgroundColor: COLORS.primary },
+                  ? { backgroundColor: '#2563EB' }
+                  : { backgroundColor: COLORS.primary },
             ]}
           >
             <Text style={styles.activeTripResumeBtnText}>
               {rideStatus === 'arrived'
                 ? 'Enter OTP & Start Trip ›'
                 : rideStatus === 'in_progress'
-                ? 'Return to Live Trip Map ›'
-                : 'Return to Active Trip ›'}
+                  ? 'Return to Live Trip Map ›'
+                  : 'Return to Active Trip ›'}
             </Text>
             <Icon name="arrow-right" size={16} color={COLORS.white} />
           </TouchableOpacity>
@@ -866,12 +1000,52 @@ export const DriverHomeScreen = ({ navigation }) => {
 
       {/* 3. Driver Profile & Earnings Summary Card */}
       <View style={styles.driverSummaryCard}>
-        {/* Top: Avatar & Name | Divider | Today's Earnings */}
+        {/* Period Selector Tabs: Today | This Week | All Time */}
+        <View style={styles.periodTabsRow}>
+          {[
+            { key: 'today', label: t('driver.today', 'Today') },
+            { key: 'week', label: t('driver.thisWeek', 'This Week') },
+            { key: 'all_time', label: t('driver.allTime', 'All Time') },
+          ].map((period) => {
+            const isActive = selectedPeriod === period.key;
+            return (
+              <TouchableOpacity
+                key={period.key}
+                activeOpacity={0.75}
+                onPress={() => setSelectedPeriod(period.key)}
+                style={[
+                  styles.periodTabBtn,
+                  isActive && styles.periodTabBtnActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.periodTabText,
+                    isActive && styles.periodTabTextActive,
+                  ]}
+                >
+                  {period.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Top: Avatar & Name | Divider | Period Earnings */}
         <View style={styles.summaryTopRow}>
           {/* Driver Profile */}
           <TouchableOpacity
             activeOpacity={0.75}
-            onPress={() => navigation.navigate('DriverProfile')}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin(
+                  'auth.loginRequiredProfileMsg',
+                  'Please log in first to edit and save your personal details.'
+                );
+                return;
+              }
+              navigation.navigate('DriverProfile');
+            }}
             style={styles.driverProfileCol}
           >
             <View style={styles.avatarWrapper}>
@@ -896,7 +1070,7 @@ export const DriverHomeScreen = ({ navigation }) => {
                   {driverRating ? Number(driverRating).toFixed(1) : '5.0'}
                 </Text>
                 <Text style={styles.ratingCountText}>
-                  ({authUser?.driver_profile?.total_rides || 3} {t('driver.rides', 'rides')})
+                  ({totalDriverRidesCount} {t('driver.rides', 'rides')})
                 </Text>
               </View>
             </View>
@@ -905,35 +1079,49 @@ export const DriverHomeScreen = ({ navigation }) => {
           {/* Vertical Divider */}
           <View style={styles.summaryVerticalDivider} />
 
-          {/* Today's Earnings */}
+          {/* Period Earnings */}
           <TouchableOpacity
             activeOpacity={0.75}
-            onPress={() => navigation.navigate('DriverEarnings')}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin(
+                  'auth.loginRequiredEarningsMsg',
+                  'Please log in first to view real earnings and withdraw payouts.'
+                );
+                return;
+              }
+              navigation.navigate('DriverEarnings');
+            }}
             style={styles.earningsCol}
           >
             <View style={styles.earningsIconBox}>
               <Icon name="wallet" size={22} color="#059669" />
             </View>
             <View style={styles.earningsTextCol}>
-              <Text style={styles.earningsCaption}>
-                {t('driver.todayEarnings', "Today's Earnings")}
+              <Text style={styles.earningsCaption} numberOfLines={1}>
+                {earningsLabel}
               </Text>
               <Text style={styles.earningsValueText} numberOfLines={1}>
-                ${todayEarningsFormatted}
+                ${earningsValueFormatted}
               </Text>
             </View>
-            <Icon name="chevron-right" size={18} color="#94A3B8" />
+            {isHomeStatsLoading ? (
+              <ActivityIndicator size="small" color="#059669" style={{ marginLeft: 4 }} />
+            ) : (
+              <Icon name="chevron-right" size={18} color="#94A3B8" />
+            )}
           </TouchableOpacity>
         </View>
 
         {/* Bottom Metrics: Online Time | Rides Completed | Rating */}
         <View style={styles.metricsContainer}>
           <View style={styles.metricCell}>
-            <View style={styles.metricIconCircle}>
-              <Icon name="time" size={18} color="#036747" />
-            </View>
+            <Text style={styles.metricLabel}>{t('driver.onlineTime', 'Online Time')}</Text>
             <View style={styles.metricContent}>
-              <Text style={styles.metricLabel}>{t('driver.onlineTime', 'Online Time')}</Text>
+
+              <View style={styles.metricIconCircle}>
+                <Icon name="time" size={18} color="#036747" />
+              </View>
               <Text style={styles.metricValue}>{onlineTimeDisplay}</Text>
             </View>
           </View>
@@ -941,11 +1129,12 @@ export const DriverHomeScreen = ({ navigation }) => {
           <View style={styles.metricDivider} />
 
           <View style={styles.metricCell}>
-            <View style={styles.metricIconCircle}>
-              <Icon name="bike" size={18} color="#059669" />
-            </View>
+            <Text style={styles.metricLabel}>{t('driver.ridesCompleted', 'Rides Completed')}</Text>
             <View style={styles.metricContent}>
-              <Text style={styles.metricLabel}>{t('driver.ridesCompleted', 'Rides Completed')}</Text>
+
+              <View style={styles.metricIconCircle}>
+                <Icon name="bike" size={18} color="#059669" />
+              </View>
               <Text style={styles.metricValue}>{ridesCompletedDisplay}</Text>
             </View>
           </View>
@@ -953,15 +1142,15 @@ export const DriverHomeScreen = ({ navigation }) => {
           <View style={styles.metricDivider} />
 
           <View style={styles.metricCell}>
-            <View style={[styles.metricIconCircle, { backgroundColor: '#FEF3C7' }]}>
-              <Icon name="star" size={18} color="#F59E0B" />
-            </View>
+            <Text style={styles.metricLabel}>{t('driver.rating', 'Rating')}</Text>
             <View style={styles.metricContent}>
-              <Text style={styles.metricLabel}>{t('driver.rating', 'Rating')}</Text>
+
+              <View style={[styles.metricIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                <Icon name="star" size={18} color="#F59E0B" />
+              </View>
               <Text style={styles.metricValue}>
                 {driverRating ? Number(driverRating).toFixed(1) : '5.0'}
               </Text>
-          
             </View>
           </View>
         </View>
@@ -1072,7 +1261,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         </View>
       </View>
 
-  
+
     </View>
   );
 
@@ -1101,6 +1290,26 @@ export const DriverHomeScreen = ({ navigation }) => {
           </ScrollView>
         }
         primaryRatio={0.42}
+      />
+
+      {/* Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('DriverLogin');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
       />
     </SafeAreaView>
   );
@@ -1184,15 +1393,21 @@ const styles = StyleSheet.create({
   statusTextCol: {
     flex: 1,
   },
+  floatingLangWrap: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 20,
+  },
   statusTitle: {
     ...TYPOGRAPHY.body,
-    fontSize: 18,
+    fontSize: responsiveFont(18),
     fontWeight: '800',
     color: COLORS.text,
   },
   statusSubtitle: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: COLORS.textLight,
     marginTop: 2,
   },
@@ -1212,7 +1427,7 @@ const styles = StyleSheet.create({
   },
   statusToggleText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 13,
+    fontSize: responsiveFont(13),
     fontWeight: '800',
   },
   statusToggleTextOnline: {
@@ -1224,7 +1439,7 @@ const styles = StyleSheet.create({
   driverSummaryCard: {
     backgroundColor: COLORS.white,
     borderRadius: 18,
-    padding:8,
+    padding: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#000',
@@ -1232,6 +1447,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+  },
+  periodTabsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 10,
+    gap: 4,
+  },
+  periodTabBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodTabBtnActive: {
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  periodTabText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(11),
+    fontWeight: '600',
+    color: COLORS.textLight,
+  },
+  periodTabTextActive: {
+    fontWeight: '800',
+    color: '#059669',
   },
   summaryTopRow: {
     flexDirection: 'row',
@@ -1269,7 +1517,7 @@ const styles = StyleSheet.create({
   },
   driverNameText: {
     ...TYPOGRAPHY.h3,
-    fontSize: 19,
+    fontSize: responsiveFont(19),
     fontWeight: '800',
     color: COLORS.text,
   },
@@ -1281,13 +1529,13 @@ const styles = StyleSheet.create({
   },
   ratingNumberText: {
     ...TYPOGRAPHY.bodySmall,
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '800',
     color: COLORS.text,
   },
   ratingCountText: {
     ...TYPOGRAPHY.caption,
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     color: COLORS.textLight,
   },
   summaryVerticalDivider: {
@@ -1315,12 +1563,12 @@ const styles = StyleSheet.create({
   },
   earningsCaption: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
   },
   earningsValueText: {
     ...TYPOGRAPHY.title,
-    fontSize: 19,
+    fontSize: responsiveFont(19),
     fontWeight: '800',
     color: COLORS.text,
     marginTop: 1,
@@ -1336,7 +1584,7 @@ const styles = StyleSheet.create({
   },
   metricCell: {
     flex: 1,
-    flexDirection:'row',
+    flexDirection: "column",
     // alignItems: 'center',
     // justifyContent: 'center',
   },
@@ -1347,20 +1595,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight:5,
     marginBottom: 4,
   },
   metricContent: {
     alignItems: 'center',
+    justifyContent:"center",
+    flexDirection:'row',
   },
   metricLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
     textAlign: 'center',
   },
   metricValue: {
     ...TYPOGRAPHY.bodySmall,
-    fontSize: 14,
+    fontSize: responsiveFont(14),
     fontWeight: '800',
     color: COLORS.text,
     marginTop: 1,
@@ -1368,7 +1619,7 @@ const styles = StyleSheet.create({
   },
   metricSub: {
     ...TYPOGRAPHY.caption,
-    fontSize: 9,
+    fontSize: responsiveFont(9),
     color: COLORS.textLight,
     textAlign: 'center',
   },
@@ -1424,7 +1675,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.sm,
     paddingBottom: SPACING.xl,
-  
+
   },
   onlinePanel: {
     backgroundColor: COLORS.white,
@@ -1467,7 +1718,7 @@ const styles = StyleSheet.create({
   },
   earningsAmount: {
     ...TYPOGRAPHY.h1,
-    fontSize: 32,
+    fontSize: responsiveFont(32),
     fontWeight: '800',
     marginTop: 2,
     color: COLORS.text,
@@ -1503,7 +1754,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
   },
   statCellDivider: {
     width: 1,
@@ -1540,7 +1791,7 @@ const styles = StyleSheet.create({
   },
   maplibreSub: {
     ...TYPOGRAPHY.caption,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     color: COLORS.textLight,
     marginTop: 1,
   },
@@ -1571,7 +1822,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   incomingBadgeTitle: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: '#DC2626',
     letterSpacing: 0.5,
@@ -1583,7 +1834,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.round,
   },
   vehicleTypeText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     color: COLORS.primaryDark,
   },
@@ -1597,7 +1848,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   countdownText: {
-    fontSize: 12,
+    fontSize: responsiveFont(12),
     fontWeight: '800',
     color: COLORS.white,
   },
@@ -1614,7 +1865,7 @@ const styles = StyleSheet.create({
   },
   payoutValue: {
     ...TYPOGRAPHY.h1,
-    fontSize: 36,
+    fontSize: responsiveFont(36),
     fontWeight: '900',
     color: COLORS.text,
     marginVertical: 2,
@@ -1678,7 +1929,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   addressLabel: {
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     fontWeight: '800',
     color: COLORS.textLight,
     letterSpacing: 0.5,
@@ -1766,7 +2017,7 @@ const styles = StyleSheet.create({
     color: COLORS.primaryDark,
     fontWeight: '600',
     marginTop: 1,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   activeTripCard: {
     backgroundColor: COLORS.white,
@@ -1810,7 +2061,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   activeTripStageText: {
-    fontSize: 11,
+    fontSize: responsiveFont(11),
     fontWeight: '800',
     letterSpacing: 0.5,
   },
@@ -1862,7 +2113,7 @@ const styles = StyleSheet.create({
   },
   activeTripPayoutLabel: {
     ...TYPOGRAPHY.caption,
-    fontSize: 10,
+    fontSize: responsiveFont(10),
     color: COLORS.textLight,
     textTransform: 'uppercase',
   },

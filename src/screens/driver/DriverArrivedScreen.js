@@ -19,7 +19,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import AdaptiveSplitView from '../../components/AdaptiveSplitView';
 import { useTranslation } from 'react-i18next';
-import { useResponsive } from '../../utils/responsive';
+import { useResponsive, responsiveFont } from '../../utils/responsive';
 import {
   driverStartTrip,
   sendDriverLocationUpdate,
@@ -719,12 +719,12 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.text,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   paymentTag: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
   contactActions: {
     flexDirection: 'row',
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
-    fontSize: 11,
+    fontSize: responsiveFont(11),
   },
 });
 
