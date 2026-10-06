@@ -74,36 +74,36 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
   const vehicle = route?.params?.vehicle || null;
 
   // 1. RC (Registration Certificate)
-  const [rcNumber, setRcNumber] = useState('DL08 2023 RC 445566');
-  const [rcIssueDate, setRcIssueDate] = useState('2023-06-15');
-  const [rcExpiryDate, setRcExpiryDate] = useState('2038-06-14');
+  const [rcNumber, setRcNumber] = useState('');
+  const [rcIssueDate, setRcIssueDate] = useState('');
+  const [rcExpiryDate, setRcExpiryDate] = useState('');
   const [rcFileName, setRcFileName] = useState(null);
   const [rcUri, setRcUri] = useState(null);
   const [rcType, setRcType] = useState('image/jpeg');
   const [rcImageSource, setRcImageSource] = useState(null);
 
   // 2. Insurance
-  const [insuranceNumber, setInsuranceNumber] = useState('POL-2026-889912');
-  const [insuranceIssueDate, setInsuranceIssueDate] = useState('2026-01-01');
-  const [insuranceExpiryDate, setInsuranceExpiryDate] = useState('2027-01-01');
+  const [insuranceNumber, setInsuranceNumber] = useState('');
+  const [insuranceIssueDate, setInsuranceIssueDate] = useState('');
+  const [insuranceExpiryDate, setInsuranceExpiryDate] = useState('');
   const [insuranceFileName, setInsuranceFileName] = useState(null);
   const [insuranceUri, setInsuranceUri] = useState(null);
   const [insuranceType, setInsuranceType] = useState('image/jpeg');
   const [insuranceImageSource, setInsuranceImageSource] = useState(null);
 
   // 3. PUC (Pollution Under Control)
-  const [pucNumber, setPucNumber] = useState('PUC-DL-2026-33211');
-  const [pucIssueDate, setPucIssueDate] = useState('2026-08-01');
-  const [pucExpiryDate, setPucExpiryDate] = useState('2026-12-01');
+  const [pucNumber, setPucNumber] = useState('');
+  const [pucIssueDate, setPucIssueDate] = useState('');
+  const [pucExpiryDate, setPucExpiryDate] = useState('');
   const [pucFileName, setPucFileName] = useState(null);
   const [pucUri, setPucUri] = useState(null);
   const [pucType, setPucType] = useState('image/jpeg');
   const [pucImageSource, setPucImageSource] = useState(null);
 
   // 4. Commercial / Moto Permit
-  const [permitNumber, setPermitNumber] = useState('PMT-DL-2026-7788');
-  const [permitIssueDate, setPermitIssueDate] = useState('2026-01-01');
-  const [permitExpiryDate, setPermitExpiryDate] = useState('2029-01-01');
+  const [permitNumber, setPermitNumber] = useState('');
+  const [permitIssueDate, setPermitIssueDate] = useState('');
+  const [permitExpiryDate, setPermitExpiryDate] = useState('');
   const [permitFileName, setPermitFileName] = useState(null);
   const [permitUri, setPermitUri] = useState(null);
   const [permitType, setPermitType] = useState('image/jpeg');

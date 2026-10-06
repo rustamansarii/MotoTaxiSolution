@@ -562,7 +562,7 @@ const authSlice = createSlice({
         const payload = action.payload || {};
         const rawUser = payload.user || (payload.id ? payload : {});
         const activeRole =
-          payload.active_role || rawUser.active_role || state.user?.active_role || 'RIDER';
+          payload.active_role || rawUser.active_role || state.user?.active_role || '';
         const riderProf = payload.rider_profile || rawUser.rider_profile || null;
         const driverProf = payload.driver_profile || rawUser.driver_profile || null;
         const driverVerification =

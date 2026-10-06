@@ -33,7 +33,7 @@ export const DriverLicenseCheckScreen = ({ navigation, route }) => {
   const { showLoading, hideLoading, showError, showSuccess } = usePopup();
 
   const [licenseNumber, setLicenseNumber] = useState(
-    route?.params?.licenseNumber || 'DL08 20220098764'
+    route?.params?.licenseNumber || ''
   );
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');

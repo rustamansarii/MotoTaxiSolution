@@ -23,6 +23,8 @@ import CustomButton from '../../components/CustomButton';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
+import { CustomAlertPopup } from '../../components/CustomAlertPopup';
+import { isGuestMode } from '../../utils/storage';
 import { getCurrentLocation } from '../../utils/locationService';
 import {
   reverseGeocodeLocation,
@@ -64,6 +66,31 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
   const [activeField, setActiveField] = useState(initialFocus); // 'home' | 'work' | null
   const [loadingGpsFor, setLoadingGpsFor] = useState(null); // 'home' | 'work' | null
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const [isGuestStored, setIsGuestStored] = useState(false);
+  useEffect(() => {
+    isGuestMode().then((val) => {
+      if (val) setIsGuestStored(true);
+    });
+  }, []);
+  const isGuest = !authUser || !authUser?.id || isGuestStored;
+
+  const [guestLoginModal, setGuestLoginModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+  });
+
+  const promptGuestLogin = (
+    msgKey = 'savedPlaces.guestLoginMsg',
+    defMsg = 'Please log in first to save your home and work places.'
+  ) => {
+    setGuestLoginModal({
+      visible: true,
+      title: t('savedPlaces.guestLoginTitle', t('auth.loginRequired', 'Login Required')),
+      message: t(msgKey, defMsg),
+    });
+  };
 
   const searchTimeoutRef = useRef(null);
   const homeInputRef = useRef(null);
@@ -159,7 +186,10 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
     try {
       const loc = await getCurrentLocation();
       if (!loc?.latitude || !loc?.longitude) {
-        Alert.alert('GPS Error', 'Could not retrieve your current location.');
+        Alert.alert(
+          t('savedPlaces.gpsError', 'GPS Error'),
+          t('savedPlaces.gpsErrorMsg', 'Could not retrieve your current location.')
+        );
         setLoadingGpsFor(null);
         return;
       }
@@ -187,7 +217,10 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
       dispatch(clearSearchResults());
     } catch (err) {
       console.warn('[SavedPlaces] GPS resolve error:', err);
-      Alert.alert('Location Error', 'Unable to resolve address for current location.');
+      Alert.alert(
+        t('savedPlaces.locationError', 'Location Error'),
+        t('savedPlaces.locationErrorMsg', 'Unable to resolve address for current location.')
+      );
     } finally {
       setLoadingGpsFor(null);
     }
@@ -195,22 +228,18 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
 
   // Save the form to the backend
   const handleSave = async () => {
-    if (!authUser || !authUser?.id) {
-      Alert.alert(
-        t('auth.loginRequired', 'Login Required'),
-        t('auth.loginRequiredGeneralMsg', 'Please log in first to access this feature.'),
-        [
-          { text: t('common.cancel', 'Cancel'), style: 'cancel' },
-          { text: t('auth.login', 'Log In / Sign In'), onPress: () => navigation.navigate('Login') },
-        ]
-      );
+    if (isGuest) {
+      promptGuestLogin();
       return;
     }
 
     if (!homeAddress.trim() && !workAddress.trim()) {
       Alert.alert(
         t('profile.required', 'Required'),
-        'Please enter at least a Home or Work address to save.'
+        t(
+          'savedPlaces.enterAddressRequired',
+          'Please enter at least a Home or Work address to save.'
+        )
       );
       return;
     }
@@ -236,8 +265,10 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
       }, 700);
     } catch (err) {
       Alert.alert(
-        'Save Failed',
-        typeof err === 'string' ? err : 'Unable to save your places. Please try again.'
+        t('savedPlaces.saveFailed', 'Save Failed'),
+        typeof err === 'string'
+          ? err
+          : t('savedPlaces.saveFailedMsg', 'Unable to save your places. Please try again.')
       );
     }
   };
@@ -247,8 +278,8 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       <Header
-        title={t('rider.savedPlaces', 'Saved Places')}
-        subtitle={t('rider.manageAddresses', 'Home & Work Addresses')}
+        title={t('savedPlaces.title', t('rider.savedPlaces', 'Saved Places'))}
+        subtitle={t('savedPlaces.subtitle', t('rider.manageAddresses', 'Home & Work Addresses'))}
         onBack={() => navigation.goBack()}
       />
 
@@ -271,9 +302,14 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                 <Icon name="map-pin" size={22} color={COLORS.primary} />
               </View>
               <View style={styles.introTextCol}>
-                <Text style={styles.introTitle}>Quick-Access Locations</Text>
+                <Text style={styles.introTitle}>
+                  {t('savedPlaces.introTitle', 'Quick-Access Locations')}
+                </Text>
                 <Text style={styles.introDesc}>
-                  Save your daily destinations for faster 1-tap booking from the home screen.
+                  {t(
+                    'savedPlaces.introDesc',
+                    'Save your daily destinations for faster 1-tap booking from the home screen.'
+                  )}
                 </Text>
               </View>
             </View>
@@ -282,7 +318,12 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
             {saveSuccess && (
               <View style={styles.successBanner}>
                 <Icon name="check-circle" size={18} color={COLORS.white} />
-                <Text style={styles.successText}>Places saved successfully! Returning to home...</Text>
+                <Text style={styles.successText}>
+                  {t(
+                    'savedPlaces.successMsg',
+                    'Places saved successfully! Returning to home...'
+                  )}
+                </Text>
               </View>
             )}
 
@@ -293,7 +334,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                 <Text style={styles.errorText}>
                   {typeof riderProfileError === 'string'
                     ? riderProfileError
-                    : 'Failed to update rider profile'}
+                    : t('savedPlaces.updateFailed', 'Failed to update rider profile')}
                 </Text>
               </View>
             )}
@@ -311,15 +352,21 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                     <Icon name="home" size={20} color={COLORS.primary} />
                   </View>
                   <View>
-                    <Text style={styles.cardTitle}>Home</Text>
-                    <Text style={styles.cardSubtitle}>Your primary residence</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('savedPlaces.home', t('rider.home', 'Home'))}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      {t('savedPlaces.homeSubtitle', 'Your primary residence')}
+                    </Text>
                   </View>
                 </View>
 
                 {homeLat && homeLng ? (
                   <View style={styles.coordBadge}>
                     <Icon name="check" size={12} color={COLORS.primary} />
-                    <Text style={styles.coordBadgeText}>GPS Set</Text>
+                    <Text style={styles.coordBadgeText}>
+                      {t('savedPlaces.gpsSet', 'GPS Set')}
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -330,7 +377,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                 <TextInput
                   ref={homeInputRef}
                   style={styles.textInput}
-                  placeholder="Enter house, street, or landmark"
+                  placeholder={t('savedPlaces.homePlaceholder', 'Enter house, street, or landmark')}
                   placeholderTextColor={COLORS.textLight}
                   value={homeAddress}
                   onChangeText={(text) => handleAddressChange(text, 'home')}
@@ -365,7 +412,9 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                     <Icon name="crosshair" size={14} color={COLORS.primary} style={{ marginRight: 6 }} />
                   )}
                   <Text style={styles.gpsButtonText}>
-                    {loadingGpsFor === 'home' ? 'Locating...' : 'Use Current GPS'}
+                    {loadingGpsFor === 'home'
+                      ? t('savedPlaces.locating', 'Locating...')
+                      : t('savedPlaces.useCurrentGps', 'Use Current GPS')}
                   </Text>
                 </TouchableOpacity>
 
@@ -391,15 +440,21 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                     <Icon name="briefcase" size={20} color={COLORS.secondPrimary} />
                   </View>
                   <View>
-                    <Text style={styles.cardTitle}>Work / Office</Text>
-                    <Text style={styles.cardSubtitle}>Your regular office or workspace</Text>
+                    <Text style={styles.cardTitle}>
+                      {t('savedPlaces.work', t('rider.work', 'Work / Office'))}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>
+                      {t('savedPlaces.workSubtitle', 'Your regular office or workspace')}
+                    </Text>
                   </View>
                 </View>
 
                 {workLat && workLng ? (
                   <View style={[styles.coordBadge, { backgroundColor: COLORS.secondPrimaryLight }]}>
                     <Icon name="check" size={12} color={COLORS.secondPrimary} />
-                    <Text style={[styles.coordBadgeText, { color: COLORS.secondPrimary }]}>GPS Set</Text>
+                    <Text style={[styles.coordBadgeText, { color: COLORS.secondPrimary }]}>
+                      {t('savedPlaces.gpsSet', 'GPS Set')}
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -410,7 +465,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                 <TextInput
                   ref={workInputRef}
                   style={styles.textInput}
-                  placeholder="Enter office, building, or tech park"
+                  placeholder={t('savedPlaces.workPlaceholder', 'Enter office, building, or tech park')}
                   placeholderTextColor={COLORS.textLight}
                   value={workAddress}
                   onChangeText={(text) => handleAddressChange(text, 'work')}
@@ -445,7 +500,9 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                     <Icon name="crosshair" size={14} color={COLORS.secondPrimary} style={{ marginRight: 6 }} />
                   )}
                   <Text style={[styles.gpsButtonText, { color: COLORS.secondPrimary }]}>
-                    {loadingGpsFor === 'work' ? 'Locating...' : 'Use Current GPS'}
+                    {loadingGpsFor === 'work'
+                      ? t('savedPlaces.locating', 'Locating...')
+                      : t('savedPlaces.useCurrentGps', 'Use Current GPS')}
                   </Text>
                 </TouchableOpacity>
 
@@ -461,7 +518,9 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
             {isSearching && (
               <View style={styles.searchStatusBox}>
                 <ActivityIndicator size="small" color={COLORS.primary} />
-                <Text style={styles.searchStatusText}>Searching matching locations...</Text>
+                <Text style={styles.searchStatusText}>
+                  {t('savedPlaces.searching', 'Searching matching locations...')}
+                </Text>
               </View>
             )}
 
@@ -469,10 +528,19 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
               <View style={styles.suggestionsContainer}>
                 <View style={styles.suggestionsHeader}>
                   <Text style={styles.suggestionsTitle}>
-                    SUGGESTIONS FOR {activeField?.toUpperCase() || 'ADDRESS'}
+                    {t('savedPlaces.suggestionsFor', {
+                      field: activeField === 'home'
+                        ? t('savedPlaces.home', t('rider.home', 'Home')).toUpperCase()
+                        : activeField === 'work'
+                        ? t('savedPlaces.work', t('rider.work', 'Work')).toUpperCase()
+                        : t('savedPlaces.address', 'ADDRESS'),
+                      defaultValue: `SUGGESTIONS FOR ${(activeField || 'ADDRESS').toUpperCase()}`,
+                    })}
                   </Text>
                   <TouchableOpacity onPress={() => dispatch(clearSearchResults())}>
-                    <Text style={styles.dismissText}>Dismiss</Text>
+                    <Text style={styles.dismissText}>
+                      {t('savedPlaces.dismiss', t('common.dismiss', 'Dismiss'))}
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
@@ -506,7 +574,11 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <ResponsiveContainer maxWidth={650}>
             <CustomButton
-              title={saveSuccess ? 'Saved!' : 'Save Places'}
+              title={
+                saveSuccess
+                  ? t('savedPlaces.saved', t('common.saved', 'Saved!'))
+                  : t('savedPlaces.savePlaces', 'Save Places')
+              }
               onPress={handleSave}
               loading={isRiderProfileUpdating}
               disabled={isRiderProfileUpdating || saveSuccess}
@@ -516,6 +588,26 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
           </ResponsiveContainer>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Guest Mode Login Required Alert Popup */}
+      <CustomAlertPopup
+        visible={guestLoginModal.visible}
+        type="warning"
+        title={guestLoginModal.title || t('savedPlaces.guestLoginTitle', t('auth.loginRequired', 'Login Required'))}
+        message={guestLoginModal.message}
+        confirmText={t('auth.login', 'Log In')}
+        cancelText={t('common.cancel', 'Cancel')}
+        onConfirm={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+          navigation.navigate('Login');
+        }}
+        onCancel={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+        onClose={() => {
+          setGuestLoginModal({ visible: false, title: '', message: '' });
+        }}
+      />
     </SafeAreaView>
   );
 };

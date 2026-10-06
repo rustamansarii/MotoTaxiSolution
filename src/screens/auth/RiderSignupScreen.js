@@ -136,7 +136,10 @@ export const RiderSignupScreen = ({ navigation }) => {
           t('auth.signupSuccessMessage', 'Account created successfully! Welcome to Moto Taxi.'),
           t('auth.registrationComplete', 'Welcome to Moto Taxi!'),
           () => {
-            navigation.replace('RiderNav');
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'RiderNav' }],
+            });
           }
         );
       } else {
@@ -344,7 +347,7 @@ export const RiderSignupScreen = ({ navigation }) => {
                 keyboard?.hideKeyboard?.();
                 try {
                   await setGuestMode(true);
-                } catch (e) {}
+                } catch (e) { }
                 navigation.navigate('RoleSelection', { isGuest: true });
               }}
               style={styles.guestRow}

@@ -39,9 +39,9 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
   const { showLoading, hideLoading, showError, showSuccess } = usePopup();
 
   const [vehicleType, setVehicleType] = useState('CAR');
-  const [make, setMake] = useState('Maruti Suzuki');
-  const [model, setModel] = useState('Swift Dzire');
-  const [plateNumber, setPlateNumber] = useState('DL08 CA 1521');
+  const [make, setMake] = useState('');
+  const [model, setModel] = useState('');
+  const [plateNumber, setPlateNumber] = useState('');
   const [color, setColor] = useState('White');
   const [loading, setLoading] = useState(false);
 

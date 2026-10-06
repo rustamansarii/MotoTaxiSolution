@@ -211,11 +211,7 @@ export const RiderHomeScreen = ({ navigation }) => {
   const nearbyDrivers = useMemo(() => {
     if (!userLocation) return [];
     const [lng, lat] = userLocation;
-    const list = [
-      { id: 'd1', coordinate: [lng + 0.0032, lat + 0.0018], heading: 45, eta: '2 min' },
-      { id: 'd2', coordinate: [lng - 0.0028, lat + 0.0035], heading: 135, eta: '4 min' },
-      { id: 'd3', coordinate: [lng + 0.0021, lat - 0.0031], heading: 220, eta: '5 min' },
-    ];
+    const list = [];
     if (driverLocation?.lng && driverLocation?.lat && hasActiveRiderTrip) {
       list.unshift({
         id: 'assigned_driver',

@@ -22,10 +22,10 @@ import { useResponsive } from '../../utils/responsive';
 export const DriverProfileSetupScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const { isFoldableOrTablet, insets } = useResponsive();
-  const [fullName, setFullName] = useState('Marcus Vance');
-  const [licenseNumber, setLicenseNumber] = useState('DL-90823411-NY');
-  const [ssnMasked, setSsnMasked] = useState('•••-••-8921');
-  const [yearsExperience, setYearsExperience] = useState('4 years');
+  const [fullName, setFullName] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [ssnMasked, setSsnMasked] = useState('');
+  const [yearsExperience, setYearsExperience] = useState('');
   const [consentChecked, setConsentChecked] = useState(true);
   const [loading, setLoading] = useState(false);
 

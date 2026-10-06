@@ -23,6 +23,8 @@ import StatusBadge from '../../components/StatusBadge';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import LanguageButton from '../../components/LanguageButton';
+import LanguageModal from '../../components/LanguageModal';
+import { useApp } from '../../context/AppContext';
 import { useTranslation } from 'react-i18next';
 import { clearTokens, isGuestMode } from '../../utils/storage';
 import { fetchUserProfile } from '../../redux/features/auth/authSlice';
@@ -129,9 +131,17 @@ export const DriverProfileScreen = ({ navigation }) => {
     documentsError = null,
   } = driverState;
 
+  const { language } = useApp();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDocsModal, setShowDocsModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
+
+  const currentLanguageInfo = useMemo(() => {
+    if (language === 'hi') return { flag: '🇮🇳', name: 'हिन्दी', code: 'HI' };
+    if (language === 'fr') return { flag: '🇫🇷', name: 'Français', code: 'FR' };
+    return { flag: '🇺🇸', name: 'English', code: 'EN' };
+  }, [language]);
 
   const [isGuestStored, setIsGuestStored] = useState(false);
   useEffect(() => {
@@ -270,6 +280,10 @@ export const DriverProfileScreen = ({ navigation }) => {
     <>
       {/* Driver Hero Card */}
       <View style={styles.driverHeroCard}>
+        <View style={styles.heroTopBar}>
+          <LanguageButton variant="light" />
+        </View>
+
         <ProfileAvatar
           imageUri={authUser?.profile_photo}
           name={displayName}
@@ -495,6 +509,34 @@ export const DriverProfileScreen = ({ navigation }) => {
           </View>
         </TouchableOpacity>
 
+        {/* Language Selection */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setShowLanguageModal(true)}
+          style={styles.menuRow}
+        >
+          <View style={[styles.menuIconBox, { backgroundColor: '#ECFDF5' }]}>
+            <Icon name="globe" size={18} color="#059669" />
+          </View>
+          <View style={styles.menuTextCol}>
+            <Text style={styles.menuTitle}>
+              {t('settings.language', 'Language')}
+            </Text>
+            <Text style={styles.menuSub}>
+              {t('common.switchLanguage', 'Switch Language')}
+            </Text>
+          </View>
+          <View style={styles.langBadgePill}>
+            <Text style={styles.langBadgePillFlag}>
+              {currentLanguageInfo.flag}
+            </Text>
+            <Text style={styles.langBadgePillText}>
+              {currentLanguageInfo.name}
+            </Text>
+          </View>
+          <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+        </TouchableOpacity>
+
         {/* Delete Account */}
         <TouchableOpacity
           activeOpacity={0.7}
@@ -567,7 +609,6 @@ export const DriverProfileScreen = ({ navigation }) => {
           title={t('driver.driverProfile')}
           showBack={false}
           variant="light"
-          // rightComponent={}
         />
 
         <ScrollView
@@ -584,13 +625,11 @@ export const DriverProfileScreen = ({ navigation }) => {
               </View>
               <View style={styles.splitCol}>
                 {driverDetails}
-                <LanguageButton />
               </View>
             </View>
           ) : (
             <>
               {driverOverview}
-              <LanguageButton />
               {driverDetails}
             </>
           )}
@@ -1004,6 +1043,12 @@ export const DriverProfileScreen = ({ navigation }) => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
         }}
       />
+
+      {/* Language Selection Modal */}
+      <LanguageModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1038,6 +1083,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  heroTopBar: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: SPACING.xs,
   },
   driverName: {
     ...TYPOGRAPHY.h2,
@@ -1223,6 +1274,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.primaryDark,
     fontSize: responsiveFont(11),
+  },
+  langBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: RADIUS.round,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  langBadgePillFlag: {
+    fontSize: responsiveFont(12),
+    marginRight: 4,
+    includeFontPadding: false,
+  },
+  langBadgePillText: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.text,
   },
   logoutBtn: {
     flexDirection: 'row',
