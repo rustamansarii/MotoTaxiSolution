@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from '../../../utils/apiClient';
 import ApiConstant from '../../../utils/apiConstant';
-import { saveTokens, saveUser, saveRole, clearTokens } from '../../../utils/storage';
+import { saveTokens, saveUser, saveRole, clearTokens, isGuestMode, getAccessToken } from '../../../utils/storage';
 import { apiPostAuth, apiGetAuth } from '../../../utils/apiClientAuth';
 
 export const DEFAULT_COUNTRIES = [
@@ -21,6 +21,9 @@ const initialState = {
   riderProfileError: null,
   isProfileLoading: false,
   profileError: null,
+  isProfileUpdating: false,
+  profileUpdateError: null,
+  driverVerification: null,
 };
 
 // API call: GET https://.../api/v1/auth/country-codes/
@@ -177,6 +180,13 @@ export const fetchUserProfile = createAsyncThunk(
   'auth/fetchUserProfile',
   async (_, { rejectWithValue }) => {
     try {
+      const isGuest = await isGuestMode();
+      const token = await getAccessToken();
+      if (isGuest || !token) {
+        console.log('[AuthAPI] Skipping fetchUserProfile: user is unauthenticated or in guest mode');
+        return rejectWithValue('User is unauthenticated or in guest mode');
+      }
+
       console.log('[AuthAPI] Fetching authenticated user profile from auth/profile/...');
       let data;
       try {
@@ -204,11 +214,87 @@ export const fetchUserProfile = createAsyncThunk(
   }
 );
 
-// API call: GET https://.../api/v1/auth/rider-profile/
+// API call: PATCH https://.../api/v1/auth/me/ or http://127.0.0.1:8000/api/v1/auth/me/
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateUserProfile',
+  async (userData, { dispatch, rejectWithValue }) => {
+    try {
+      let payload = userData;
+      let isMultipart = userData instanceof FormData;
+
+      // If plain object provided, convert to FormData (multipart/form-data)
+      if (!isMultipart && typeof userData === 'object' && userData !== null) {
+        const formData = new FormData();
+        Object.entries(userData).forEach(([key, val]) => {
+          if (val === undefined || val === null) return;
+          if (key === 'profile_photo') {
+            if (typeof val === 'object' && val.uri) {
+              formData.append('profile_photo', {
+                uri: val.uri,
+                name: val.name || `photo_${Date.now()}.jpg`,
+                type: val.type || 'image/jpeg',
+              });
+            } else if (typeof val === 'string' && (val.startsWith('file://') || val.startsWith('content://'))) {
+              formData.append('profile_photo', {
+                uri: val,
+                name: `photo_${Date.now()}.jpg`,
+                type: 'image/jpeg',
+              });
+            }
+          } else {
+            formData.append(key, String(val));
+          }
+        });
+        payload = formData;
+        isMultipart = true;
+      }
+
+      console.log('[AuthAPI] Updating user profile via PATCH auth/me/ (multipart/form-data)');
+      const patchConfig = isMultipart
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : {};
+
+      let data;
+      try {
+        data = await apiPatch(ApiConstant.AuthMe, payload, patchConfig);
+      } catch (err) {
+        // Fallback to local URL if main URL network error occurs
+        if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network Error')) {
+          console.log('[AuthAPI] Network error on default API_URL, attempting local http://127.0.0.1:8000/api/v1/auth/me/...');
+          data = await apiPatch('http://127.0.0.1:8000/api/v1/auth/me/', payload, patchConfig);
+        } else {
+          throw err;
+        }
+      }
+      const updatedUser = data?.data || data?.result || data?.user || data;
+      if (updatedUser) {
+        await saveUser(updatedUser);
+      }
+      dispatch(fetchUserProfile());
+      return updatedUser;
+    } catch (error) {
+      const errorMsg =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        error?.message ||
+        'Failed to update profile';
+      console.warn('[AuthAPI] Failed to update user profile via auth/me/:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
 export const fetchRiderProfile = createAsyncThunk(
   'auth/fetchRiderProfile',
   async (_, { rejectWithValue }) => {
     try {
+      const isGuest = await isGuestMode();
+      const token = await getAccessToken();
+      if (isGuest || !token) {
+        console.log('[AuthAPI] Skipping fetchRiderProfile: user is unauthenticated or in guest mode');
+        return rejectWithValue('User is unauthenticated or in guest mode');
+      }
+
       const data = await apiGet(ApiConstant.RiderProfile);
       return data?.data || data?.result || data;
     } catch (error) {
@@ -217,7 +303,6 @@ export const fetchRiderProfile = createAsyncThunk(
   }
 );
 
-// API call: PUT/PATCH/POST https://.../api/v1/auth/rider-profile/
 export const updateRiderProfile = createAsyncThunk(
   'auth/updateRiderProfile',
   async (profileData, { rejectWithValue }) => {
@@ -320,6 +405,7 @@ const authSlice = createSlice({
       state.tokens = null;
       state.error = null;
       state.riderProfile = null;
+      state.driverVerification = null;
       clearTokens();
     },
     clearError: state => {
@@ -479,6 +565,8 @@ const authSlice = createSlice({
           payload.active_role || rawUser.active_role || state.user?.active_role || 'RIDER';
         const riderProf = payload.rider_profile || rawUser.rider_profile || null;
         const driverProf = payload.driver_profile || rawUser.driver_profile || null;
+        const driverVerification =
+          payload.driver_verification || rawUser.driver_verification || null;
 
         // Normalize first_name and last_name from full_name if not provided
         let fName = rawUser.first_name || '';
@@ -508,9 +596,14 @@ const authSlice = createSlice({
               : (rawUser.total_rides || 0),
           rider_profile: riderProf || state.riderProfile,
           driver_profile: driverProf || state.user?.driver_profile,
+          driver_verification:
+            driverVerification || state.user?.driver_verification || null,
         };
 
         state.user = consolidatedUser;
+        if (driverVerification) {
+          state.driverVerification = driverVerification;
+        }
 
         if (riderProf) {
           state.riderProfile = {
@@ -530,6 +623,25 @@ const authSlice = createSlice({
         state.profileError = action.payload;
       })
 
+      // updateUserProfile
+      .addCase(updateUserProfile.pending, state => {
+        state.isProfileUpdating = true;
+        state.profileUpdateError = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.isProfileUpdating = false;
+        const u = action.payload || {};
+        state.user = {
+          ...(state.user || {}),
+          ...u,
+        };
+        state.profileUpdateError = null;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.isProfileUpdating = false;
+        state.profileUpdateError = action.payload;
+      })
+
       // deleteUserAccount
       .addCase(deleteUserAccount.pending, state => {
         state.loading = true;
@@ -540,6 +652,7 @@ const authSlice = createSlice({
         state.user = null;
         state.tokens = null;
         state.riderProfile = null;
+        state.driverVerification = null;
       })
       .addCase(deleteUserAccount.rejected, (state, action) => {
         state.loading = false;

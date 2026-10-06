@@ -8,6 +8,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -23,35 +25,117 @@ import { useTranslation } from 'react-i18next';
 import { useResponsive } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import {
-  MOCK_WALLET,
-  MOCK_DRIVER_EARNINGS_BREAKDOWN,
-} from '../../data/mockTransactions';
-import {
   fetchDriverWallet,
   fetchDriverWalletTransactions,
   fetchDriverWalletSummary,
 } from '../../redux/features/driver/driverSlice';
 
+/**
+ * Format ISO datetime string to user-friendly label
+ */
+const formatWalletDate = (dateString, t, language = 'en') => {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+
+    const now = new Date();
+    const isToday =
+      date.getDate() === now.getDate() &&
+      date.getMonth() === now.getMonth() &&
+      date.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear();
+
+    const localeMap = {
+      en: 'en-US',
+      fr: 'fr-FR',
+      hi: 'hi-IN',
+    };
+    const currentLocale = localeMap[language] || 'en-US';
+    const timeStr = date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit' });
+
+    if (isToday) return `${t ? t('common.today', 'Today') : 'Today'}, ${timeStr}`;
+    if (isYesterday) return `${t ? t('common.yesterday', 'Yesterday') : 'Yesterday'}, ${timeStr}`;
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = date.toLocaleString(currentLocale, { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}, ${timeStr}`;
+  } catch {
+    return dateString;
+  }
+};
+
+/**
+ * Format transaction title based on ride_id and reason
+ */
+const getTransactionTitle = (tx, t) => {
+  if (tx.ride_id) {
+    return t
+      ? t('driver.rideEarningWithId', 'Ride #{{id}} Earning', { id: tx.ride_id })
+      : `Ride #${tx.ride_id} Earning`;
+  }
+  if (tx.reason === 'RIDE_EARNING') {
+    return t ? t('driver.rideEarning', 'Ride Earning') : 'Ride Earning';
+  }
+  if (tx.reason === 'WALLET_CASHOUT' || tx.reason === 'CASHOUT') {
+    return t ? t('driver.walletCashout', 'Wallet Cashout') : 'Wallet Cashout';
+  }
+  if (tx.reason === 'BONUS') {
+    return t ? t('driver.bonus', 'Bonus') : 'Bonus';
+  }
+  if (tx.reason === 'REFERRAL') {
+    return t ? t('driver.referralReward', 'Referral Reward') : 'Referral Reward';
+  }
+  if (tx.reason) {
+    return tx.reason
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+  if (tx.transaction_type === 'CREDIT') {
+    return t ? t('driver.walletCredit', 'Wallet Credit') : 'Wallet Credit';
+  }
+  return t ? t('driver.walletDebit', 'Wallet Debit') : 'Wallet Debit';
+};
+
+/**
+ * Map transaction type to localized string
+ */
+const getTransactionTypeLabel = (type, t) => {
+  const upper = (type || 'CREDIT').toUpperCase();
+  if (upper === 'CREDIT') return t ? t('driver.credit', 'CREDIT') : 'CREDIT';
+  if (upper === 'DEBIT') return t ? t('driver.debit', 'DEBIT') : 'DEBIT';
+  return type || 'CREDIT';
+};
+
 export const DriverEarningsScreen = ({ navigation }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const currentLanguage = i18n?.language || 'en';
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
   const dispatch = useDispatch();
 
   const {
-    completedRide,
-    activeRide,
     wallet,
-    walletTransactions,
+    walletTransactions = [],
     walletSummary,
-    isWalletLoading,
-    isTransactionsLoading,
+    isWalletLoading = false,
+    isTransactionsLoading = false,
+    isSummaryLoading = false,
   } = useSelector((state) => state.driver);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showCashoutModal, setShowCashoutModal] = useState(false);
   const [cashoutSuccess, setCashoutSuccess] = useState(false);
+  const [selectedTx, setSelectedTx] = useState(null);
 
-  // Load wallet, transactions, and summary from backend
+  // Fetch real wallet, transactions, and summary from backend
   const loadWalletData = useCallback(async () => {
     try {
       await Promise.allSettled([
@@ -74,138 +158,68 @@ export const DriverEarningsScreen = ({ navigation }) => {
     setRefreshing(false);
   }, [loadWalletData]);
 
-  const currency =
-    wallet?.currency ||
-    activeRide?.currency ||
-    completedRide?.currency ||
-    'USD';
-  const currencySymbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency;
-
-  const extraEarned = useMemo(() => {
-    let extra = 0;
-    if (completedRide?.driver_payout) extra += Number(completedRide.driver_payout);
-    return extra;
-  }, [completedRide]);
-
-  // Balance from API with fallback
+  // Real balance from API
   const balance = useMemo(() => {
-    const raw =
-      wallet?.balance ??
-      walletSummary?.current_balance ??
-      wallet?.available_balance ??
-      wallet?.total_balance ??
-      wallet?.amount;
+    const raw = wallet?.balance ?? walletSummary?.current_balance;
     if (raw !== undefined && raw !== null && !isNaN(Number(raw))) {
       return Number(raw);
     }
-    return 0 + extraEarned;
-  }, [wallet, walletSummary, extraEarned]);
+    return 0;
+  }, [wallet, walletSummary]);
 
+  // Real summary earnings from API
   const todayEarnings = Number(walletSummary?.today_earnings ?? 0);
   const weekEarnings = Number(walletSummary?.week_earnings ?? 0);
   const monthEarnings = Number(walletSummary?.month_earnings ?? 0);
 
-  const totalTrips =
-    walletSummary?.trips_count ??
-    walletSummary?.completed_trips ??
-    walletSummary?.total_trips;
-  const hoursOnline =
-    walletSummary?.hours_online ??
-    walletSummary?.online_hours ??
-    walletSummary?.total_hours;
-  const periodText =
-    walletSummary?.period_label ||
-    walletSummary?.period ||
-    'Wallet & Earnings Summary';
-
-  // Earnings Breakdown values
-  const standardFares = useMemo(() => {
-    const raw =
-      walletSummary?.standard_fares ??
-      walletSummary?.trip_fares ??
-      walletSummary?.fares;
-    if (raw !== undefined && raw !== null) return Number(raw);
-    if (walletSummary) return weekEarnings;
-    return extraEarned;
-  }, [walletSummary, weekEarnings, extraEarned]);
-
-  const bonuses = useMemo(() => {
-    const raw =
-      walletSummary?.bonuses ??
-      walletSummary?.surge_bonuses ??
-      walletSummary?.surge;
-    return raw !== undefined && raw !== null ? Number(raw) : 0;
-  }, [walletSummary]);
-
-  const tips = useMemo(() => {
-    const raw =
-      walletSummary?.tips ??
-      walletSummary?.passenger_tips;
-    return raw !== undefined && raw !== null ? Number(raw) : 0;
-  }, [walletSummary]);
-
-  // Transactions list
+  // Real transactions list from API
   const transactions = useMemo(() => {
-    if (Array.isArray(walletTransactions) && walletTransactions.length > 0) {
-      return walletTransactions.map((tx, idx) => {
-        const rawType = (tx.transaction_type || tx.type || '').toUpperCase();
-        const isCredit =
-          rawType === 'CREDIT' ||
-          rawType === 'EARNING' ||
-          rawType === 'TRIP' ||
-          Number(tx.amount || 0) > 0;
-        const amt = Math.abs(Number(tx.amount || 0));
-        let title = tx.description || tx.title || tx.narration;
-        if (!title) {
-          title = isCredit ? 'Trip Earnings' : 'Payout Transfer';
-        }
-        let dateText = 'Recent';
-        if (tx.created_at || tx.timestamp || tx.date) {
-          try {
-            dateText = new Date(tx.created_at || tx.timestamp || tx.date).toLocaleDateString(
-              undefined,
-              { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
-            );
-          } catch (_) {}
-        }
-        return {
-          id: tx.id || `tx_${idx}`,
-          title,
-          amount: amt,
-          isCredit,
-          date: dateText,
-          status: (tx.status || 'COMPLETED').toUpperCase(),
-        };
-      });
+    if (Array.isArray(walletTransactions)) {
+      return walletTransactions;
     }
     return [];
   }, [walletTransactions]);
 
   const isMultiColumn = isFoldableOrTablet || isSplitLayout;
-
-  const maxDayAmount = Math.max(
-    ...MOCK_DRIVER_EARNINGS_BREAKDOWN.map((d) => d.amount)
-  );
+  const isInitialLoading =
+    (isWalletLoading || isSummaryLoading || isTransactionsLoading) &&
+    !wallet &&
+    !walletSummary;
 
   const handleCashout = () => {
     setShowCashoutModal(false);
     setCashoutSuccess(true);
   };
 
+  // 1. Balance Hero Card
   const heroBanner = (
     <View style={styles.earningsHero}>
       <View style={styles.heroTopRow}>
-        <Text style={styles.heroPeriod}>{periodText}</Text>
-        {isWalletLoading && (
+        <View style={styles.walletIconCircle}>
+          <Icon name="wallet" size={16} color={COLORS.primary} />
+        </View>
+        <Text style={styles.heroPeriod}>
+          {t('driver.currentWalletBalance', 'Current Wallet Balance')}
+        </Text>
+        {(isWalletLoading || isSummaryLoading) && (
           <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />
         )}
       </View>
-      <Text style={styles.heroAmount}>{formatCurrency(balance, currencySymbol)}</Text>
-      <Text style={styles.heroSub}>
-        {totalTrips !== undefined && hoursOnline !== undefined
-          ? `${totalTrips} completed trips • ${hoursOnline} hrs online`
-          : 'Available Payout Balance'}
-      </Text>
+
+      <Text style={styles.heroAmount}>{formatCurrency(balance)}</Text>
+
+      {wallet?.updated_at ? (
+        <Text style={styles.heroSub}>
+          {t('driver.lastUpdated', {
+            date: formatWalletDate(wallet.updated_at, t, currentLanguage),
+            defaultValue: `Last updated: ${formatWalletDate(wallet.updated_at, t, currentLanguage)}`,
+          })}
+        </Text>
+      ) : (
+        <Text style={styles.heroSub}>
+          {t('driver.availableForCashout', 'Available for instant cash out')}
+        </Text>
+      )}
 
       <CustomButton
         title={t('driver.cashOut', 'Cash Out')}
@@ -219,210 +233,172 @@ export const DriverEarningsScreen = ({ navigation }) => {
     </View>
   );
 
+  // 2. Earnings Summary Grid (Today, This Week, This Month)
   const periodSummaryCard = (
     <View style={styles.periodSummaryGrid}>
+      {/* Today */}
       <View style={styles.periodSummaryCard}>
         <View style={styles.periodIconCircle}>
           <Icon name="clock" size={13} color={COLORS.primary} />
         </View>
-        <Text style={styles.periodSummaryLabel}>Today</Text>
-        <Text style={styles.periodSummaryValue}>
-          {formatCurrency(todayEarnings, currencySymbol)}
-        </Text>
+        <Text style={styles.periodSummaryLabel}>{t('driver.today', 'Today')}</Text>
+        <Text style={styles.periodSummaryValue}>{formatCurrency(todayEarnings)}</Text>
       </View>
 
+      {/* This Week */}
       <View style={styles.periodSummaryCard}>
         <View style={styles.periodIconCircle}>
-          <Icon name="trending-up" size={13} color={COLORS.primary} />
+          <Icon name="trending-up" size={13} color={COLORS.secondPrimary} />
         </View>
-        <Text style={styles.periodSummaryLabel}>This Week</Text>
-        <Text style={styles.periodSummaryValue}>
-          {formatCurrency(weekEarnings, currencySymbol)}
-        </Text>
+        <Text style={styles.periodSummaryLabel}>{t('driver.thisWeek', 'This Week')}</Text>
+        <Text style={styles.periodSummaryValue}>{formatCurrency(weekEarnings)}</Text>
       </View>
 
+      {/* This Month */}
       <View style={styles.periodSummaryCard}>
         <View style={styles.periodIconCircle}>
-          <Icon name="calendar" size={13} color={COLORS.primary} />
+          <Icon name="star" size={13} color={COLORS.primary} />
         </View>
-        <Text style={styles.periodSummaryLabel}>This Month</Text>
-        <Text style={styles.periodSummaryValue}>
-          {formatCurrency(monthEarnings, currencySymbol)}
-        </Text>
+        <Text style={styles.periodSummaryLabel}>{t('driver.thisMonth', 'This Month')}</Text>
+        <Text style={styles.periodSummaryValue}>{formatCurrency(monthEarnings)}</Text>
       </View>
     </View>
   );
 
-  const chartCard = (
-    <View style={styles.chartCard}>
-      <View style={styles.chartHeader}>
-        <Text style={styles.chartTitle}>Daily Activity</Text>
-        <Text style={styles.chartSubtitle}>Mon - Sun</Text>
-      </View>
-
-      <View style={styles.barContainer}>
-        {MOCK_DRIVER_EARNINGS_BREAKDOWN.map((item, index) => {
-          const heightPercent =
-            maxDayAmount > 0 ? (item.amount / maxDayAmount) * 100 : 0;
-          const isToday = item.day === 'Fri';
-
-          return (
-            <View key={index} style={styles.barCol}>
-              <Text style={styles.barValText}>
-                {item.amount > 0 ? `${currencySymbol}${Math.round(item.amount)}` : ''}
-              </Text>
-              <View style={styles.barTrack}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { height: `${Math.max(8, heightPercent)}%` },
-                    isToday && styles.activeBarFill,
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.barDayText,
-                  isToday && styles.activeBarDayText,
-                ]}
-              >
-                {item.day}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
-
-  const breakdownCard = (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Earnings Breakdown</Text>
-
-      <View style={styles.breakdownRow}>
-        <View style={styles.rowLabelGroup}>
-          <Icon name="car" size={16} color={COLORS.primary} />
-          <Text style={styles.rowLabel}>Standard Trip Fares</Text>
-        </View>
-        <Text style={styles.rowVal}>{formatCurrency(standardFares, currencySymbol)}</Text>
-      </View>
-
-      <View style={styles.breakdownRow}>
-        <View style={styles.rowLabelGroup}>
-          <Icon name="trending-up" size={16} color={COLORS.primary} />
-          <Text style={styles.rowLabel}>Surge & Zone Bonuses</Text>
-        </View>
-        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(bonuses, currencySymbol)}</Text>
-      </View>
-
-      <View style={styles.breakdownRow}>
-        <View style={styles.rowLabelGroup}>
-          <Icon name="star" size={16} color={COLORS.primary} />
-          <Text style={styles.rowLabel}>Passenger Tips (100%)</Text>
-        </View>
-        <Text style={[styles.rowVal, styles.positiveVal]}>+{formatCurrency(tips, currencySymbol)}</Text>
-      </View>
-
-      <View style={styles.divider} />
-
-      <View style={styles.breakdownRow}>
-        <Text style={styles.totalLabel}>Total Payout Balance</Text>
-        <Text style={styles.totalVal}>{formatCurrency(balance, currencySymbol)}</Text>
-      </View>
-    </View>
-  );
-
+  // 3. Transactions List Card
   const transactionsCard = (
     <View style={styles.card}>
       <View style={styles.transactionsHeader}>
-        <Text style={styles.cardTitle}>Recent Transactions</Text>
-        <TouchableOpacity activeOpacity={0.7} onPress={loadWalletData}>
-          <Text style={styles.refreshLink}>Refresh</Text>
+        <View style={styles.txTitleRow}>
+          <Text style={styles.cardTitle}>
+            {t('driver.recentTransactions',)}
+          </Text>
+          {transactions.length > 0 && (
+            <View style={styles.txCountBadge}>
+              <Text style={styles.txCountBadgeText}>{transactions.length}</Text>
+            </View>
+          )}
+        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={loadWalletData}
+          style={styles.refreshBtn}
+        >
+          <Icon name="refresh" size={13} color={COLORS.primary} />
+          <Text style={styles.refreshLink}>{t('common.refresh', 'Refresh')}</Text>
         </TouchableOpacity>
       </View>
 
       {isTransactionsLoading && transactions.length === 0 ? (
-        <ActivityIndicator size="small" color={COLORS.primary} style={{ marginVertical: SPACING.md }} />
+        <View style={styles.txLoadingContainer}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.txLoadingText}>
+            {t('driver.loadingTransactions', 'Loading transactions...')}
+          </Text>
+        </View>
       ) : transactions.length === 0 ? (
         <View style={styles.emptyTxContainer}>
           <View style={styles.emptyTxIconBox}>
-            <Icon name="file-text" size={22} color={COLORS.textLight} />
+            <Icon name="wallet" size={24} color={COLORS.textLight} />
           </View>
-          <Text style={styles.emptyTxTitle}>No Transactions Yet</Text>
+          <Text style={styles.emptyTxTitle}>
+            {t('driver.noTransactionsYet', 'No Transactions Yet')}
+          </Text>
           <Text style={styles.emptyTxSub}>
-            Earnings from completed trips and payout transfers will appear here.
+            {t(
+              'driver.emptyTransactionsSub',
+              'Earnings from your completed rides will appear here automatically.'
+            )}
           </Text>
         </View>
       ) : (
-        transactions.map((tx, idx) => (
-          <View
-            key={tx.id || idx}
-            style={[
-              styles.txRow,
-              idx === transactions.length - 1 && styles.txRowLast,
-            ]}
-          >
-            <View
-              style={[
-                styles.txIconBox,
-                tx.isCredit ? styles.txIconBoxCredit : styles.txIconBoxDebit,
-              ]}
+        transactions.map((tx, idx) => {
+          const isCredit = (tx.transaction_type || '').toUpperCase() === 'CREDIT';
+          const amt = Number(tx.amount || 0);
+          const balanceAfter = tx.balance_after ? Number(tx.balance_after) : null;
+          const isLast = idx === transactions.length - 1;
+
+          return (
+            <TouchableOpacity
+              key={tx.id || idx}
+              activeOpacity={0.75}
+              onPress={() => setSelectedTx(tx)}
+              style={[styles.txRow, isLast && styles.txRowLast]}
             >
-              <Icon
-                name={tx.isCredit ? 'arrow-down' : 'arrow-up'}
-                size={14}
-                color={tx.isCredit ? COLORS.primary : COLORS.danger}
-              />
-            </View>
-
-            <View style={styles.txTextCol}>
-              <Text numberOfLines={1} style={styles.txTitle}>
-                {tx.title}
-              </Text>
-              <Text style={styles.txDate}>{tx.date}</Text>
-            </View>
-
-            <View style={styles.txAmountCol}>
-              <Text
-                style={[
-                  styles.txAmount,
-                  tx.isCredit ? styles.positiveVal : styles.txAmountDebit,
-                ]}
-              >
-                {tx.isCredit ? '+' : '-'}{currencySymbol}{tx.amount.toFixed(2)}
-              </Text>
+              {/* Type Icon Badge */}
               <View
                 style={[
-                  styles.txStatusBadge,
-                  tx.status === 'COMPLETED' ? styles.txStatusSuccess : styles.txStatusPending,
+                  styles.txIconBox,
+                  isCredit ? styles.txIconBoxCredit : styles.txIconBoxDebit,
                 ]}
               >
+                <Icon
+                  name={isCredit ? 'arrow-down' : 'arrow-up'}
+                  size={14}
+                  color={isCredit ? COLORS.primaryDark : COLORS.danger}
+                />
+              </View>
+
+              {/* Title, Date & Balance */}
+              <View style={styles.txTextCol}>
+                <View style={styles.txTitleTopRow}>
+                  <Text numberOfLines={1} style={styles.txTitle}>
+                    {getTransactionTitle(tx, t)}
+                  </Text>
+                  {tx.ride_id ? (
+                    <View style={styles.rideIdTag}>
+                      <Text style={styles.rideIdTagText}>
+                        {t('rider.rideNumber', {
+                          id: tx.ride_id,
+                          defaultValue: `Ride #${tx.ride_id}`,
+                        })}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.txDate}>
+                  {formatWalletDate(tx.created_at, t, currentLanguage)}
+                </Text>
+                {balanceAfter !== null ? (
+                  <Text style={styles.balanceAfterText}>
+                    {t('driver.balanceAfterLabel', {
+                      balance: formatCurrency(balanceAfter),
+                      defaultValue: `Balance: ${formatCurrency(balanceAfter)}`,
+                    })}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* Amount & Type Badge */}
+              <View style={styles.txAmountCol}>
                 <Text
                   style={[
-                    styles.txStatusText,
-                    tx.status === 'COMPLETED' ? styles.txStatusSuccessText : styles.txStatusPendingText,
+                    styles.txAmount,
+                    isCredit ? styles.positiveVal : styles.negativeVal,
                   ]}
                 >
-                  {tx.status}
+                  {isCredit ? '+' : '-'}{formatCurrency(amt)}
                 </Text>
+                <View
+                  style={[
+                    styles.txTypeBadge,
+                    isCredit ? styles.txBadgeCredit : styles.txBadgeDebit,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.txTypeText,
+                      isCredit ? styles.txTextCredit : styles.txTextDebit,
+                    ]}
+                  >
+                    {getTransactionTypeLabel(tx.transaction_type, t)}
+                  </Text>
+                </View>
               </View>
-            </View>
-          </View>
-        ))
+            </TouchableOpacity>
+          );
+        })
       )}
-    </View>
-  );
-
-  const bankCard = (
-    <View style={styles.bankCard}>
-      <View style={styles.bankIcon}>
-        <Icon name="wallet" size={20} color={COLORS.secondPrimary} />
-      </View>
-      <View style={styles.bankInfo}>
-        <Text style={styles.bankName}>Direct Bank Account</Text>
-        <Text style={styles.bankSub}>Automated weekly payouts on Tuesdays</Text>
-      </View>
-      <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
     </View>
   );
 
@@ -431,60 +407,189 @@ export const DriverEarningsScreen = ({ navigation }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ResponsiveContainer maxWidth={960} style={{ flex: 1 }}>
         <Header
-          title={t('driver.tripEarnings', 'Driver Wallet & Earnings')}
+          title={t('driver.walletAndEarnings', 'Driver Wallet & Earnings')}
           showBack={false}
           variant="light"
         />
 
-        <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
-          ]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
-            />
-          }
-        >
-          {isMultiColumn ? (
-            <View style={styles.splitRow}>
-              <View style={styles.splitCol}>
+        {isInitialLoading ? (
+          <View style={styles.initialLoadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.initialLoadingText}>
+              {t('driver.loadingWalletAndEarnings', 'Loading wallet & earnings...')}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+            ]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[COLORS.primary]}
+                tintColor={COLORS.primary}
+              />
+            }
+          >
+            {isMultiColumn ? (
+              <View style={styles.splitRow}>
+                <View style={styles.splitCol}>
+                  {heroBanner}
+                  {periodSummaryCard}
+                </View>
+                <View style={styles.splitCol}>
+                  {transactionsCard}
+                </View>
+              </View>
+            ) : (
+              <>
                 {heroBanner}
                 {periodSummaryCard}
-                {chartCard}
-                {bankCard}
-              </View>
-              <View style={styles.splitCol}>
-                {breakdownCard}
                 {transactionsCard}
+              </>
+            )}
+          </ScrollView>
+        )}
+      </ResponsiveContainer>
+
+      {/* Transaction Details Modal */}
+      <Modal
+        visible={Boolean(selectedTx)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedTx(null)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setSelectedTx(null)}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>
+                  {t('driver.txDetailsTitle', 'Transaction Details')}
+                </Text>
+                <Text style={styles.modalSubId}>
+                  {t('driver.txNumber', {
+                    id: selectedTx?.id,
+                    defaultValue: `Transaction #${selectedTx?.id}`,
+                  })}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSelectedTx(null)}
+                style={styles.closeBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="close" size={18} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Amount Box */}
+            <View style={styles.modalAmountBox}>
+              <Text style={styles.modalAmountLabel}>
+                {t('driver.txAmountLabel', 'Transaction Amount')}
+              </Text>
+              <Text
+                style={[
+                  styles.modalAmountVal,
+                  selectedTx?.transaction_type === 'CREDIT'
+                    ? styles.positiveVal
+                    : styles.negativeVal,
+                ]}
+              >
+                {selectedTx?.transaction_type === 'CREDIT' ? '+' : '-'}
+                {formatCurrency(Number(selectedTx?.amount || 0))}
+              </Text>
+              <View
+                style={[
+                  styles.txTypeBadge,
+                  selectedTx?.transaction_type === 'CREDIT'
+                    ? styles.txBadgeCredit
+                    : styles.txBadgeDebit,
+                  { alignSelf: 'center', marginTop: 6 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.txTypeText,
+                    selectedTx?.transaction_type === 'CREDIT'
+                      ? styles.txTextCredit
+                      : styles.txTextDebit,
+                  ]}
+                >
+                  {getTransactionTypeLabel(selectedTx?.transaction_type, t)}
+                </Text>
               </View>
             </View>
-          ) : (
-            <>
-              {heroBanner}
-              {periodSummaryCard}
-              {chartCard}
-              {breakdownCard}
-              {transactionsCard}
-              {bankCard}
-            </>
-          )}
-        </ScrollView>
-      </ResponsiveContainer>
+
+            {/* Details Grid */}
+            <View style={styles.modalInfoGrid}>
+              <View style={styles.modalGridCol}>
+                <Text style={styles.modalGridLabel}>
+                  {t('driver.reason', 'Reason')}
+                </Text>
+                <Text style={styles.modalGridVal}>
+                  {selectedTx ? getTransactionTitle(selectedTx, t) : 'N/A'}
+                </Text>
+              </View>
+
+              <View style={styles.modalGridCol}>
+                <Text style={styles.modalGridLabel}>
+                  {t('driver.rideId', 'Ride ID')}
+                </Text>
+                <Text style={styles.modalGridVal}>
+                  {selectedTx?.ride_id ? `#${selectedTx.ride_id}` : 'N/A'}
+                </Text>
+              </View>
+
+              <View style={styles.modalGridCol}>
+                <Text style={styles.modalGridLabel}>
+                  {t('driver.balanceAfter', 'Balance After')}
+                </Text>
+                <Text style={[styles.modalGridVal, { fontWeight: '700' }]}>
+                  {formatCurrency(Number(selectedTx?.balance_after || 0))}
+                </Text>
+              </View>
+
+              <View style={styles.modalGridCol}>
+                <Text style={styles.modalGridLabel}>
+                  {t('driver.dateTime', 'Date & Time')}
+                </Text>
+                <Text style={styles.modalGridVal}>
+                  {formatWalletDate(selectedTx?.created_at, t, currentLanguage)}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => setSelectedTx(null)}
+              style={styles.modalCloseBtn}
+            >
+              <Text style={styles.modalCloseBtnText}>
+                {t('common.close', 'Close')}
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Cashout Confirmation Modal */}
       <CustomModal
         visible={showCashoutModal}
         onClose={() => setShowCashoutModal(false)}
-        title="Instant Cash Out"
-        message={`Transfer ${formatCurrency(balance, currencySymbol)} immediately to your linked bank account? Funds arrive within minutes.`}
-        confirmText="Transfer Funds"
-        cancelText="Cancel"
+        title={t('driver.instantCashoutTitle', 'Instant Cash Out')}
+        message={t('driver.instantCashoutMsg', {
+          amount: formatCurrency(balance),
+          defaultValue: `Transfer ${formatCurrency(balance)} immediately to your linked payout account?`,
+        })}
+        confirmText={t('driver.confirmTransfer', 'Confirm Transfer')}
+        cancelText={t('common.cancel', 'Cancel')}
         onConfirm={handleCashout}
         icon="wallet"
       />
@@ -492,9 +597,12 @@ export const DriverEarningsScreen = ({ navigation }) => {
       <CustomModal
         visible={cashoutSuccess}
         onClose={() => setCashoutSuccess(false)}
-        title="Transfer Initiated!"
-        message="Your payout is on the way to your linked bank account."
-        confirmText="Done"
+        title={t('driver.transferInitiatedTitle', 'Transfer Initiated!')}
+        message={t(
+          'driver.transferInitiatedMsg',
+          'Your payout has been initiated and will reflect shortly.'
+        )}
+        confirmText={t('common.done', 'Done')}
         showCancel={false}
         onConfirm={() => setCashoutSuccess(false)}
         icon="check-circle"
@@ -520,6 +628,17 @@ const styles = StyleSheet.create({
   splitCol: {
     flex: 1,
   },
+  initialLoadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xxl,
+  },
+  initialLoadingText: {
+    ...TYPOGRAPHY.bodySmall,
+    color: COLORS.textLight,
+    marginTop: SPACING.md,
+  },
   earningsHero: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.extraLarge,
@@ -527,7 +646,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
@@ -537,12 +656,22 @@ const styles = StyleSheet.create({
   heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  walletIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroPeriod: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: COLORS.primaryDark,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   heroAmount: {
     ...TYPOGRAPHY.h1,
@@ -560,253 +689,15 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: SPACING.xl,
   },
-  chartCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.large,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  chartTitle: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  chartSubtitle: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-  },
-  barContainer: {
-    flexDirection: 'row',
-    height: 140,
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingTop: SPACING.md,
-  },
-  barCol: {
-    flex: 1,
-    alignItems: 'center',
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
-  barValText: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 9,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  barTrack: {
-    width: 14,
-    height: 90,
-    backgroundColor: COLORS.inputBg,
-    borderRadius: RADIUS.round,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  barFill: {
-    width: '100%',
-    backgroundColor: COLORS.secondPrimary,
-    borderRadius: RADIUS.round,
-  },
-  activeBarFill: {
-    backgroundColor: COLORS.primary,
-  },
-  barDayText: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 10,
-    color: COLORS.textLight,
-    marginTop: 6,
-  },
-  activeBarDayText: {
-    color: COLORS.primaryDark,
-    fontWeight: '700',
-  },
-  card: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.large,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-  },
-  cardTitle: {
-    ...TYPOGRAPHY.title,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 6,
-  },
-  rowLabelGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rowLabel: {
-    ...TYPOGRAPHY.bodySmall,
-    color: COLORS.text,
-    marginLeft: SPACING.sm,
-  },
-  rowVal: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  positiveVal: {
-    color: COLORS.primary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: SPACING.md,
-  },
-  totalLabel: {
-    ...TYPOGRAPHY.title,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-  totalVal: {
-    ...TYPOGRAPHY.h2,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-  transactionsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  refreshLink: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  txRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  txRowLast: {
-    borderBottomWidth: 0,
-  },
-  txIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.sm,
-  },
-  txIconBoxCredit: {
-    backgroundColor: '#ECFDF5',
-  },
-  txIconBoxDebit: {
-    backgroundColor: '#FEF2F2',
-  },
-  txTextCol: {
-    flex: 1,
-    marginRight: SPACING.sm,
-  },
-  txTitle: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  txDate: {
-    ...TYPOGRAPHY.caption,
-    fontSize: 10,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
-  txAmountCol: {
-    alignItems: 'flex-end',
-  },
-  txAmount: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-  },
-  txAmountDebit: {
-    color: COLORS.text,
-  },
-  txStatusBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginTop: 2,
-  },
-  txStatusSuccess: {
-    backgroundColor: '#ECFDF5',
-  },
-  txStatusPending: {
-    backgroundColor: '#FEF3C7',
-  },
-  txStatusText: {
-    fontSize: 8,
-    fontWeight: '800',
-  },
-  txStatusSuccessText: {
-    color: '#059669',
-  },
-  txStatusPendingText: {
-    color: '#D97706',
-  },
-  bankCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.large,
-    padding: SPACING.md,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-  },
-  bankIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.medium,
-    backgroundColor: COLORS.inputBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  bankInfo: {
-    flex: 1,
-  },
-  bankName: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  bankSub: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
   periodSummaryGrid: {
     flexDirection: 'row',
     gap: SPACING.sm,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   periodSummaryCard: {
     flex: 1,
     backgroundColor: COLORS.white,
-    borderRadius: RADIUS.medium,
+    borderRadius: RADIUS.large,
     padding: SPACING.md,
     borderWidth: 1.5,
     borderColor: COLORS.border,
@@ -826,11 +717,167 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textLight,
     marginBottom: 2,
+    fontWeight: '600',
   },
   periodSummaryValue: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
     color: COLORS.text,
+  },
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.large,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  transactionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  txTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardTitle: {
+    ...TYPOGRAPHY.title,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  txCountBadge: {
+    backgroundColor: COLORS.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.round,
+  },
+  txCountBadgeText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.primaryDark,
+  },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  refreshLink: {
+    ...TYPOGRAPHY.caption,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  txLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.xl,
+    gap: SPACING.sm,
+  },
+  txLoadingText: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  txRowLast: {
+    borderBottomWidth: 0,
+  },
+  txIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  txIconBoxCredit: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  txIconBoxDebit: {
+    backgroundColor: '#FEE2E2',
+  },
+  txTextCol: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  txTitleTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  txTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  rideIdTag: {
+    backgroundColor: COLORS.secondPrimaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  rideIdTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.secondPrimaryDark,
+  },
+  txDate: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  balanceAfterText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 1,
+  },
+  txAmountCol: {
+    alignItems: 'flex-end',
+  },
+  txAmount: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+  },
+  positiveVal: {
+    color: COLORS.primaryDark,
+  },
+  negativeVal: {
+    color: COLORS.danger,
+  },
+  txTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 3,
+  },
+  txBadgeCredit: {
+    backgroundColor: COLORS.primaryLight,
+  },
+  txBadgeDebit: {
+    backgroundColor: '#FEE2E2',
+  },
+  txTypeText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  txTextCredit: {
+    color: COLORS.primaryDark,
+  },
+  txTextDebit: {
+    color: COLORS.danger,
   },
   emptyTxContainer: {
     alignItems: 'center',
@@ -858,6 +905,103 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     textAlign: 'center',
     lineHeight: 16,
+  },
+
+  // Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.extraLarge,
+    padding: SPACING.lg,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingBottom: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  modalTitle: {
+    ...TYPOGRAPHY.heading3,
+    color: COLORS.text,
+  },
+  modalSubId: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAmountBox: {
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.medium,
+    padding: SPACING.md,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  modalAmountLabel: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+  },
+  modalAmountVal: {
+    ...TYPOGRAPHY.heading2,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  modalInfoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  modalGridCol: {
+    width: '48%',
+    backgroundColor: COLORS.inputBg,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.small,
+  },
+  modalGridLabel: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    fontSize: 11,
+  },
+  modalGridVal: {
+    ...TYPOGRAPHY.bodySmall,
+    color: COLORS.text,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.inputBg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.round,
+  },
+  modalCloseBtnText: {
+    ...TYPOGRAPHY.button,
+    color: COLORS.text,
   },
 });
 

@@ -46,10 +46,10 @@ const MONTH_SHORT = [
 
 const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-// Generates years from current year - 15 to current year + 25 (e.g. 2010 to 2050)
+// Generates years from current year - 100 to current year + 25 (supports DOB & future dates)
 const generateYears = () => {
   const currentYear = new Date().getFullYear();
-  const start = currentYear - 16;
+  const start = currentYear - 100;
   const end = currentYear + 25;
   const years = [];
   for (let y = start; y <= end; y++) {

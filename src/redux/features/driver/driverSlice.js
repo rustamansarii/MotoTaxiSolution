@@ -49,7 +49,20 @@ const initialState = {
   isWalletLoading: false,
   isTransactionsLoading: false,
   isSummaryLoading: false,
-  walletError: null,
+  // Driver Rides History
+  driverRides: [],
+  driverRidesCount: 0,
+  driverRidesNext: null,
+  driverRidesPrevious: null,
+  driverRidesCurrentPage: 1,
+  isDriverRidesLoading: false,
+  isLoadingMoreDriverRides: false,
+  driverRidesError: null,
+
+  // Driver Documents
+  driverDocumentsData: null,
+  isDocumentsLoading: false,
+  documentsError: null,
 
   socketMessages: [],
   lastMessage: null,
@@ -196,6 +209,50 @@ export const fetchDriverWalletSummary = createAsyncThunk(
         error?.message ||
         'Failed to fetch wallet summary';
       console.warn('[DriverAPI] Summary fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/rides/driver-rides/?page=1&page_size=10
+ */
+export const fetchDriverRides = createAsyncThunk(
+  'driver/fetchDriverRides',
+  async ({ page = 1, page_size = 10 } = {}, { rejectWithValue }) => {
+    try {
+      console.log(`[DriverAPI] Fetching driver rides (page ${page})...`);
+      const response = await apiGet(ApiConstant.DriverRides, { page, page_size });
+      return { data: response, page };
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch driver rides';
+      console.warn('[DriverAPI] Driver rides fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/drivers/documents/
+ */
+export const fetchDriverDocuments = createAsyncThunk(
+  'driver/fetchDriverDocuments',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('[DriverAPI] Fetching driver documents...');
+      const response = await apiGet(ApiConstant.DriverDocuments);
+      return response;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch driver documents';
+      console.warn('[DriverAPI] Documents fetch error:', errorMsg);
       return rejectWithValue(errorMsg);
     }
   }
@@ -777,6 +834,16 @@ export const driverSlice = createSlice({
           break;
       }
     },
+    clearDriverRides: (state) => {
+      state.driverRides = [];
+      state.driverRidesCount = 0;
+      state.driverRidesNext = null;
+      state.driverRidesPrevious = null;
+      state.driverRidesCurrentPage = 1;
+      state.isDriverRidesLoading = false;
+      state.isLoadingMoreDriverRides = false;
+      state.driverRidesError = null;
+    },
   },
 
   extraReducers: (builder) => {
@@ -925,6 +992,57 @@ export const driverSlice = createSlice({
       })
       .addCase(fetchDriverWalletSummary.rejected, (state) => {
         state.isSummaryLoading = false;
+      })
+
+      // fetchDriverRides
+      .addCase(fetchDriverRides.pending, (state, action) => {
+        const page = action.meta.arg?.page || 1;
+        if (page === 1) {
+          state.isDriverRidesLoading = true;
+          state.driverRidesError = null;
+        } else {
+          state.isLoadingMoreDriverRides = true;
+        }
+      })
+      .addCase(fetchDriverRides.fulfilled, (state, action) => {
+        state.isDriverRidesLoading = false;
+        state.isLoadingMoreDriverRides = false;
+        const { data, page } = action.payload;
+        const results = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+          ? data
+          : [];
+        state.driverRidesCount = data?.count ?? results.length;
+        state.driverRidesNext = data?.next ?? null;
+        state.driverRidesPrevious = data?.previous ?? null;
+        state.driverRidesCurrentPage = page;
+        if (page === 1) {
+          state.driverRides = results;
+        } else {
+          const existingIds = new Set(state.driverRides.map((r) => r.id));
+          const newItems = results.filter((r) => !existingIds.has(r.id));
+          state.driverRides = [...state.driverRides, ...newItems];
+        }
+      })
+      .addCase(fetchDriverRides.rejected, (state, action) => {
+        state.isDriverRidesLoading = false;
+        state.isLoadingMoreDriverRides = false;
+        state.driverRidesError = action.payload;
+      })
+
+      // fetchDriverDocuments
+      .addCase(fetchDriverDocuments.pending, (state) => {
+        state.isDocumentsLoading = true;
+        state.documentsError = null;
+      })
+      .addCase(fetchDriverDocuments.fulfilled, (state, action) => {
+        state.isDocumentsLoading = false;
+        state.driverDocumentsData = action.payload;
+      })
+      .addCase(fetchDriverDocuments.rejected, (state, action) => {
+        state.isDocumentsLoading = false;
+        state.documentsError = action.payload;
       });
   },
 });
@@ -940,6 +1058,7 @@ export const {
   clearActionNotices,
   resetActiveRideState,
   handleIncomingSocketMessage,
+  clearDriverRides,
 } = driverSlice.actions;
 
 // Export as driverSocketSlice alias for developer flexibility

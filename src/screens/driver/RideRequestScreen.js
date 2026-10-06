@@ -130,7 +130,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
     return !isNaN(parsed) && parsed > 0 ? parsed : 91.56;
   }, [route.params, incomingReq, tripDistance]);
 
-  const [countdown, setCountdown] = useState(15);
+  const [countdown, setCountdown] = useState(60);
   const hasNavigatedRef = useRef(false);
 
   const navigateToAccepted = useCallback(() => {

@@ -1,6 +1,8 @@
 import axios from "axios";
 import { API_URL } from "./apiUrl";
-import { getAccessToken } from "./storage";
+import { getAccessToken, clearTokens, isGuestMode } from "./storage";
+import { resetToLogin } from "../navigation/navigationService";
+import { getActiveLanguage } from "./apiClient";
 
 /**
  * Pre-configured Axios instance for MotoTaxi API
@@ -46,9 +48,25 @@ export const getFullUrl = (config) => {
   return baseAndPath;
 };
 
-// Request Interceptor: Attach Sanctum/Bearer Token & Log Request
+// Request Interceptor: Attach Sanctum/Bearer Token, Language Param & Log Request
 apiClient.interceptors.request.use(
   async (config) => {
+    // 1. Ensure ?lang=fr (or active language) is attached to all API requests
+    const urlHasLang = typeof config.url === "string" && /[?&]lang=/.test(config.url);
+    if (!urlHasLang) {
+      if (typeof URLSearchParams !== "undefined" && config.params instanceof URLSearchParams) {
+        if (!config.params.has("lang")) {
+          config.params.append("lang", getActiveLanguage());
+        }
+      } else if (config.params && typeof config.params === "object") {
+        if (!config.params.lang) {
+          config.params.lang = getActiveLanguage();
+        }
+      } else if (!config.params) {
+        config.params = { lang: getActiveLanguage() };
+      }
+    }
+
     try {
       const token = await getAccessToken();
       if (token) {
@@ -80,6 +98,68 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+let isLoggingOut = false;
+
+const handleUnauthorized = async (config) => {
+  const reqUrl = config?.url || '';
+  // Don't auto-redirect if 401 is from authentication screen endpoints (e.g. login, verify-otp)
+  const isAuthEndpoint =
+    reqUrl.includes('auth/login') ||
+    reqUrl.includes('auth/register') ||
+    reqUrl.includes('auth/otp') ||
+    reqUrl.includes('auth/country-codes');
+
+  if (isAuthEndpoint) {
+    return;
+  }
+
+  // If in guest mode, do NOT reset navigation to Login screen
+  try {
+    const isGuest = await isGuestMode();
+    if (isGuest) {
+      console.warn('[API 401] In Guest Mode: Suppressing redirect to Login for URL:', reqUrl);
+      return;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // If request had no auth token or there's no token in storage, do NOT reset navigation
+  try {
+    const token = await getAccessToken();
+    const hadAuthHeader = Boolean(config?.headers?.Authorization);
+    if (!token && !hadAuthHeader) {
+      console.warn('[API 401] Request had no auth token in storage: Suppressing redirect to Login for URL:', reqUrl);
+      return;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  if (isLoggingOut) return;
+  isLoggingOut = true;
+
+  try {
+    console.warn('[API 401] Unauthorized: removing token and resetting navigation to Login...');
+    await clearTokens();
+
+    try {
+      const { store } = require('../redux/app/store');
+      store?.dispatch?.({ type: 'auth/logout' });
+    } catch {
+      // ignore
+    }
+
+    resetToLogin();
+  } catch (err) {
+    console.error('[API 401] Error during logout/reset:', err);
+  } finally {
+    setTimeout(() => {
+      isLoggingOut = false;
+    }, 2000);
+  }
+};
+
 // Response Interceptor: Extract data and normalize errors
 apiClient.interceptors.response.use(
   (response) => {
@@ -105,6 +185,7 @@ apiClient.interceptors.response.use(
     // Check for 401 Unauthorized
     if (error.response && error.response.status === 401) {
       console.warn("API 401 Unauthorized: token may be expired or invalid.");
+      await handleUnauthorized(error.config);
     }
 
     // Extract helpful error message from response

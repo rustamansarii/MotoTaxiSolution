@@ -16,19 +16,49 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import { useResponsive } from '../../utils/responsive';
 import { useTranslation } from 'react-i18next';
+import { saveRole, setGuestMode } from '../../utils/storage';
 
 const GREEN = '#17baa1';
 
-export const RoleSelectionScreen = ({ navigation }) => {
+export const RoleSelectionScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const { isFoldableOrTablet, isLandscape, isCompact, insets } = useResponsive();
+  const isGuest = Boolean(route?.params?.isGuest);
   const [selectedRole, setSelectedRole] = useState('rider');
 
-  const handleProceed = () => {
-    if (selectedRole === 'rider') {
+  const handleProceed = async (roleOverride) => {
+    const roleToUse = roleOverride || selectedRole || 'rider';
+    if (isGuest) {
+      try {
+        await setGuestMode(true);
+      } catch (e) {}
+      if (roleToUse === 'rider') {
+        try {
+          await saveRole('RIDER');
+        } catch (e) {}
+        navigation.replace('RiderNav');
+      } else {
+        try {
+          await saveRole('DRIVER');
+        } catch (e) {}
+        navigation.replace('DriverNav');
+      }
+      return;
+    }
+
+    if (roleToUse === 'rider') {
       navigation.navigate('RiderSignup');
     } else {
       navigation.navigate('DriverSignup');
+    }
+  };
+
+  const handleRoleCardPress = (role) => {
+    setSelectedRole(role);
+    if (isGuest) {
+      setTimeout(() => {
+        handleProceed(role);
+      }, 200);
     }
   };
 
@@ -124,12 +154,25 @@ export const RoleSelectionScreen = ({ navigation }) => {
 
         <View style={[styles.content, { maxWidth: isFoldableOrTablet ? 680 : '100%', alignSelf: 'center', width: '100%' }]}>
 
+          {isGuest && (
+            <View style={styles.guestModePill}>
+              <Icon name="user" size={14} color={GREEN} />
+              <Text style={styles.guestModePillText}>
+                {t('auth.guestMode', 'Guest Mode')}
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.title}>
-            {t('auth.chooseRoleTitle', 'Choose Your Role')}
+            {isGuest
+              ? t('auth.chooseRoleGuestTitle', 'Explore as Guest')
+              : t('auth.chooseRoleTitle', 'Choose Your Role')}
           </Text>
 
           <Text style={styles.subtitle}>
-            {t('auth.chooseRoleSubtitle', 'How would you like to use Moto Taxi today?')}
+            {isGuest
+              ? t('auth.chooseRoleGuestSubtitle', 'Select a role to start exploring the app immediately.')
+              : t('auth.chooseRoleSubtitle', 'How would you like to use Moto Taxi today?')}
           </Text>
 
           <View style={[styles.rolesContainer, (isFoldableOrTablet || isLandscape) && styles.rolesRow]}>
@@ -139,7 +182,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
 
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => setSelectedRole('rider')}
+            onPress={() => handleRoleCardPress('rider')}
             style={[
               styles.roleCard,
               (isFoldableOrTablet || isLandscape) && styles.roleCardWide,
@@ -199,7 +242,7 @@ export const RoleSelectionScreen = ({ navigation }) => {
 
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => setSelectedRole('driver')}
+            onPress={() => handleRoleCardPress('driver')}
             style={[
               styles.roleCard,
               (isFoldableOrTablet || isLandscape) && styles.roleCardWide,
@@ -261,38 +304,20 @@ export const RoleSelectionScreen = ({ navigation }) => {
           <View style={styles.actionContainer}>
             <CustomButton
               title={
-                selectedRole === 'rider'
-                  ? `${t('common.continue', 'Continue')} (${t('auth.riderRoleTitle', 'Rider')})`
-                  : `${t('common.continue', 'Continue')} (${t('auth.driverRoleTitle', 'Driver')})`
+                isGuest
+                  ? selectedRole === 'rider'
+                    ? `${t('auth.continueAsRider', 'Explore as Rider')}`
+                    : `${t('auth.continueAsDriver', 'Explore as Driver')}`
+                  : selectedRole === 'rider'
+                    ? `${t('common.continue', 'Continue')} (${t('auth.riderRoleTitle', 'Rider')})`
+                    : `${t('common.continue', 'Continue')} (${t('auth.driverRoleTitle', 'Driver')})`
               }
-              onPress={handleProceed}
+              onPress={() => handleProceed()}
               variant="primary"
               icon="arrow-right"
               iconPosition="right"
             />
           </View>
-
-          {/* =======================================
-              PREVIEW
-          ======================================= */}
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handlePreview}
-            style={styles.previewButton}
-          >
-            <Text style={styles.previewText}>
-              {t('auth.previewDirectly', 'Explore the app')}
-            </Text>
-
-            <Text style={styles.previewArrow}>
-              →
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.previewSubtext}>
-            {t('common.skip', 'Continue without creating an account')}
-          </Text>
 
         </View>
       </ScrollView>
@@ -543,6 +568,24 @@ const styles = StyleSheet.create({
     paddingTop: 28,
 
     paddingBottom: 35,
+  },
+
+  guestModePill: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E0F2F1',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+
+  guestModePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: GREEN,
   },
 
   title: {

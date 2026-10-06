@@ -22,6 +22,12 @@ export const SUPPORTED_LANGUAGES = [
     flag: '🇺🇸',
   },
   {
+    code: 'hi',
+    nativeName: 'हिन्दी',
+    englishName: 'Hindi',
+    flag: '🇮🇳',
+  },
+  {
     code: 'fr',
     nativeName: 'Français',
     englishName: 'French',

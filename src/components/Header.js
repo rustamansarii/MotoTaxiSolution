@@ -16,12 +16,18 @@ export const Header = ({
   rightComponent,
   transparent = false,
   variant = 'light', // 'light' | 'dark'
+  centerTitle = true,
   style,
+  titleStyle,
 }) => {
   const isDark = variant === 'dark';
   const textColor = isDark ? COLORS.white : COLORS.text;
   const subtitleColor = isDark ? COLORS.textLight : COLORS.textLight;
   const { isCompact } = useResponsive();
+
+  const hasLeft = Boolean(showBack && onBack);
+  const hasRight = Boolean(rightComponent || (rightIcon && onRightPress));
+  const slotWidth = isCompact ? 36 : 44;
 
   return (
     <View
@@ -32,8 +38,15 @@ export const Header = ({
         style,
       ]}
     >
-      <View style={[styles.leftSlot, (!showBack || !onBack) && styles.leftSlotHidden, isCompact && { width: 36 }]}>
-        {showBack && onBack ? (
+      <View
+        style={[
+          styles.leftSlot,
+          !hasLeft && (!hasRight || !centerTitle) && styles.slotHidden,
+          !hasLeft && hasRight && centerTitle && { width: slotWidth, minWidth: slotWidth },
+          isCompact && { width: 36 },
+        ]}
+      >
+        {hasLeft ? (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={onBack}
@@ -48,7 +61,12 @@ export const Header = ({
         ) : null}
       </View>
 
-      <View style={styles.titleSlot}>
+      <View
+        style={[
+          styles.titleSlot,
+          !centerTitle && { alignItems: 'flex-start' },
+        ]}
+      >
         {React.isValidElement(title) ? (
           title
         ) : title ? (
@@ -57,7 +75,9 @@ export const Header = ({
             style={[
               styles.title,
               isCompact && { fontSize: 16 },
+              !centerTitle && { textAlign: 'left' },
               { color: textColor },
+              titleStyle,
             ]}
           >
             {title}
@@ -66,7 +86,11 @@ export const Header = ({
         {subtitle ? (
           <Text
             numberOfLines={1}
-            style={[styles.subtitle, { color: subtitleColor }]}
+            style={[
+              styles.subtitle,
+              !centerTitle && { textAlign: 'left' },
+              { color: subtitleColor },
+            ]}
           >
             {subtitle}
           </Text>
@@ -77,6 +101,8 @@ export const Header = ({
         style={[
           styles.rightSlot,
           rightComponent ? styles.rightSlotFlexible : (isCompact ? { width: 36 } : { width: 44 }),
+          !hasRight && (!hasLeft || !centerTitle) && styles.slotHidden,
+          !hasRight && hasLeft && centerTitle && { width: slotWidth, minWidth: slotWidth },
         ]}
       >
         {rightComponent ? (
@@ -127,6 +153,12 @@ const styles = StyleSheet.create({
   leftSlotHidden: {
     minWidth: 0,
     width: 0,
+  },
+  slotHidden: {
+    minWidth: 0,
+    width: 0,
+    paddingHorizontal: 0,
+    marginHorizontal: 0,
   },
   titleSlot: {
     flex: 1,

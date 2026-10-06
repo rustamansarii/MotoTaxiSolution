@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiPost } from '../../../utils/apiClient';
+import { apiPost, apiGet } from '../../../utils/apiClient';
 import ApiConstant from '../../../utils/apiConstant';
 import { MOCK_RIDES } from '../../../data/mockRides';
+import { isGuestMode, getAccessToken } from '../../../utils/storage';
 
 export const mapFareToRide = (fare, overallData) => {
   const type = (fare.vehicle_type || '').toUpperCase();
@@ -142,6 +143,31 @@ export const bookRide = createAsyncThunk(
   }
 );
 
+/**
+ * 3. Fetch My Rides (History) API
+ * GET /rides/my-rides/?page=1&page_size=10
+ */
+export const fetchMyRides = createAsyncThunk(
+  'rides/fetchMyRides',
+  async ({ page = 1, page_size = 10 } = {}, { rejectWithValue }) => {
+    try {
+      const isGuest = await isGuestMode();
+      const token = await getAccessToken();
+      if (isGuest || !token) {
+        console.log('[RidesAPI] Skipping fetchMyRides: user is in guest mode or unauthenticated');
+        return rejectWithValue('User is unauthenticated or in guest mode');
+      }
+
+      const data = await apiGet(ApiConstant.MyRides, { page, page_size });
+      return { data, page };
+    } catch (error) {
+      return rejectWithValue(
+        error.message || 'Failed to fetch ride history'
+      );
+    }
+  }
+);
+
 const initialState = {
   estimate: null, // { distance_km, duration_min, currency, fares: [] }
   availableRides: [],
@@ -153,6 +179,16 @@ const initialState = {
   currentBooking: null,
   isBooking: false,
   bookingError: null,
+
+  // My Rides history state
+  myRides: [],
+  myRidesCount: 0,
+  myRidesNext: null,
+  myRidesPrevious: null,
+  myRidesCurrentPage: 1,
+  isLoadingMyRides: false,
+  isLoadingMoreMyRides: false,
+  myRidesError: null,
 };
 
 const ridesSlice = createSlice({
@@ -173,6 +209,16 @@ const ridesSlice = createSlice({
       state.currentBooking = null;
       state.isBooking = false;
       state.bookingError = null;
+    },
+    clearMyRides: (state) => {
+      state.myRides = [];
+      state.myRidesCount = 0;
+      state.myRidesNext = null;
+      state.myRidesPrevious = null;
+      state.myRidesCurrentPage = 1;
+      state.isLoadingMyRides = false;
+      state.isLoadingMoreMyRides = false;
+      state.myRidesError = null;
     },
   },
 
@@ -210,6 +256,47 @@ const ridesSlice = createSlice({
       .addCase(bookRide.rejected, (state, action) => {
         state.isBooking = false;
         state.bookingError = action.payload;
+      })
+
+      // fetchMyRides
+      .addCase(fetchMyRides.pending, (state, action) => {
+        const page = action.meta.arg?.page || 1;
+        if (page === 1) {
+          state.isLoadingMyRides = true;
+          state.myRidesError = null;
+        } else {
+          state.isLoadingMoreMyRides = true;
+        }
+      })
+      .addCase(fetchMyRides.fulfilled, (state, action) => {
+        state.isLoadingMyRides = false;
+        state.isLoadingMoreMyRides = false;
+        const { data, page } = action.payload;
+        const results = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data)
+          ? data
+          : [];
+        state.myRidesCount = data?.count ?? results.length;
+        state.myRidesNext = data?.next ?? null;
+        state.myRidesPrevious = data?.previous ?? null;
+        state.myRidesCurrentPage = page;
+        if (page === 1) {
+          state.myRides = results;
+        } else {
+          const existingIds = new Set(state.myRides.map((r) => r.id));
+          const newItems = results.filter((r) => !existingIds.has(r.id));
+          state.myRides = [...state.myRides, ...newItems];
+        }
+      })
+      .addCase(fetchMyRides.rejected, (state, action) => {
+        state.isLoadingMyRides = false;
+        state.isLoadingMoreMyRides = false;
+        if (action.payload === 'User is unauthenticated or in guest mode') {
+          state.myRidesError = null;
+        } else {
+          state.myRidesError = action.payload;
+        }
       });
   },
 });
@@ -218,6 +305,7 @@ export const {
   setSelectedRide,
   clearFareEstimate,
   clearBookingState,
+  clearMyRides,
 } = ridesSlice.actions;
 
 export default ridesSlice.reducer;

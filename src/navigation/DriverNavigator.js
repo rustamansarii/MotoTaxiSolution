@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../theme/colors';
 import { TYPOGRAPHY } from '../theme/typography';
 import { useResponsive } from '../utils/responsive';
+import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 
 // Screens
@@ -21,11 +22,14 @@ import DriverMapScreen from '../screens/driver/DriverMapScreen';
 import VehicleSetupScreen from '../screens/driver/VehicleSetupScreen';
 import DocumentUploadScreen from '../screens/driver/DocumentUploadScreen';
 import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
+import PersonalDetailsScreen from '../screens/rider/PersonalDetailsScreen';
+import DeleteAccountScreen from '../screens/rider/DeleteAccountScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const DriverTabs = () => {
+  const { t } = useTranslation();
   const { insets, isLandscape, isFoldableOrTablet } = useResponsive();
 
   const tabBarStyle = {
@@ -53,7 +57,7 @@ const DriverTabs = () => {
         name="DriverHome"
         component={DriverHomeScreen}
         options={{
-          tabBarLabel: 'Dashboard',
+          tabBarLabel: t('tabs.dashboard', 'Dashboard'),
           tabBarIcon: ({ color }) => (
             <Icon name="navigation" size={22} color={color} />
           ),
@@ -63,7 +67,7 @@ const DriverTabs = () => {
         name="DriverTrips"
         component={DriverTripsScreen}
         options={{
-          tabBarLabel: 'Trips',
+          tabBarLabel: t('tabs.trips', 'Trips'),
           tabBarIcon: ({ color }) => (
             <Icon name="time" size={22} color={color} />
           ),
@@ -73,7 +77,7 @@ const DriverTabs = () => {
         name="DriverEarnings"
         component={DriverEarningsScreen}
         options={{
-          tabBarLabel: 'Earnings',
+          tabBarLabel: t('tabs.earnings', 'Earnings'),
           tabBarIcon: ({ color }) => (
             <Icon name="wallet" size={22} color={color} />
           ),
@@ -83,7 +87,7 @@ const DriverTabs = () => {
         name="DriverProfile"
         component={DriverProfileScreen}
         options={{
-          tabBarLabel: 'Account',
+          tabBarLabel: t('tabs.account', 'Account'),
           tabBarIcon: ({ color }) => (
             <Icon name="user" size={22} color={color} />
           ),
@@ -108,6 +112,8 @@ export const DriverNavigator = () => {
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
       <Stack.Screen name="VehicleSetup" component={VehicleSetupScreen} />
       <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
+      <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />
+      <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} />
     </Stack.Navigator>
   );
 };

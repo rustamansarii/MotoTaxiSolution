@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { StatusBar, Animated, View, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './src/navigation/navigationService';
 import RootNavigator from './src/navigation/RootNavigator';
 import './src/i18n/i18n';
 import { Provider, useDispatch, useSelector } from 'react-redux';
@@ -78,7 +79,7 @@ function AppNavigationContent(): React.JSX.Element {
   return (
     <View style={{ flex: 1 }}>
       <Animated.View style={{ flex: 1, marginBottom: bottomOffsetAnim }}>
-        <NavigationContainer>
+        <NavigationContainer ref={navigationRef}>
           <RootNavigator />
         </NavigationContainer>
       </Animated.View>

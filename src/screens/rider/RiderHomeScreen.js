@@ -6,6 +6,10 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  Image,
+  Modal,
+  Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -75,6 +79,20 @@ export const RiderHomeScreen = ({ navigation }) => {
   const [userLocation, setUserLocation] = useState([76.7834, 30.6948]);
   // Hook 7 - Location human-readable label
   const [locationLabel, setLocationLabel] = useState('Current Location');
+  // Hook 7b - Referral code modal state
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [referralCodeInput, setReferralCodeInput] = useState('');
+  const [referralSuccessMsg, setReferralSuccessMsg] = useState('');
+
+  const handleApplyReferral = () => {
+    if (!referralCodeInput.trim()) return;
+    setReferralSuccessMsg('Referral code applied! You received $5.00 ride credit.');
+    setTimeout(() => {
+      setShowReferralModal(false);
+      setReferralCodeInput('');
+      setReferralSuccessMsg('');
+    }, 1400);
+  };
 
   // Fetch user profile from /api/v1/auth/profile/ on mount
   useEffect(() => {
@@ -245,6 +263,33 @@ export const RiderHomeScreen = ({ navigation }) => {
           icon: 'clock',
         }))
       : [];
+
+  const latestDestination = useMemo(() => {
+    if (recentSearches && recentSearches.length > 0) {
+      const first = recentSearches[0];
+      const title =
+        first.title ||
+        first.display_name?.split(',')[0] ||
+        first.address?.split(',')[0] ||
+        'MAULI JAGRAN';
+      const address =
+        first.address ||
+        first.display_name ||
+        'Vikas Nagar, Chandigarh...';
+      return {
+        title,
+        address,
+        latitude: first.latitude ?? first.lat ?? 30.7041,
+        longitude: first.longitude ?? first.lon ?? 76.7176,
+      };
+    }
+    return {
+      title: 'MAULI JAGRAN',
+      address: 'Vikas Nagar, Chandigarh...',
+      latitude: 30.7041,
+      longitude: 76.7176,
+    };
+  }, [recentSearches]);
 
   // 1-Tap Destination Selection: jumps straight to RideOptions or DestinationSearch
   const handleSelectDestination = (loc, preferredVehicle = null) => {
@@ -554,43 +599,40 @@ export const RiderHomeScreen = ({ navigation }) => {
       )}
 
 
-      {/* Primary Search Bar Trigger ("Where to?") */}
+      {/* 1. Promotional Moto Taxi Hero Banner */}
       <TouchableOpacity
-        activeOpacity={0.85}
+        activeOpacity={0.92}
         onPress={() => navigation.navigate('DestinationSearch')}
-        style={styles.searchBar}
+        style={styles.bannerCard}
       >
-        <View style={styles.searchIconBox}>
-          <Icon name="search" size={18} color={COLORS.white} />
-        </View>
-        <Text style={styles.searchPlaceholder}>
-          {t('rider.whereTo', 'Where to?')}
-        </Text>
-        <View style={styles.timeBadge}>
-          <Icon name="clock" size={13} color={COLORS.text} />
-          <Text style={styles.timeText}>{t('rider.now', 'Now')} ⌄</Text>
-        </View>
+        <Image
+          source={require('../../assets/images/moto_taxi_banner.png')}
+          style={styles.bannerImage}
+          resizeMode="cover"
+        />
       </TouchableOpacity>
 
-      {/* Saved Places Section */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeaderTitle}>{t('rider.savedPlaces', 'Saved Places')}</Text>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('SavedPlaces', { initialFocus: 'home' })}
-        >
-          <Text style={styles.sectionHeaderLink}>{t('common.manage', 'Manage')}</Text>
-        </TouchableOpacity>
-      </View>
+      {/* 2. "Where would you like to go?" Teal CTA Button */}
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={() => navigation.navigate('DestinationSearch')}
+        style={styles.whereToGoBtn}
+      >
+        <Text style={styles.whereToGoText}>
+          {t('rider.whereWouldYouLikeToGo', 'Where would you like to go?')}
+        </Text>
+        <Icon name="arrow-forward" size={20} color={COLORS.white} />
+      </TouchableOpacity>
 
+      {/* 4. "Add Places" Horizontal Action Pills */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.savedPlacesRow}
+        contentContainerStyle={styles.addPlacesRow}
       >
-        {/* Home Place Card */}
+        {/* Add Home */}
         <TouchableOpacity
-          activeOpacity={0.75}
+          activeOpacity={0.8}
           onPress={() => {
             if (riderProfile?.home_address) {
               handleSelectDestination({
@@ -603,37 +645,19 @@ export const RiderHomeScreen = ({ navigation }) => {
               navigation.navigate('SavedPlaces', { initialFocus: 'home' });
             }
           }}
-          style={[
-            styles.placePill,
-            riderProfile?.home_address ? styles.placePillConfigured : null,
-          ]}
+          style={styles.addPlacePill}
         >
-          <View style={[styles.placeIconCircle, { backgroundColor: COLORS.primaryLight }]}>
-            <Icon name="home" size={16} color={COLORS.primary} />
-          </View>
-          <View style={styles.placeTextCol}>
-            <View style={styles.placeTitleRow}>
-              <Text style={styles.placeTitle}>{t('rider.home', 'Home')}</Text>
-              {riderProfile?.home_address && (
-                <TouchableOpacity
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() =>
-                    navigation.navigate('SavedPlaces', { initialFocus: 'home' })
-                  }
-                >
-                  <Icon name="pencil" size={11} color={COLORS.primary} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-              )}
-            </View>
-            <Text numberOfLines={1} style={styles.placeAddress}>
-              {riderProfile?.home_address || `+ ${t('rider.addHome', 'Add Home')}`}
-            </Text>
-          </View>
+          <Icon name="plus-circle" size={19} color={COLORS.primary} />
+          <Text style={styles.addPlacePillText}>
+            {riderProfile?.home_address
+              ? t('rider.home', 'Home')
+              : t('rider.addHome', 'Add Home')}
+          </Text>
         </TouchableOpacity>
 
-        {/* Work / Office Place Card */}
+        {/* Add Work */}
         <TouchableOpacity
-          activeOpacity={0.75}
+          activeOpacity={0.8}
           onPress={() => {
             if (riderProfile?.work_address) {
               handleSelectDestination({
@@ -646,109 +670,16 @@ export const RiderHomeScreen = ({ navigation }) => {
               navigation.navigate('SavedPlaces', { initialFocus: 'work' });
             }
           }}
-          style={[
-            styles.placePill,
-            riderProfile?.work_address ? styles.placePillConfigured : null,
-          ]}
+          style={styles.addPlacePill}
         >
-          <View style={[styles.placeIconCircle, { backgroundColor: COLORS.secondPrimaryLight }]}>
-            <Icon name="briefcase" size={16} color={COLORS.secondPrimary} />
-          </View>
-          <View style={styles.placeTextCol}>
-            <View style={styles.placeTitleRow}>
-              <Text style={styles.placeTitle}>{t('rider.work', 'Work')}</Text>
-              {riderProfile?.work_address && (
-                <TouchableOpacity
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() =>
-                    navigation.navigate('SavedPlaces', { initialFocus: 'work' })
-                  }
-                >
-                  <Icon name="pencil" size={11} color={COLORS.secondPrimary} style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
-              )}
-            </View>
-            <Text numberOfLines={1} style={styles.placeAddress}>
-              {riderProfile?.work_address || `+ ${t('rider.addWork', 'Add Work')}`}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Add More Place Button */}
-        <TouchableOpacity
-          activeOpacity={0.75}
-          onPress={() => navigation.navigate('SavedPlaces', { initialFocus: 'home' })}
-          style={styles.managePlacesPill}
-        >
-          <View style={styles.addIconCircle}>
-            <Icon name="plus" size={14} color={COLORS.primary} />
-          </View>
-          <Text style={styles.managePlacesText}>{t('rider.addPlace', 'Add Place')}</Text>
+          <Icon name="plus-circle" size={19} color={COLORS.primary} />
+          <Text style={styles.addPlacePillText}>
+            {riderProfile?.work_address
+              ? t('rider.work', 'Work')
+              : t('rider.addWork', 'Add Work')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
-
-      {/* Quick Suggestions / Recent Places List */}
-      {displayedSuggestions.length > 0 ? (
-        <>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeaderTitle}>
-              {t('rider.recentPlaces', 'Recent Destinations')}
-            </Text>
-            <Text style={styles.sectionHeaderSubtitle}>1-tap ride</Text>
-          </View>
-
-          <View style={styles.suggestionsContainer}>
-            {displayedSuggestions.map((item, index) => (
-              <TouchableOpacity
-                key={item.id || index}
-                activeOpacity={0.7}
-                onPress={() => handleSelectDestination(item)}
-                style={[
-                  styles.suggestionItem,
-                  index === displayedSuggestions.length - 1 && styles.suggestionItemLast,
-                ]}
-              >
-                <View style={styles.suggestionIconBox}>
-                  <Icon
-                    name={item.icon || 'map-pin'}
-                    size={16}
-                    color={COLORS.textLight}
-                  />
-                </View>
-                <View style={styles.suggestionTextCol}>
-                  <Text numberOfLines={1} style={styles.suggestionTitle}>
-                    {item.title}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.suggestionAddress}>
-                    {item.address}
-                  </Text>
-                </View>
-                <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
-              </TouchableOpacity>
-            ))}
-          </View>
-        </>
-      ) : null}
-
-      {/* Promotional / Savings Banner */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => navigation.navigate('DestinationSearch')}
-        style={styles.promoBanner}
-      >
-        <View style={styles.promoIconCircle}>
-          <Icon name="gift" size={18} color={COLORS.secondPrimary} />
-        </View>
-        <View style={styles.promoTextCol}>
-          <View style={styles.promoTagRow}>
-            <Text style={styles.promoTag}>SPECIAL OFFER</Text>
-            <Text style={styles.promoCodeBadge}>MOTO20</Text>
-          </View>
-          <Text style={styles.promoTitle}>Get 20% OFF your next ride</Text>
-          <Text style={styles.promoSubtitle}>Fast, affordable bike & cab rides</Text>
-        </View>
-        <Icon name="chevron-right" size={16} color={COLORS.secondPrimary} />
-      </TouchableOpacity>
     </View>
   );
 
@@ -761,66 +692,20 @@ export const RiderHomeScreen = ({ navigation }) => {
         onRecenter={handleRecenterLocation}
       />
 
-      {/* Floating Top Header */}
-      <View style={[styles.topHeader, { top: Math.max(insets.top + 8, 16) }]}>
-        {/* Profile Shortcut */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('RiderProfile')}
-          style={styles.profileBtn}
-        >
-          <ProfileAvatar
-            imageUri={authUser?.profile_photo}
-            name={displayName}
-            size={40}
-          />
-          <View style={styles.greetingCol}>
-            <Text style={styles.greetingText}>{greeting},</Text>
-            <Text style={styles.userName} numberOfLines={1}>
-              {displayName} 👋
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Right Header Action Controls */}
-        <View style={styles.headerRightActions}>
-          {/* Socket Connection Live Status */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => dispatch(connectRiderWebSocket())}
-            style={[
-              styles.roleBadge,
-              socketConnected ? styles.roleBadgeConnected : styles.roleBadgeConnecting,
-            ]}
-          >
-            <View
-              style={[
-                styles.socketDot,
-                { backgroundColor: socketConnected ? COLORS.primary : '#F59E0B' },
-              ]}
-            />
-            <Text
-              style={[
-                styles.roleBadgeText,
-                { color: socketConnected ? COLORS.primary : '#B45309' },
-              ]}
-            >
-              {socketConnected ? 'LIVE' : 'CONNECTING'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Quick Activity / Trips History Icon Button */}
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() => navigation.navigate('Activity')}
-            style={styles.headerIconBtn}
-          >
-            <Icon name="time" size={18} color={COLORS.text} />
-          </TouchableOpacity>
-
-    
-        </View>
-      </View>
+      {/* Floating Referral Code Pill (Top-Right of Map) */}
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setShowReferralModal(true)}
+        style={[
+          styles.floatingReferralBtn,
+          { top: Math.max(insets.top + 8, 14) },
+        ]}
+      >
+        <Icon name="megaphone" size={16} color="#111827" />
+        <Text style={styles.floatingReferralText}>
+          {t('rider.gotReferralCode', 'Got a Referral Code?')}
+        </Text>
+      </TouchableOpacity>
 
       {/* Floating Active Trip Bar on Map */}
       {hasActiveRiderTrip && (
@@ -882,14 +767,96 @@ export const RiderHomeScreen = ({ navigation }) => {
             <ScrollView
               contentContainerStyle={styles.scrollableBottomPane}
               showsVerticalScrollIndicator={false}
-              bounces={true}
+              bounces={false}
             >
               {searchControls}
             </ScrollView>
           )
         }
-        primaryRatio={0.52}
+        primaryRatio={0.48}
+        secondaryStyle={styles.bottomSheetSecondary}
       />
+
+      {/* Referral Code Modal */}
+      <Modal
+        visible={showReferralModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReferralModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowReferralModal(false)}
+        >
+          <Pressable style={styles.referralModalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.referralModalHeader}>
+              <View style={styles.referralIconCircle}>
+                <Icon name="megaphone" size={24} color={COLORS.primary} />
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowReferralModal(false)}
+                style={styles.modalCloseBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="close" size={18} color={COLORS.textLight} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.referralModalTitle}>
+              {t('rider.referralTitle', 'Got a Referral Code?')}
+            </Text>
+            <Text style={styles.referralModalSub}>
+              {t(
+                'rider.referralSubtitle',
+                'Enter an invite or promo voucher code to unlock bonus ride credits and discounts.'
+              )}
+            </Text>
+
+            <View style={styles.referralInputWrapper}>
+              <Icon name="gift" size={18} color={COLORS.primary} />
+              <TextInput
+                value={referralCodeInput}
+                onChangeText={(text) => {
+                  setReferralCodeInput(text.toUpperCase());
+                  setReferralSuccessMsg('');
+                }}
+                placeholder="e.g. MOTO50, RIDEFREE"
+                placeholderTextColor={COLORS.textLight}
+                autoCapitalize="characters"
+                style={styles.referralTextInput}
+              />
+              {referralCodeInput ? (
+                <TouchableOpacity onPress={() => setReferralCodeInput('')}>
+                  <Icon name="close" size={14} color={COLORS.textLight} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {referralSuccessMsg ? (
+              <View style={styles.referralSuccessBanner}>
+                <Icon name="check-circle" size={16} color={COLORS.primary} />
+                <Text style={styles.referralSuccessText}>{referralSuccessMsg}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.referralBtnRow}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleApplyReferral}
+                style={[
+                  styles.referralApplyBtn,
+                  !referralCodeInput.trim() && styles.referralApplyBtnDisabled,
+                ]}
+                disabled={!referralCodeInput.trim()}
+              >
+                <Text style={styles.referralApplyBtnText}>
+                  {t('common.apply', 'Apply Code')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1001,26 +968,18 @@ const styles = StyleSheet.create({
   },
   bottomCard: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.extraLarge,
-    borderTopRightRadius: RADIUS.extraLarge,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.xl,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 8,
-    borderTopWidth: 1,
-    borderColor: COLORS.border,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 10,
+    paddingBottom: SPACING.sm,
   },
   sheetHandleBar: {
-    width: 40,
+    width: 44,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#D1D5DB',
     alignSelf: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: 10,
   },
   pickupBar: {
     flexDirection: 'row',
@@ -1554,6 +1513,254 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.white,
     letterSpacing: 0.3,
+  },
+  bottomSheetSecondary: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: COLORS.white,
+    marginTop: -16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  bannerCard: {
+    marginHorizontal: SPACING.md,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#E6F9F5',
+    borderWidth: 1,
+    borderColor: '#E2F4EE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  bannerImage: {
+    width: '100%',
+    height: 94,
+    borderRadius: 16,
+  },
+  whereToGoBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    height: 52,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: SPACING.md,
+    marginBottom: 12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  whereToGoText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.1,
+  },
+  recentDestCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: SPACING.md,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  recentDestTextCol: {
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  recentDestTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 3,
+    letterSpacing: 0.2,
+  },
+  recentDestSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '400',
+  },
+  recentDestArrowBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPlacesRow: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  addPlacePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  addPlacePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 7,
+  },
+  floatingReferralBtn: {
+    position: 'absolute',
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    gap: 6,
+    zIndex: 10,
+  },
+  floatingReferralText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.lg,
+  },
+  referralModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.extraLarge,
+    padding: SPACING.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  referralModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  referralIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.inputBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referralModalTitle: {
+    ...TYPOGRAPHY.heading2,
+    color: COLORS.text,
+    marginBottom: SPACING.xs,
+  },
+  referralModalSub: {
+    ...TYPOGRAPHY.bodySmall,
+    color: COLORS.textLight,
+    marginBottom: SPACING.lg,
+    lineHeight: 18,
+  },
+  referralInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    height: 48,
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  referralTextInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: 0.8,
+  },
+  referralSuccessBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    padding: SPACING.sm,
+    borderRadius: RADIUS.small,
+    gap: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  referralSuccessText: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.primaryDark,
+    fontWeight: '700',
+    flex: 1,
+  },
+  referralBtnRow: {
+    marginTop: SPACING.xs,
+  },
+  referralApplyBtn: {
+    backgroundColor: COLORS.primary,
+    height: 48,
+    borderRadius: RADIUS.round,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  referralApplyBtnDisabled: {
+    backgroundColor: COLORS.disabled,
+  },
+  referralApplyBtnText: {
+    ...TYPOGRAPHY.button,
+    color: COLORS.white,
+    fontWeight: '700',
   },
 });
 

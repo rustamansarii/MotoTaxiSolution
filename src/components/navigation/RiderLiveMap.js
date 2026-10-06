@@ -154,17 +154,12 @@ export const RiderLiveMap = ({
               </View>
             ) : (
               <View style={styles.userMarkerContainer}>
-                <View style={styles.userHalo} />
-                <View style={styles.userDot}>
-                  <View style={styles.userInnerDot} />
+                <View style={styles.userCalloutBubble}>
+                  <Text style={styles.userCalloutText}>You</Text>
+                  <Icon name="user" size={12} color={COLORS.white} />
                 </View>
-                {pickupLabel ? (
-                  <View style={styles.pickupPill}>
-                    <Text style={styles.pickupPillText} numberOfLines={1}>
-                      {pickupLabel}
-                    </Text>
-                  </View>
-                ) : null}
+                <View style={styles.userCalloutArrow} />
+                <View style={styles.userCalloutPinDot} />
               </View>
             )}
           </Marker>
@@ -214,7 +209,7 @@ export const RiderLiveMap = ({
         onPress={handleRecenter}
         style={styles.recenterBtn}
       >
-        <Icon name="location" size={20} color={COLORS.primary} />
+        <Icon name="crosshair" size={20} color={COLORS.text} />
       </TouchableOpacity>
     </View>
   );
@@ -231,47 +226,45 @@ const styles = StyleSheet.create({
   userMarkerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 60,
-    height: 60,
   },
-  userHalo: {
-    position: 'absolute',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(23, 186, 161, 0.25)',
-  },
-  userDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: COLORS.white,
+  userCalloutBubble: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    gap: 4,
   },
-  userInnerDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: COLORS.primary,
-  },
-  pickupPill: {
-    position: 'absolute',
-    bottom: -18,
-    backgroundColor: COLORS.text,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: RADIUS.round,
-  },
-  pickupPillText: {
+  userCalloutText: {
     color: COLORS.white,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '700',
+  },
+  userCalloutArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: COLORS.primary,
+    marginTop: -1,
+  },
+  userCalloutPinDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: COLORS.primary,
+    marginTop: 1,
+    borderWidth: 1.5,
+    borderColor: COLORS.white,
   },
   recenterBtn: {
     position: 'absolute',

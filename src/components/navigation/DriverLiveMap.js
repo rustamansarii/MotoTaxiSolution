@@ -301,7 +301,7 @@ export const DriverLiveMap = ({
             <View style={styles.driverMarkerWrapper}>
               <DriverMarker
                 heading={driverHeading}
-                eta={effectiveStatus}
+                eta={activeDestination ? effectiveStatus : (statusLabel || 'You are here')}
               />
             </View>
           </Marker>
@@ -382,14 +382,24 @@ export const DriverLiveMap = ({
           ))}
       </MapLibreMap>
 
-      {/* Floating Re-center GPS Button */}
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={handleRecenter}
-        style={styles.recenterBtn}
-      >
-        <Icon name="location" size={20} color={COLORS.primary} />
-      </TouchableOpacity>
+      {/* Floating Map Controls (Crosshairs Recenter + Direction Navigation) */}
+      <View style={styles.mapControlsCol}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleRecenter}
+          style={styles.mapControlBtn}
+        >
+          <Icon name="my-location" size={20} color="#334155" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleRecenter}
+          style={styles.mapControlBtn}
+        >
+          <Icon name="navigation" size={20} color="#059669" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -440,23 +450,27 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: 'rgba(65, 84, 254, 0.22)',
   },
-  recenterBtn: {
+  mapControlsCol: {
     position: 'absolute',
     right: 16,
-    bottom: 16,
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    bottom: 20,
+    gap: 12,
+    zIndex: 10,
+  },
+  mapControlBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.16,
     shadowRadius: 5,
     elevation: 5,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#E2E8F0',
   },
   pinWrapper: {
     alignItems: 'center',

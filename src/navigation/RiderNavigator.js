@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../theme/colors';
 import { TYPOGRAPHY } from '../theme/typography';
 import { useResponsive } from '../utils/responsive';
+import { useTranslation } from 'react-i18next';
 import Icon from '../components/Icon';
 
 // Screens
@@ -30,6 +31,7 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const RiderTabs = () => {
+  const { t } = useTranslation();
   const { insets, isLandscape, isFoldableOrTablet } = useResponsive();
 
   const tabBarStyle = {
@@ -57,7 +59,7 @@ const RiderTabs = () => {
         name="RiderHome"
         component={RiderHomeScreen}
         options={{
-          tabBarLabel: 'Home',
+          tabBarLabel: t('tabs.home', 'Home'),
           tabBarIcon: ({ color, focused }) => (
             <Icon name="bike" size={22} color={color} />
           ),
@@ -67,9 +69,9 @@ const RiderTabs = () => {
         name="Activity"
         component={ActivityScreen}
         options={{
-          tabBarLabel: 'Activity',
+          tabBarLabel: t('tabs.live', 'Live'),
           tabBarIcon: ({ color, focused }) => (
-            <Icon name="time" size={22} color={color} />
+            <Icon name="live" size={22} color={color} />
           ),
         }}
       />
@@ -78,7 +80,7 @@ const RiderTabs = () => {
         name="RiderProfile"
         component={RiderProfileScreen}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: t('tabs.profile', 'Profile'),
           tabBarIcon: ({ color, focused }) => (
             <Icon name="user" size={22} color={color} />
           ),

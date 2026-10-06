@@ -25,7 +25,7 @@ import { LanguageButton } from '../../components/LanguageButton';
 import { KeyboardTextInput, useKeyboardSafe } from '../../components/keyboard';
 import { CountryPickerModal } from '../../components/CountryPickerModal';
 import { usePopup } from '../../context/PopupContext';
-import { saveRole, saveTokens } from '../../utils/storage';
+import { saveRole, saveTokens, setGuestMode } from '../../utils/storage';
 
 const GREEN = '#17baa1';
 
@@ -148,6 +148,7 @@ export const LoginScreen = ({ navigation, route }) => {
         if (returnedRole) {
           await saveRole(returnedRole);
         }
+        await setGuestMode(false);
         if (accessToken) {
           await saveTokens({
             access: accessToken,
@@ -202,6 +203,15 @@ export const LoginScreen = ({ navigation, route }) => {
             : email,
       });
     }, 600);
+  };
+
+  const handleGuestMode = async () => {
+    keyboard?.hideKeyboard?.();
+    Keyboard.dismiss();
+    try {
+      await setGuestMode(true);
+    } catch (e) {}
+    navigation.navigate('RoleSelection', { isGuest: true });
   };
 
   return (
@@ -452,6 +462,21 @@ export const LoginScreen = ({ navigation, route }) => {
               <View style={styles.divider} />
 
             </View>
+
+            {/* =====================================
+                GUEST MODE BUTTON
+            ===================================== */}
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={handleGuestMode}
+              style={styles.guestButton}
+            >
+              <Icon name="user" size={18} color={GREEN} />
+              <Text style={styles.guestButtonText}>
+                {t('auth.continueAsGuest', 'Continue as Guest')}
+              </Text>
+            </TouchableOpacity>
 
          
 
@@ -1014,6 +1039,25 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
 
     fontWeight: '600',
+  },
+
+  guestButton: {
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: GREEN,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+
+  guestButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: GREEN,
   },
 
   /* ========================================

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   StatusBar,
   TouchableOpacity,
@@ -78,7 +79,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
         .join(' ');
     }
-    return ACTIVE_MOCK_DRIVER.name;
+    return 'Raj';
   }, [authUser]);
 
   const driverRating = useMemo(() => {
@@ -86,8 +87,33 @@ export const DriverHomeScreen = ({ navigation }) => {
       authUser?.driver_profile?.rating_avg ||
       authUser?.rider_profile?.rating_avg ||
       authUser?.rating ||
-      ACTIVE_MOCK_DRIVER.rating
+      5.0
     );
+  }, [authUser]);
+
+  const todayEarningsFormatted = useMemo(() => {
+    let amount = 1250;
+    if (walletSummary?.today_earnings != null && Number(walletSummary.today_earnings) > 0) {
+      amount = Number(walletSummary.today_earnings);
+    } else if (wallet?.balance != null && Number(wallet.balance) > 0) {
+      amount = Number(wallet.balance);
+    }
+    return `${Number(amount).toLocaleString('en-IN')}`;
+  }, [walletSummary, wallet]);
+
+  const ridesCompletedDisplay = useMemo(() => {
+    return String(
+      walletSummary?.completed_rides ||
+      authUser?.driver_profile?.total_rides ||
+      6
+    );
+  }, [walletSummary, authUser]);
+
+  const onlineTimeDisplay = useMemo(() => {
+    if (authUser?.driver_profile?.online_hours) {
+      return `${authUser.driver_profile.online_hours}h`;
+    }
+    return '6h 30m';
   }, [authUser]);
 
   const hasActiveDriverRide = Boolean(
@@ -133,7 +159,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     currentLocation?.lat || 30.6948,
   ]);
   const [driverHeading, setDriverHeading] = useState(45);
-  const [requestCountdown, setRequestCountdown] = useState(15);
+  const [requestCountdown, setRequestCountdown] = useState(60);
   const handledRideIdRef = useRef(null);
   const navigatedRideIdRef = useRef(null);
   const driverLocationRef = useRef(driverLocation);
@@ -271,7 +297,7 @@ export const DriverHomeScreen = ({ navigation }) => {
       console.log('[DriverHome] Real-time ride request received:', incomingRideRequest);
       if (handledRideIdRef.current !== incomingRideRequest.ride_id) {
         handledRideIdRef.current = incomingRideRequest.ride_id;
-        setRequestCountdown(15);
+        setRequestCountdown(60);
 
         const req = incomingRideRequest;
         const curLoc = driverLocationRef.current || driverLocation;
@@ -327,7 +353,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     }
   }, [rideTakenNotice, dispatch]);
 
-  // Request countdown timer (15s)
+  // Request countdown timer (60s / 1 min)
   useEffect(() => {
     if (!incomingRideRequest) return;
     if (requestCountdown <= 0) {
@@ -630,88 +656,6 @@ export const DriverHomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* Floating Driver Top Profile Bar */}
-      <View style={[styles.topBar, { top: Math.max(insets.top + 8, 16) }]}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('DriverProfile')}
-          style={styles.driverProfileBtn}
-        >
-          <ProfileAvatar
-            imageUri={authUser?.profile_photo || ACTIVE_MOCK_DRIVER.avatar}
-            name={driverDisplayName}
-            size={40}
-            rating={driverRating}
-            showRatingBadge={false}
-          />
-          <View style={styles.driverNameCol}>
-            <Text style={styles.driverName} numberOfLines={1}>
-              {driverDisplayName}
-            </Text>
-            <View style={styles.driverRatingRow}>
-              <Icon name="star" size={11} color={COLORS.secondary} />
-              <Text style={styles.driverRatingText}>
-                {driverRating}
-              </Text>
-              {socketConnected && (
-                <View style={styles.liveSocketBadge}>
-                  <View style={styles.liveSocketDot} />
-                  <Text style={styles.liveSocketText}>LIVE</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.topActionsRow}>
-          {/* Online / Offline Status Toggle Pill */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={toggleOnline}
-            disabled={onlineLoading}
-            style={[
-              styles.statusPill,
-              isOnline ? styles.onlinePill : styles.offlinePill,
-            ]}
-          >
-            {onlineLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={isOnline ? COLORS.primaryDark : COLORS.text}
-              />
-            ) : (
-              <>
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: isOnline
-                        ? socketConnected
-                          ? COLORS.primary
-                          : '#F59E0B'
-                        : '#9CA3AF',
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.statusPillText,
-                    { color: isOnline ? COLORS.primaryDark : COLORS.textLight },
-                  ]}
-                >
-                  {isOnline
-                    ? socketConnected
-                      ? 'ONLINE'
-                      : socketConnecting
-                      ? 'CONNECTING'
-                      : 'ONLINE'
-                    : 'OFFLINE'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
     </View>
   ), [
     driverLocation,
@@ -731,26 +675,10 @@ export const DriverHomeScreen = ({ navigation }) => {
     hasActiveDriverRide,
     handleResumeDriverTrip,
     isSplitLayout,
-    insets.top,
-    navigation,
-    authUser,
-    toggleOnline,
-    onlineLoading,
   ]);
 
   const summaryPanel = (
-    <View
-      style={[
-        styles.bottomPanel,
-        isOnline ? styles.onlinePanel : styles.offlinePanel,
-        isSplitLayout && styles.sidePanel,
-        !isSplitLayout && {
-          paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xl),
-        },
-      ]}
-    >
-      {!isSplitLayout && <View style={styles.dragHandle} />}
-
+    <View style={styles.summaryPanelContainer}>
       {/* Active Trip Banner / Card (Visible when Driver backed out to HomeScreen with active ride) */}
       {hasActiveDriverRide && activeRide && (
         <TouchableOpacity
@@ -836,29 +764,6 @@ export const DriverHomeScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Route Preview */}
-          <View style={styles.activeTripRouteBox}>
-            <View style={styles.activeTripRouteRow}>
-              <View style={styles.activeTripPickupDot} />
-              <Text numberOfLines={1} style={styles.activeTripAddressText}>
-                {activeRide.pickup_address ||
-                  activeRide.pickup?.address ||
-                  activeRide.pickup?.display_name ||
-                  'Pickup Location'}
-              </Text>
-            </View>
-            <View style={styles.activeTripRouteLine} />
-            <View style={styles.activeTripRouteRow}>
-              <View style={styles.activeTripDropSquare} />
-              <Text numberOfLines={1} style={styles.activeTripAddressText}>
-                {activeRide.drop_address ||
-                  activeRide.drop?.address ||
-                  activeRide.drop?.display_name ||
-                  'Dropoff Location'}
-              </Text>
-            </View>
-          </View>
-
           {/* Big Action Button */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -884,70 +789,183 @@ export const DriverHomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      {/* Earnings Ticker */}
-      <View style={styles.earningsRow}>
-        <View>
-          <Text style={styles.earningsLabel}>
-            {t('driver.todayEarnings', "Today's Earnings")}
-          </Text>
-          <Text style={styles.earningsAmount}>
-            {formatCurrency(
-              walletSummary?.today_earnings ??
-                (wallet?.balance !== undefined && !isNaN(Number(wallet.balance))
-                  ? Number(wallet.balance)
-                  : MOCK_DRIVER_STATS.dailyEarnings),
-              wallet?.currency === 'INR' ? '₹' : wallet?.currency === 'USD' ? '$' : (wallet?.currency || '$')
-            )}
-          </Text>
+      {/* 1. Hero Promo Banner */}
+      <View style={styles.bannerContainer}>
+        <Image
+          source={require('../../assets/images/driver_promo_banner.png')}
+          style={styles.bannerImage}
+          resizeMode="cover"
+        />
+      </View>
+
+      {/* 2. Status Card (You are Online / Offline + Go Offline / Online) */}
+      <View style={styles.statusCard}>
+        <View style={styles.statusLeftRow}>
+          <View
+            style={[
+              styles.statusCircleOuter,
+              isOnline ? styles.statusCircleOuterOnline : styles.statusCircleOuterOffline,
+            ]}
+          >
+            <View
+              style={[
+                styles.statusCircleInner,
+                isOnline ? styles.statusCircleInnerOnline : styles.statusCircleInnerOffline,
+              ]}
+            />
+          </View>
+          <View style={styles.statusTextCol}>
+            <Text style={styles.statusTitle}>
+              {isOnline
+                ? t('driver.youAreOnline', 'You are Online')
+                : t('driver.youAreOffline', 'You are Offline')}
+            </Text>
+            <Text style={styles.statusSubtitle} numberOfLines={1}>
+              {isOnline
+                ? t('driver.readyForRequests', 'Ready to receive ride requests')
+                : t('driver.goOnlineToStart', 'Go online to start receiving rides')}
+            </Text>
+          </View>
         </View>
 
         <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('DriverEarnings')}
-          style={styles.viewEarningsBtn}
+          activeOpacity={0.8}
+          onPress={toggleOnline}
+          disabled={onlineLoading}
+          style={[
+            styles.statusToggleBtn,
+            isOnline ? styles.statusToggleBtnOnline : styles.statusToggleBtnOffline,
+          ]}
         >
-          <Text style={styles.viewEarningsText}>{t('driver.trips', 'Weekly Stats')} ›</Text>
+          {onlineLoading ? (
+            <ActivityIndicator
+              size="small"
+              color={isOnline ? '#DC2626' : '#16A34A'}
+            />
+          ) : (
+            <>
+              <Icon
+                name="power"
+                size={16}
+                color={isOnline ? '#DC2626' : '#16A34A'}
+              />
+              <Text
+                style={[
+                  styles.statusToggleText,
+                  isOnline ? styles.statusToggleTextOnline : styles.statusToggleTextOffline,
+                ]}
+              >
+                {isOnline
+                  ? t('driver.goOffline', 'Go Offline')
+                  : t('driver.goOnline', 'Go Online')}
+              </Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* Quick Stats Grid */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statCell}>
-          <Text style={styles.statNumber}>4.2 hrs</Text>
-          <Text style={styles.statCaption}>{t('driver.hoursOnline', 'Online Time')}</Text>
+      {/* 3. Driver Profile & Earnings Summary Card */}
+      <View style={styles.driverSummaryCard}>
+        {/* Top: Avatar & Name | Divider | Today's Earnings */}
+        <View style={styles.summaryTopRow}>
+          {/* Driver Profile */}
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => navigation.navigate('DriverProfile')}
+            style={styles.driverProfileCol}
+          >
+            <View style={styles.avatarWrapper}>
+              <ProfileAvatar
+                imageUri={authUser?.profile_photo}
+                name={driverDisplayName}
+                size={54}
+                showRatingBadge={false}
+              />
+              <View style={styles.avatarEditBadge}>
+                <Icon name="pencil" size={11} color="#059669" />
+              </View>
+            </View>
+
+            <View style={styles.driverMetaCol}>
+              <Text style={styles.driverNameText} numberOfLines={1}>
+                {driverDisplayName}
+              </Text>
+              <View style={styles.ratingRow}>
+                <Icon name="star" size={15} color="#F59E0B" />
+                <Text style={styles.ratingNumberText}>
+                  {driverRating ? Number(driverRating).toFixed(1) : '5.0'}
+                </Text>
+                <Text style={styles.ratingCountText}>
+                  ({authUser?.driver_profile?.total_rides || 3} {t('driver.rides', 'rides')})
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Vertical Divider */}
+          <View style={styles.summaryVerticalDivider} />
+
+          {/* Today's Earnings */}
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => navigation.navigate('DriverEarnings')}
+            style={styles.earningsCol}
+          >
+            <View style={styles.earningsIconBox}>
+              <Icon name="wallet" size={22} color="#059669" />
+            </View>
+            <View style={styles.earningsTextCol}>
+              <Text style={styles.earningsCaption}>
+                {t('driver.todayEarnings', "Today's Earnings")}
+              </Text>
+              <Text style={styles.earningsValueText} numberOfLines={1}>
+                ${todayEarningsFormatted}
+              </Text>
+            </View>
+            <Icon name="chevron-right" size={18} color="#94A3B8" />
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.statCellDivider} />
+        {/* Bottom Metrics: Online Time | Rides Completed | Rating */}
+        <View style={styles.metricsContainer}>
+          <View style={styles.metricCell}>
+            <View style={styles.metricIconCircle}>
+              <Icon name="time" size={18} color="#036747" />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>{t('driver.onlineTime', 'Online Time')}</Text>
+              <Text style={styles.metricValue}>{onlineTimeDisplay}</Text>
+            </View>
+          </View>
 
-        <View style={styles.statCell}>
-          <Text style={styles.statNumber}>8</Text>
-          <Text style={styles.statCaption}>{t('driver.tripsCompleted', 'Trips Completed')}</Text>
-        </View>
+          <View style={styles.metricDivider} />
 
-        <View style={styles.statCellDivider} />
+          <View style={styles.metricCell}>
+            <View style={styles.metricIconCircle}>
+              <Icon name="bike" size={18} color="#059669" />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>{t('driver.ridesCompleted', 'Rides Completed')}</Text>
+              <Text style={styles.metricValue}>{ridesCompletedDisplay}</Text>
+            </View>
+          </View>
 
-        <View style={styles.statCell}>
-          <Text style={[styles.statNumber, { color: COLORS.primaryDark }]}>
-            {MOCK_DRIVER_STATS.acceptanceRate}
-          </Text>
-          <Text style={styles.statCaption}>{t('driver.acceptRide', 'Acceptance')}</Text>
+          <View style={styles.metricDivider} />
+
+          <View style={styles.metricCell}>
+            <View style={[styles.metricIconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Icon name="star" size={18} color="#F59E0B" />
+            </View>
+            <View style={styles.metricContent}>
+              <Text style={styles.metricLabel}>{t('driver.rating', 'Rating')}</Text>
+              <Text style={styles.metricValue}>
+                {driverRating ? Number(driverRating).toFixed(1) : '5.0'}
+              </Text>
+          
+            </View>
+          </View>
         </View>
       </View>
-
-  
-
-      {/* Direct Action Trigger */}
-      {isOnline ? (
-        <></>
-      ) : (
-        <CustomButton
-          title={onlineLoading ? 'Going Online...' : 'Go Online to Receive Trips'}
-          loading={onlineLoading}
-          onPress={toggleOnline}
-          variant="secondary"
-          style={styles.requestCta}
-        />
-      )}
     </View>
   );
 
@@ -1059,28 +1077,30 @@ export const DriverHomeScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar
         barStyle="dark-content"
-        backgroundColor={COLORS.background}
+        backgroundColor={COLORS.white}
       />
 
       <AdaptiveSplitView
         primaryPane={mapPane}
         secondaryPane={
           <ScrollView
-            contentContainerStyle={
-              isSplitLayout ? { flexGrow: 1 } : styles.scrollableBottomPane
-            }
+            contentContainerStyle={[
+              styles.scrollableBottomPane,
+              isSplitLayout && { flexGrow: 1 },
+              { paddingBottom: Math.max(insets.bottom + 20, 36) },
+            ]}
             showsVerticalScrollIndicator={false}
-            bounces={false}
+            bounces={true}
           >
             {incomingRideRequest && rideStatus === 'requested' && !activeRide
               ? incomingRideSheet
               : summaryPanel}
           </ScrollView>
         }
-        primaryRatio={0.55}
+        primaryRatio={0.42}
       />
     </SafeAreaView>
   );
@@ -1092,130 +1112,270 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollableBottomPane: {
-    flexGrow: 1,
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.extraLarge,
-    borderTopRightRadius: RADIUS.extraLarge,
+    backgroundColor: '#F8FAFC',
+    padding: SPACING.md,
   },
-  topBar: {
-    position: 'absolute',
-    top: 50,
-    left: SPACING.lg,
-    right: SPACING.lg,
-    zIndex: 10,
+  summaryPanelContainer: {
+    gap: 12,
+  },
+  bannerContainer: {
+    width: '100%',
+    borderRadius: 18,
+    overflow: 'hidden',
     backgroundColor: COLORS.white,
-    borderRadius: RADIUS.extraLarge,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  bannerImage: {
+    width: '100%',
+    height: 145,
+    borderRadius: 18,
+  },
+  statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  driverProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  driverNameCol: {
-    marginLeft: SPACING.sm,
-  },
-  driverName: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  driverRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  driverRatingText: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginLeft: 3,
-  },
-  liveSocketBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: SPACING.sm,
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: RADIUS.round,
-  },
-  liveSocketDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#2E7D32',
-    marginRight: 4,
-  },
-  liveSocketText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#2E7D32',
-  },
-  topActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-  },
-  switchRiderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.round,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     elevation: 2,
   },
-  switchRiderText: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.secondPrimary,
-    marginLeft: 4,
-    fontSize: 11,
-  },
-  statusPill: {
+  statusLeftRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.round,
+    flex: 1,
+    marginRight: 10,
   },
-  onlinePill: {
-    backgroundColor: COLORS.primaryLight,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
+  statusCircleOuter: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  offlinePill: {
-    backgroundColor: COLORS.inputBg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
+  statusCircleOuterOnline: {
+    backgroundColor: '#DCFCE7',
   },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: RADIUS.round,
-    marginRight: 6,
+  statusCircleOuterOffline: {
+    backgroundColor: '#F1F5F9',
   },
-  statusPillText: {
-    ...TYPOGRAPHY.caption,
+  statusCircleInner: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  statusCircleInnerOnline: {
+    backgroundColor: '#16A34A',
+  },
+  statusCircleInnerOffline: {
+    backgroundColor: '#94A3B8',
+  },
+  statusTextCol: {
+    flex: 1,
+  },
+  statusTitle: {
+    ...TYPOGRAPHY.body,
+    fontSize: 18,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: COLORS.text,
+  },
+  statusSubtitle: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  statusToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: RADIUS.round,
+    gap: 6,
+  },
+  statusToggleBtnOnline: {
+    backgroundColor: '#FEE2E2',
+  },
+  statusToggleBtnOffline: {
+    backgroundColor: '#DCFCE7',
+  },
+  statusToggleText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  statusToggleTextOnline: {
+    color: '#DC2626',
+  },
+  statusToggleTextOffline: {
+    color: '#16A34A',
+  },
+  driverSummaryCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    padding:8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  summaryTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  driverProfileCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  driverMetaCol: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  driverNameText: {
+    ...TYPOGRAPHY.h3,
+    fontSize: 19,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+    gap: 4,
+  },
+  ratingNumberText: {
+    ...TYPOGRAPHY.bodySmall,
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  ratingCountText: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 12,
+    color: COLORS.textLight,
+  },
+  summaryVerticalDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 10,
+  },
+  earningsCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1.1,
+  },
+  earningsIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  earningsTextCol: {
+    flex: 1,
+  },
+  earningsCaption: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 11,
+    color: COLORS.textLight,
+  },
+  earningsValueText: {
+    ...TYPOGRAPHY.title,
+    fontSize: 19,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginTop: 1,
+  },
+  metricsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginTop: 14,
+  },
+  metricCell: {
+    flex: 1,
+    flexDirection:'row',
+    // alignItems: 'center',
+    // justifyContent: 'center',
+  },
+  metricIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  metricContent: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 10,
+    color: COLORS.textLight,
+    textAlign: 'center',
+  },
+  metricValue: {
+    ...TYPOGRAPHY.bodySmall,
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginTop: 1,
+    textAlign: 'center',
+  },
+  metricSub: {
+    ...TYPOGRAPHY.caption,
+    fontSize: 9,
+    color: COLORS.textLight,
+    textAlign: 'center',
+  },
+  metricDivider: {
+    width: 1,
+    height: 34,
+    backgroundColor: '#DCFCE7',
   },
   mapArea: {
     flex: 1,

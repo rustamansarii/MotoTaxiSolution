@@ -8,6 +8,7 @@ import Icon from './Icon';
 export const ProfileAvatar = ({
   name = 'User',
   imageUrl,
+  imageUri,
   size = 64,
   showEdit = false,
   onEditPress,
@@ -15,6 +16,9 @@ export const ProfileAvatar = ({
   showStatus = false,
   style,
 }) => {
+  const photo = imageUrl || imageUri;
+  const photoUri = typeof photo === 'string' ? photo : photo?.uri;
+
   const getInitials = (n) => {
     if (!n) return 'U';
     const parts = n.trim().split(' ');
@@ -38,9 +42,9 @@ export const ProfileAvatar = ({
           },
         ]}
       >
-        {imageUrl ? (
+        {photoUri ? (
           <Image
-            source={{ uri: imageUrl }}
+            source={{ uri: photoUri }}
             style={{
               width: size,
               height: size,

@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   API_TOKEN: 'api_token',
   USER: 'user',
   ROLE: 'user_role',
+  IS_GUEST: 'is_guest_mode',
 };
 
 /**
@@ -28,6 +29,9 @@ export const saveTokens = async ({ access, refresh, token, api_token, role }) =>
     }
     if (role && typeof AsyncStorage?.setItem === 'function') {
       promises.push(AsyncStorage.setItem(STORAGE_KEYS.ROLE, String(role).trim().toUpperCase()));
+    }
+    if (typeof AsyncStorage?.removeItem === 'function') {
+      promises.push(AsyncStorage.removeItem(STORAGE_KEYS.IS_GUEST));
     }
     if (promises.length > 0) {
       await Promise.all(promises);
@@ -156,6 +160,42 @@ export const getUser = async () => {
 };
 
 /**
+ * Set or unset guest mode flag in AsyncStorage
+ * @param {boolean} isGuest
+ */
+export const setGuestMode = async (isGuest) => {
+  try {
+    if (typeof AsyncStorage?.setItem === 'function') {
+      if (isGuest) {
+        await AsyncStorage.setItem(STORAGE_KEYS.IS_GUEST, 'true');
+        console.log('[Storage] Guest mode enabled in AsyncStorage');
+      } else {
+        await AsyncStorage.removeItem(STORAGE_KEYS.IS_GUEST);
+        console.log('[Storage] Guest mode disabled in AsyncStorage');
+      }
+    }
+  } catch (error) {
+    console.error('Error setting guest mode in AsyncStorage:', error);
+  }
+};
+
+/**
+ * Check if the app is currently running in guest mode
+ * @returns {Promise<boolean>}
+ */
+export const isGuestMode = async () => {
+  try {
+    if (typeof AsyncStorage?.getItem === 'function') {
+      const val = await AsyncStorage.getItem(STORAGE_KEYS.IS_GUEST);
+      return val === 'true';
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+/**
  * Clear all auth data on logout
  */
 export const clearTokens = async () => {
@@ -169,6 +209,7 @@ export const clearTokens = async () => {
         AsyncStorage.removeItem('apiToken'),
         AsyncStorage.removeItem(STORAGE_KEYS.USER),
         AsyncStorage.removeItem(STORAGE_KEYS.ROLE),
+        AsyncStorage.removeItem(STORAGE_KEYS.IS_GUEST),
       ]);
       console.log('[Storage] Cleared tokens & role from AsyncStorage');
     }
@@ -189,6 +230,8 @@ export const authStorage = {
   saveUser,
   getUser,
   clearTokens,
+  setGuestMode,
+  isGuestMode,
 };
 
 export default {
@@ -203,6 +246,8 @@ export default {
   saveUser,
   getUser,
   clearTokens,
+  setGuestMode,
+  isGuestMode,
   authStorage,
 };
 
