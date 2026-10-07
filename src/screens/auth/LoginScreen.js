@@ -928,7 +928,7 @@ const styles = StyleSheet.create({
   countryBox: {
     height: 54,
 
-    minWidth: 92,
+    minWidth: 72,
 
     marginTop: 22,
 
@@ -946,7 +946,7 @@ const styles = StyleSheet.create({
 
     justifyContent: 'center',
 
-    paddingHorizontal: 10,
+    paddingHorizontal: 5,
   },
 
   flag: {

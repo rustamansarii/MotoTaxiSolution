@@ -244,7 +244,10 @@ export const PersonalDetailsScreen = ({ navigation }) => {
     try {
       const storedRole = await getRole();
       if (storedRole === 'DRIVER' || authUser?.role === 'DRIVER') {
-        navigation.navigate('DriverLogin');
+        navigation.reset({
+  index: 0,
+  routes: [{ name: 'Login' }],
+});
         return;
       }
     } catch (e) {}

@@ -698,7 +698,10 @@ export const DriverEarningsScreen = ({ navigation }) => {
         cancelText={t('common.cancel', 'Cancel')}
         onConfirm={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
-          navigation.navigate('DriverLogin');
+          navigation.reset({
+  index: 0,
+  routes: [{ name: 'Login' }],
+});
         }}
         onCancel={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });

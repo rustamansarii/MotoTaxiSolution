@@ -8,9 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Modal,
   ScrollView,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -161,16 +159,6 @@ const formatPaymentStatus = (status, t) => {
   return status || '';
 };
 
-/**
- * Format cancelled by for display
- */
-const formatCancelledBy = (by, t) => {
-  const b = (by || 'RIDER').toUpperCase();
-  if (b === 'DRIVER') return t ? t('rider.cancelledByDriver', 'Driver') : 'Driver';
-  if (b === 'SYSTEM' || b === 'ADMIN') return t ? t('rider.cancelledBySystem', 'System') : 'System';
-  return t ? t('rider.cancelledByRider', 'Rider') : 'Rider';
-};
-
 export const ActivityScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
   const currentLanguage = i18n?.language || 'en';
@@ -179,7 +167,6 @@ export const ActivityScreen = ({ navigation }) => {
 
   const [activeTab, setActiveTab] = useState('past'); // 'past' (All Trips) | 'upcoming' (Active/Scheduled)
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedRide, setSelectedRide] = useState(null);
   const [isGuest, setIsGuest] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
@@ -244,20 +231,6 @@ export const ActivityScreen = ({ navigation }) => {
     }
   };
 
-  // Rebook: navigate to RideOptions with ride parameters
-  const handleRebook = (item) => {
-    if (!item) return;
-    setSelectedRide(null);
-    navigation.navigate('RideOptions', {
-      pickup: item.pickup_address,
-      destination: item.drop_address,
-      pickup_lat: item.pickup_lat,
-      pickup_lon: item.pickup_lon,
-      drop_lat: item.drop_lat,
-      drop_lon: item.drop_lon,
-    });
-  };
-
   // Filter rides based on active tab
   const displayedRides = React.useMemo(() => {
     if (activeTab === 'upcoming') {
@@ -277,11 +250,7 @@ export const ActivityScreen = ({ navigation }) => {
     const isCancelled = (item.status || '').toUpperCase() === 'CANCELLED';
 
     return (
-      <TouchableOpacity
-        activeOpacity={0.88}
-        onPress={() => setSelectedRide(item)}
-        style={[styles.historyCard, isFoldableOrTablet && { flex: 1 }]}
-      >
+      <View style={[styles.historyCard, isFoldableOrTablet && { flex: 1 }]}>
         {/* Header Row */}
         <View style={styles.cardTopRow}>
           <View style={styles.topLeftCol}>
@@ -375,17 +344,8 @@ export const ActivityScreen = ({ navigation }) => {
                 : t('rider.noDriverAssigned', 'No driver assigned')}
             </Text>
           </View>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => handleRebook(item)}
-            style={styles.rebookBtn}
-          >
-            <Icon name="refresh" size={13} color={COLORS.secondPrimary} />
-            <Text style={styles.rebookText}>{t('rider.rebook', 'Rebook')}</Text>
-          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -631,176 +591,6 @@ export const ActivityScreen = ({ navigation }) => {
             style={styles.emptyContainer}
           />
         )}
-
-        {/* Ride Details Modal */}
-        <Modal
-          visible={Boolean(selectedRide)}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSelectedRide(null)}
-        >
-          <Pressable
-            style={styles.modalBackdrop}
-            onPress={() => setSelectedRide(null)}
-          >
-            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalHeader}>
-                <View>
-                  <Text style={styles.modalTitle}>
-                    {t('rider.rideDetailsTitle', 'Ride #{{id}} Details', {
-                      id: selectedRide?.id,
-                    })}
-                  </Text>
-                  <Text style={styles.modalDate}>
-                    {formatRideDate(selectedRide?.created_at, t, currentLanguage)}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setSelectedRide(null)}
-                  style={styles.closeBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Icon name="close" size={18} color={COLORS.textLight} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.modalScroll}
-              >
-                {/* Status & Fare Row */}
-                <View style={styles.modalHighlightRow}>
-                  <View>
-                    <Text style={styles.modalFareLabel}>
-                      {t('rider.totalFare', 'Total Fare')}
-                    </Text>
-                    <Text style={styles.modalFareValue}>
-                      {formatCurrency(
-                        selectedRide?.final_fare || selectedRide?.estimated_fare || '0'
-                      )}
-                    </Text>
-                  </View>
-                  <StatusBadge
-                    status={getStatusInfo(selectedRide?.status, t).status}
-                    label={getStatusInfo(selectedRide?.status, t).label}
-                    size="medium"
-                  />
-                </View>
-
-                {/* Locations */}
-                <View style={styles.modalLocationsBlock}>
-                  <View style={styles.locationRow}>
-                    <View style={styles.dotPickup} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.modalLocLabel}>{t('rider.pickup', 'Pickup')}</Text>
-                      <Text style={styles.modalLocText}>
-                        {selectedRide?.pickup_address || '—'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.modalConnector} />
-
-                  <View style={styles.locationRow}>
-                    <View style={styles.squareDest} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.modalLocLabel}>
-                        {t('rider.destination', 'Destination')}
-                      </Text>
-                      <Text style={styles.modalLocText}>
-                        {selectedRide?.drop_address || '—'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Ride Info Grid */}
-                <View style={styles.modalInfoGrid}>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.infoLabel}>{t('rider.vehicle', 'Vehicle')}</Text>
-                    <Text style={styles.infoValue}>
-                      {getRideTypeInfo(selectedRide?.vehicle_type, t).label}
-                    </Text>
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.infoLabel}>{t('rider.distance', 'Distance')}</Text>
-                    <Text style={styles.infoValue}>
-                      {selectedRide?.distance_km ? `${selectedRide.distance_km} km` : '—'}
-                    </Text>
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.infoLabel}>
-                      {t('rider.paymentMethod', 'Payment Method')}
-                    </Text>
-                    <Text style={styles.infoValue}>
-                      {formatPaymentMethod(selectedRide?.payment_method, t)}
-                    </Text>
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.infoLabel}>
-                      {t('rider.paymentStatus', 'Payment Status')}
-                    </Text>
-                    <Text style={styles.infoValue}>
-                      {formatPaymentStatus(selectedRide?.payment_status, t)}
-                    </Text>
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.infoLabel}>{t('rider.driver', 'Driver')}</Text>
-                    <Text style={styles.infoValue}>
-                      {selectedRide?.driver
-                        ? `#${selectedRide.driver}`
-                        : t('rider.noneAssigned', 'None assigned')}
-                    </Text>
-                  </View>
-                  <View style={styles.infoCol}>
-                    <Text style={styles.infoLabel}>{t('rider.otpCode', 'OTP Code')}</Text>
-                    <Text
-                      style={[
-                        styles.infoValue,
-                        { color: COLORS.secondPrimary, fontWeight: '700' },
-                      ]}
-                    >
-                      {selectedRide?.otp || '—'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Cancellation Details */}
-                {selectedRide?.status === 'CANCELLED' ? (
-                  <View style={styles.cancelBox}>
-                    <Text style={styles.cancelBoxTitle}>
-                      {t('rider.cancellationInfo', 'Cancellation Info')}
-                    </Text>
-                    <Text style={styles.cancelBoxText}>
-                      {t('rider.cancelledBy', 'Cancelled By: {{by}}', {
-                        by: formatCancelledBy(selectedRide?.cancelled_by, t),
-                      })}
-                    </Text>
-                    {selectedRide?.cancel_reason ? (
-                      <Text style={styles.cancelBoxText}>
-                        {t('rider.cancelReason', 'Reason: {{reason}}', {
-                          reason: selectedRide?.cancel_reason,
-                        })}
-                      </Text>
-                    ) : null}
-                  </View>
-                ) : null}
-
-                {/* Rebook CTA Button */}
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => handleRebook(selectedRide)}
-                  style={styles.modalRebookBtn}
-                >
-                  <Icon name="refresh" size={16} color={COLORS.white} />
-                  <Text style={styles.modalRebookBtnText}>
-                    {t('rider.rebookThisRide', 'Rebook This Ride')}
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </Pressable>
-          </Pressable>
-        </Modal>
       </ResponsiveContainer>
     </SafeAreaView>
   );
@@ -1038,20 +828,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
   },
-  rebookBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primaryLight,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.round,
-  },
-  rebookText: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.secondPrimary,
-    marginLeft: 4,
-  },
   emptyContainer: {
     flex: 1,
   },
@@ -1065,148 +841,6 @@ const styles = StyleSheet.create({
   footerLoaderText: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
-  },
-
-  // Modal Styles
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.lg,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 480,
-    maxHeight: '85%',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.extraLarge,
-    padding: SPACING.lg,
-    shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    paddingBottom: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  modalTitle: {
-    ...TYPOGRAPHY.heading3,
-    color: COLORS.text,
-  },
-  modalDate: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-    marginTop: 2,
-  },
-  closeBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.round,
-    backgroundColor: COLORS.inputBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalScroll: {
-    gap: SPACING.md,
-  },
-  modalHighlightRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.inputBg,
-    padding: SPACING.md,
-    borderRadius: RADIUS.medium,
-  },
-  modalFareLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-  },
-  modalFareValue: {
-    ...TYPOGRAPHY.heading2,
-    color: COLORS.text,
-    marginTop: 2,
-  },
-  modalLocationsBlock: {
-    backgroundColor: COLORS.inputBg,
-    borderRadius: RADIUS.medium,
-    padding: SPACING.md,
-  },
-  modalConnector: {
-    width: 2,
-    height: 18,
-    backgroundColor: COLORS.border,
-    marginLeft: 3,
-    marginVertical: 4,
-  },
-  modalLocLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-    fontSize: responsiveFont(11),
-  },
-  modalLocText: {
-    ...TYPOGRAPHY.bodySmall,
-    color: COLORS.text,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  modalInfoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  infoCol: {
-    width: '48%',
-    backgroundColor: COLORS.inputBg,
-    padding: SPACING.sm,
-    borderRadius: RADIUS.small,
-  },
-  infoLabel: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-    fontSize: responsiveFont(11),
-  },
-  infoValue: {
-    ...TYPOGRAPHY.bodySmall,
-    color: COLORS.text,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  cancelBox: {
-    backgroundColor: '#FEE2E2',
-    padding: SPACING.md,
-    borderRadius: RADIUS.medium,
-    gap: 4,
-  },
-  cancelBoxTitle: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.danger,
-  },
-  cancelBoxText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.danger,
-  },
-  modalRebookBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.round,
-    gap: SPACING.sm,
-    marginTop: SPACING.sm,
-  },
-  modalRebookBtnText: {
-    ...TYPOGRAPHY.button,
-    color: COLORS.white,
   },
   guestScrollContent: {
     flexGrow: 1,

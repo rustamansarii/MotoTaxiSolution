@@ -201,15 +201,15 @@ export const DriverProfileScreen = ({ navigation }) => {
   const displayTrips =
     driverProfile?.total_trips !== undefined
       ? t('driver.tripsCount', {
-          count: driverProfile.total_trips,
-          defaultValue: `${driverProfile.total_trips} Trips`,
-        })
+        count: driverProfile.total_trips,
+        defaultValue: `${driverProfile.total_trips} Trips`,
+      })
       : authUser?.total_rides !== undefined
-      ? t('driver.tripsCount', {
+        ? t('driver.tripsCount', {
           count: authUser.total_rides,
           defaultValue: `${authUser.total_rides} Trips`,
         })
-      : t('driver.tripsCount', { count: 0, defaultValue: '0 Trips' });
+        : t('driver.tripsCount', { count: 0, defaultValue: '0 Trips' });
 
   const memberSince = useMemo(() => {
     const raw = authUser?.date_joined || authUser?.created_at;
@@ -239,19 +239,19 @@ export const DriverProfileScreen = ({ navigation }) => {
     driverVerification?.detail ||
     (isVerified
       ? t(
-          'driver.verifiedReadyDesc',
-          'Driver is fully verified and ready to go online.'
-        )
+        'driver.verifiedReadyDesc',
+        'Driver is fully verified and ready to go online.'
+      )
       : t(
-          'driver.verificationPendingDesc',
-          'Document verification in progress.'
-        ));
+        'driver.verificationPendingDesc',
+        'Document verification in progress.'
+      ));
 
   const verificationStatusLabel = isVerified
     ? t('driver.statusApproved', 'APPROVED')
     : verificationStatus === 'UNDER_REVIEW'
-    ? t('driver.underReview', 'UNDER REVIEW')
-    : t('driver.statusPending', 'PENDING');
+      ? t('driver.underReview', 'UNDER REVIEW')
+      : t('driver.statusPending', 'PENDING');
 
   // Document arrays from API response
   const driverDocs = useMemo(() => {
@@ -372,9 +372,9 @@ export const DriverProfileScreen = ({ navigation }) => {
             <Text style={styles.statPillText}>
               {memberSince
                 ? t('driver.sinceDate', {
-                    date: memberSince,
-                    defaultValue: `Since ${memberSince}`,
-                  })
+                  date: memberSince,
+                  defaultValue: `Since ${memberSince}`,
+                })
                 : t('driver.partner', 'Partner')}
             </Text>
           </View>
@@ -500,9 +500,9 @@ export const DriverProfileScreen = ({ navigation }) => {
             <Text style={styles.checkDocsBadgeText}>
               {totalDocsCount > 0
                 ? t('driver.docsCountBadge', {
-                    count: totalDocsCount,
-                    defaultValue: `${totalDocsCount} Docs`,
-                  })
+                  count: totalDocsCount,
+                  defaultValue: `${totalDocsCount} Docs`,
+                })
                 : t('driver.check', 'Check')}
             </Text>
             <Icon name="chevron-right" size={14} color={COLORS.primaryDark} />
@@ -582,7 +582,7 @@ export const DriverProfileScreen = ({ navigation }) => {
             return;
           }
           if (!authUser) {
-            navigation.replace('DriverLogin');
+            navigation.replace('Login');
           } else {
             setShowLogoutModal(true);
           }
@@ -1034,7 +1034,10 @@ export const DriverProfileScreen = ({ navigation }) => {
         cancelText={t('common.cancel', 'Cancel')}
         onConfirm={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
-          navigation.navigate('DriverLogin');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
         }}
         onCancel={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });

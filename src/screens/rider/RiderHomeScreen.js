@@ -490,7 +490,32 @@ export const RiderHomeScreen = ({ navigation }) => {
       <View style={styles.sheetHandleBar} />
 
       {/* Active Trip Banner / Card (Visible when Rider backed out to HomeScreen with active ride) */}
-      {hasActiveRiderTrip && (
+    
+
+
+      {/* 1. Promotional Moto Taxi Hero Banner */}
+      <TouchableOpacity
+        activeOpacity={0.92}
+        onPress={() => {
+          if (isGuest) {
+            promptGuestLogin(
+              'auth.loginRequiredDropoffMsg',
+              'Please log in first to choose a drop-off location and book a ride.'
+            );
+            return;
+          }
+          navigation.navigate('DestinationSearch');
+        }}
+        style={styles.bannerCard}
+      >
+        <Image
+          source={require('../../assets/images/moto_taxi_banner.png')}
+          style={styles.bannerImage}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
+
+        {hasActiveRiderTrip && (
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={handleResumeRiderRide}
@@ -626,29 +651,6 @@ export const RiderHomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </TouchableOpacity>
       )}
-
-
-      {/* 1. Promotional Moto Taxi Hero Banner */}
-      <TouchableOpacity
-        activeOpacity={0.92}
-        onPress={() => {
-          if (isGuest) {
-            promptGuestLogin(
-              'auth.loginRequiredDropoffMsg',
-              'Please log in first to choose a drop-off location and book a ride.'
-            );
-            return;
-          }
-          navigation.navigate('DestinationSearch');
-        }}
-        style={styles.bannerCard}
-      >
-        <Image
-          source={require('../../assets/images/moto_taxi_banner.png')}
-          style={styles.bannerImage}
-          resizeMode="cover"
-        />
-      </TouchableOpacity>
 
       {/* 2. "Where would you like to go?" Teal CTA Button */}
       <TouchableOpacity
@@ -1436,6 +1438,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
+    marginHorizontal:10
   },
   activeRideHeaderRow: {
     flexDirection: 'row',

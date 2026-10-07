@@ -31,11 +31,18 @@ export const TripCompletedScreen = ({ navigation, route }) => {
   const tripDuration = route.params?.tripDuration || '18 mins';
   const destination =
     route.params?.destination || 'JFK International Airport, Terminal 4';
+  const rideId =
+    route.params?.ride_id ||
+    route.params?.rideId ||
+    route.params?.driver?.ride_id ||
+    route.params?.driver?.id;
 
   const handleRate = () => {
     navigation.navigate('Rating', {
       driver,
       totalFare,
+      rideId,
+      ride_id: rideId,
     });
   };
 

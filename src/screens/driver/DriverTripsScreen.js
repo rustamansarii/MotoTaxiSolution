@@ -590,15 +590,15 @@ export const DriverTripsScreen = ({ navigation }) => {
             description={
               isGuest
                 ? t(
-                    'auth.loginRequiredTripsMsg',
-                    'Please log in first to view and manage your trips.'
-                  )
+                  'auth.loginRequiredTripsMsg',
+                  'Please log in first to view and manage your trips.'
+                )
                 : filter === 'today'
-                ? t(
+                  ? t(
                     'driver.noTripsTodayDesc',
                     "You haven't completed any trips today. Go online to start receiving ride requests!"
                   )
-                : t(
+                  : t(
                     'driver.noTripsMatchDesc',
                     'No trips match this filter. When you complete trips, they will appear here.'
                   )
@@ -610,7 +610,10 @@ export const DriverTripsScreen = ({ navigation }) => {
             }
             onButtonPress={() => {
               if (isGuest) {
-                navigation.navigate('DriverLogin');
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'Login' }],
+                });
                 return;
               }
               navigation.navigate('DriverHome');
@@ -794,7 +797,7 @@ export const DriverTripsScreen = ({ navigation }) => {
         </Modal>
 
         {/* Guest Mode Login Required Alert Popup */}
-        <CustomAlertPopup
+        {/* <CustomAlertPopup
           visible={guestLoginModal.visible}
           type="warning"
           title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
@@ -803,7 +806,10 @@ export const DriverTripsScreen = ({ navigation }) => {
           cancelText={t('common.cancel', 'Cancel')}
           onConfirm={() => {
             setGuestLoginModal({ visible: false, title: '', message: '' });
-            navigation.navigate('DriverLogin');
+           navigation.reset({
+  index: 0,
+  routes: [{ name: 'Login' }],
+});
           }}
           onCancel={() => {
             setGuestLoginModal({ visible: false, title: '', message: '' });
@@ -811,7 +817,7 @@ export const DriverTripsScreen = ({ navigation }) => {
           onClose={() => {
             setGuestLoginModal({ visible: false, title: '', message: '' });
           }}
-        />
+        /> */}
       </ResponsiveContainer>
     </SafeAreaView>
   );

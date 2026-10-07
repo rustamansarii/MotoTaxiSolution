@@ -21,12 +21,12 @@ export const SUPPORTED_LANGUAGES = [
     englishName: 'English',
     flag: '🇺🇸',
   },
-  {
-    code: 'hi',
-    nativeName: 'हिन्दी',
-    englishName: 'Hindi',
-    flag: '🇮🇳',
-  },
+  // {
+  //   code: 'hi',
+  //   nativeName: 'हिन्दी',
+  //   englishName: 'Hindi',
+  //   flag: '🇮🇳',
+  // },
   {
     code: 'fr',
     nativeName: 'Français',

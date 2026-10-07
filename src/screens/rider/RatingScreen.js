@@ -5,7 +5,6 @@ import {
   StyleSheet,
   StatusBar,
   ScrollView,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
@@ -13,59 +12,71 @@ import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import Header from '../../components/Header';
 import RatingStars from '../../components/RatingStars';
-import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 import ProfileAvatar from '../../components/ProfileAvatar';
-import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import { clearRiderTripState } from '../../redux/features/rider/riderSlice';
-
-const COMPLIMENTS = [
-  'Smooth driving',
-  'Spotless clean bike',
-  'Great conversation',
-  'Polite & helpful',
-  'Perfect route',
-  'Safe driver',
-];
-
-const TIP_OPTIONS = [0, 1, 3, 5];
+import { apiPost } from '../../utils/apiClient';
+import ApiConstant from '../../utils/apiConstant';
 
 export const RatingScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { insets } = useResponsive();
+
+  const riderState = useSelector((state) => state.rider);
+  const activeRideId = riderState?.activeRideId || riderState?.completedTrip?.ride_id;
+
   const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
+  const rideId =
+    route.params?.ride_id ||
+    route.params?.rideId ||
+    route.params?.driver?.ride_id ||
+    route.params?.driver?.id ||
+    activeRideId;
 
   const [rating, setRating] = useState(5);
-  const [selectedTip, setSelectedTip] = useState(3);
-  const [selectedCompliments, setSelectedCompliments] = useState(['Smooth driving', 'Spotless clean bike']);
-  const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const toggleCompliment = (comp) => {
-    if (selectedCompliments.includes(comp)) {
-      setSelectedCompliments(selectedCompliments.filter((c) => c !== comp));
-    } else {
-      setSelectedCompliments([...selectedCompliments, comp]);
-    }
+  const getRatingDescriptor = (stars) => {
+    if (stars === 5) return t('rider.ratingExcellent', 'Excellent experience!');
+    if (stars >= 4) return t('rider.ratingGood', 'Very good ride');
+    if (stars >= 3) return t('rider.ratingAverage', 'Average trip');
+    return t('rider.ratingPoor', 'Could be better');
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setLoading(true);
-    dispatch(clearRiderTripState());
-    setTimeout(() => {
+    const targetRideId = rideId || 76;
+
+    try {
+      if (targetRideId) {
+        const payload = {
+          ride_id: Number(targetRideId),
+          stars: Number(rating),
+        };
+
+        const endpoint = ApiConstant.RateRide
+          ? ApiConstant.RateRide(targetRideId)
+          : `rides/${targetRideId}/rate/`;
+
+        await apiPost(endpoint, payload);
+      }
+    } catch (err) {
+      console.warn('[RatingScreen] Failed to submit rate:', err);
+    } finally {
+      dispatch(clearRiderTripState());
       setLoading(false);
       if (navigation.canGoBack()) {
         navigation.popToTop();
       } else {
         navigation.navigate('RiderTabs', { screen: 'RiderHome' });
       }
-    }, 600);
+    }
   };
 
   return (
@@ -73,7 +84,7 @@ export const RatingScreen = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={540} style={{ flex: 1 }}>
         <Header
-          title={t('rider.rateDriver')}
+          title={t('rider.rateDriver', 'Rate Your Driver')}
           showBack={false}
         />
 
@@ -84,127 +95,42 @@ export const RatingScreen = ({ navigation, route }) => {
           ]}
           showsVerticalScrollIndicator={false}
         >
-        {/* Driver Profile */}
-        <View style={styles.driverSection}>
-          <ProfileAvatar name={driver.name} size={72} />
-          <Text style={styles.driverName}>{driver.name}</Text>
-          <Text style={styles.carInfo}>
-            {driver.car?.model} • {driver.car?.plateNumber}
-          </Text>
-        </View>
+          {/* Driver Profile */}
+          <View style={styles.driverSection}>
+            <ProfileAvatar name={driver.name} size={72} />
+            <Text style={styles.driverName}>{driver.name}</Text>
+            <Text style={styles.carInfo}>
+              {driver.car?.model} • {driver.car?.plateNumber}
+            </Text>
+          </View>
 
-        {/* Star Rating Section */}
-        <View style={styles.starsCard}>
-          <Text style={styles.rateQuestion}>{t('rider.howWasTrip')}</Text>
-          <RatingStars
-            rating={rating}
-            size={36}
-            interactive={true}
-            onRatingChange={setRating}
-            style={styles.starsRow}
+          {/* Star Rating Section */}
+          <View style={styles.starsCard}>
+            <Text style={styles.rateQuestion}>{t('rider.howWasTrip', 'How was your experience?')}</Text>
+            <RatingStars
+              rating={rating}
+              size={36}
+              interactive={true}
+              onRatingChange={setRating}
+              style={styles.starsRow}
+            />
+            <Text style={styles.ratingDescriptor}>
+              {getRatingDescriptor(rating)}
+            </Text>
+          </View>
+
+          {/* Submit Button */}
+          <CustomButton
+            title={t('rider.submitRating', 'Submit Rating')}
+            onPress={handleSubmit}
+            loading={loading}
+            variant="primary"
+            style={styles.submitBtn}
           />
-          <Text style={styles.ratingDescriptor}>
-            {rating === 5
-              ? 'Excellent experience!'
-              : rating >= 4
-              ? 'Very good ride'
-              : rating >= 3
-              ? 'Average trip'
-              : 'Could be better'}
-          </Text>
-        </View>
-
-        {/* Tip Selector */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('rider.tipPrompt')}</Text>
-          <Text style={styles.sectionSubtitle}>
-            100% of your tip goes directly to your driver.
-          </Text>
-
-          <View style={styles.tipRow}>
-            {TIP_OPTIONS.map((tip) => (
-              <TouchableOpacity
-                key={tip}
-                activeOpacity={0.7}
-                onPress={() => setSelectedTip(tip)}
-                style={[
-                  styles.tipPill,
-                  selectedTip === tip && styles.activeTipPill,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.tipText,
-                    selectedTip === tip && styles.activeTipText,
-                  ]}
-                >
-                  {tip === 0 ? 'No tip' : `$${tip}`}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Compliment Tags */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('rider.rateExperience')}</Text>
-          <View style={styles.complimentsGrid}>
-            {COMPLIMENTS.map((comp) => {
-              const isSelected = selectedCompliments.includes(comp);
-              return (
-                <TouchableOpacity
-                  key={comp}
-                  activeOpacity={0.7}
-                  onPress={() => toggleCompliment(comp)}
-                  style={[
-                    styles.complimentPill,
-                    isSelected && styles.activeComplimentPill,
-                  ]}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Icon
-                      name={isSelected ? 'check' : 'plus'}
-                      size={12}
-                      color={isSelected ? COLORS.primary : COLORS.textLight}
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text
-                      style={[
-                        styles.complimentText,
-                        isSelected && styles.activeComplimentText,
-                      ]}
-                    >
-                      {comp}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Feedback Input */}
-        <CustomInput
-          label="Comments"
-          value={comment}
-          onChangeText={setComment}
-          placeholder={t('rider.ratingFeedbackPlaceholder')}
-          multiline={true}
-          containerStyle={styles.commentInput}
-        />
-
-        {/* Submit Button */}
-        <CustomButton
-          title={t('rider.submitRating')}
-          onPress={handleSubmit}
-          loading={loading}
-          variant="primary"
-          style={styles.submitBtn}
-        />
-      </ScrollView>
-    </ResponsiveContainer>
-  </SafeAreaView>
-);
+        </ScrollView>
+      </ResponsiveContainer>
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -252,80 +178,6 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '600',
     color: COLORS.secondPrimary,
-  },
-  sectionCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.large,
-    padding: SPACING.lg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    marginBottom: SPACING.md,
-  },
-  sectionTitle: {
-    ...TYPOGRAPHY.title,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  sectionSubtitle: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.textLight,
-    marginTop: 2,
-    marginBottom: SPACING.md,
-  },
-  tipRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  tipPill: {
-    flex: 1,
-    height: 44,
-    borderRadius: RADIUS.medium,
-    backgroundColor: COLORS.inputBg,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeTipPill: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primary,
-  },
-  tipText: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  activeTipText: {
-    color: COLORS.primaryDark,
-  },
-  complimentsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-    marginTop: SPACING.xs,
-  },
-  complimentPill: {
-    backgroundColor: COLORS.inputBg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.round,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  activeComplimentPill: {
-    backgroundColor: COLORS.primaryLight,
-    borderColor: COLORS.primary,
-  },
-  complimentText: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  activeComplimentText: {
-    color: COLORS.primaryDark,
-  },
-  commentInput: {
-    marginTop: SPACING.xs,
   },
   submitBtn: {
     marginTop: SPACING.md,

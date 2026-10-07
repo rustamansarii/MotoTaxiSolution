@@ -293,60 +293,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          {/* Rate & Compliments Card */}
-          <View style={styles.rateCard}>
-            <Text style={styles.rateTitle}>
-              {t('rider.rateExperience', 'Rate Passenger')}
-            </Text>
-            <Text style={styles.rateSubtitle}>
-              How was your trip with {passengerName}?
-            </Text>
-
-            <RatingStars
-              rating={rating}
-              size={36}
-              interactive={true}
-              onRatingChange={setRating}
-              style={styles.stars}
-            />
-
-            <Text style={styles.ratingFeedbackBadge}>
-              {getRatingFeedback(rating)}
-            </Text>
-
-            {/* Quick Compliment Chips */}
-            <View style={styles.complimentsContainer}>
-              {COMPLIMENT_OPTIONS.map((opt) => {
-                const isSelected = selectedCompliments.includes(opt.id);
-                return (
-                  <TouchableOpacity
-                    key={opt.id}
-                    activeOpacity={0.8}
-                    onPress={() => toggleCompliment(opt.id)}
-                    style={[
-                      styles.complimentChip,
-                      isSelected && styles.complimentChipSelected,
-                    ]}
-                  >
-                    <Icon
-                      name={opt.icon}
-                      size={13}
-                      color={isSelected ? COLORS.primaryDark : COLORS.textLight}
-                      style={{ marginRight: 5 }}
-                    />
-                    <Text
-                      style={[
-                        styles.complimentText,
-                        isSelected && styles.complimentTextSelected,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+       
 
           {/* Finish & Go Online Button */}
           <CustomButton

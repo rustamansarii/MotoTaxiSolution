@@ -1056,7 +1056,7 @@ export const DriverHomeScreen = ({ navigation }) => {
                 showRatingBadge={false}
               />
               <View style={styles.avatarEditBadge}>
-                <Icon name="pencil" size={11} color="#059669" />
+                <Icon name="pencil" size={15} color="#059669" />
               </View>
             </View>
 
@@ -1068,9 +1068,6 @@ export const DriverHomeScreen = ({ navigation }) => {
                 <Icon name="star" size={15} color="#F59E0B" />
                 <Text style={styles.ratingNumberText}>
                   {driverRating ? Number(driverRating).toFixed(1) : '5.0'}
-                </Text>
-                <Text style={styles.ratingCountText}>
-                  ({totalDriverRidesCount} {t('driver.rides', 'rides')})
                 </Text>
               </View>
             </View>
@@ -1302,7 +1299,10 @@ export const DriverHomeScreen = ({ navigation }) => {
         cancelText={t('common.cancel', 'Cancel')}
         onConfirm={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
-          navigation.navigate('DriverLogin');
+          navigation.reset({
+  index: 0,
+  routes: [{ name: 'Login' }],
+});
         }}
         onCancel={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
