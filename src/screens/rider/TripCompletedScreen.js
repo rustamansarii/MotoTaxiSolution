@@ -15,7 +15,7 @@ import CustomButton from '../../components/CustomButton';
 import Icon from '../../components/Icon';
 import ResponsiveContainer from '../../components/ResponsiveContainer';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
@@ -25,17 +25,32 @@ export const TripCompletedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { insets } = useResponsive();
-  const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
-  const totalFare = route.params?.totalFare || 18.5;
+
+  const riderState = useSelector((state) => state.rider);
+  const completedTrip = riderState?.completedTrip;
+
+  const driver =
+    route.params?.driver ||
+    completedTrip?.driver ||
+    riderState?.driverDetails ||
+    ACTIVE_MOCK_DRIVER;
+
+  const totalFare =
+    route.params?.totalFare ||
+    completedTrip?.final_fare ||
+    18.5;
+
   const tripDistance = route.params?.tripDistance || '5.8 mi';
   const tripDuration = route.params?.tripDuration || '18 mins';
   const destination =
     route.params?.destination || 'JFK International Airport, Terminal 4';
+
   const rideId =
     route.params?.ride_id ||
     route.params?.rideId ||
-    route.params?.driver?.ride_id ||
-    route.params?.driver?.id;
+    completedTrip?.ride_id ||
+    riderState?.activeRideId ||
+    route.params?.driver?.ride_id;
 
   const handleRate = () => {
     navigation.navigate('Rating', {
@@ -111,18 +126,18 @@ export const TripCompletedScreen = ({ navigation, route }) => {
         <View style={styles.driverCard}>
           <View style={styles.driverAvatar}>
             <Text style={styles.avatarInitials}>
-              {driver.name.charAt(0)}
+              {(driver?.name || 'D').charAt(0)}
             </Text>
           </View>
           <View style={styles.driverInfo}>
-            <Text style={styles.driverName}>{driver.name}</Text>
+            <Text style={styles.driverName}>{driver?.name || 'Driver'}</Text>
             <Text style={styles.carDetail}>
-              {driver.car?.model} • {driver.car?.plateNumber}
+              {(driver?.car?.model || driver?.vehicle_model || driver?.vehicle || 'Moto Taxi')} • {(driver?.car?.plateNumber || driver?.vehicle_plate || '')}
             </Text>
           </View>
           <View style={styles.ratingBadge}>
             <Icon name="star" size={12} color={COLORS.primary} />
-            <Text style={styles.ratingText}>{driver.rating}</Text>
+            <Text style={styles.ratingText}>{driver?.rating || '5.0'}</Text>
           </View>
         </View>
 

@@ -458,15 +458,18 @@ export const riderSlice = createSlice({
         case 'trip_completed':
           // {"type": "trip_completed", "ride_id": .., "final_fare": .., "payment_status": ".."}
           state.tripStatus = 'completed';
-          state.completedTrip = {
-            ride_id: msg.ride_id || msg.id,
-            final_fare: msg.final_fare || msg.fare,
-            payment_status: msg.payment_status || 'PAID',
-          };
-          state.activeRideId = null;
+          {
+            const completedRideId = msg.ride_id || msg.id || state.activeRideId;
+            state.completedTrip = {
+              ride_id: completedRideId,
+              final_fare: msg.final_fare || msg.fare,
+              payment_status: msg.payment_status || 'PAID',
+              driver: state.driverDetails,
+            };
+            state.activeRideId = completedRideId;
+          }
           state.activeRideData = null;
           state.rideOtp = null;
-          state.driverDetails = null;
           state.driverLocation = null;
           state.distanceRemainingKm = null;
           state.etaMin = null;

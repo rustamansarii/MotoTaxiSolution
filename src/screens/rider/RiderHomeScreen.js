@@ -191,10 +191,13 @@ export const RiderHomeScreen = ({ navigation }) => {
   // Hook 10b - Navigate to TripCompleted when server marks trip as completed
   useEffect(() => {
     if (tripStatus === 'completed' && completedTrip) {
+      const resolvedRideId = completedTrip.ride_id || activeRideId;
       navigation.navigate('TripCompleted', {
-        driver: driverDetails,
+        driver: driverDetails || completedTrip.driver,
         totalFare: completedTrip.final_fare || 18.5,
         paymentStatus: completedTrip.payment_status || 'PAID',
+        rideId: resolvedRideId,
+        ride_id: resolvedRideId,
         tripDistance: '5.8 mi',
         tripDuration: '18 mins',
         destination:
@@ -205,7 +208,7 @@ export const RiderHomeScreen = ({ navigation }) => {
           'Destination',
       });
     }
-  }, [tripStatus, completedTrip, navigation, driverDetails, activeRideData, locationLabel]);
+  }, [tripStatus, completedTrip, navigation, driverDetails, activeRideData, locationLabel, activeRideId]);
 
   // Hook 11 - Compute nearby dynamic drivers around current GPS location
   const nearbyDrivers = useMemo(() => {

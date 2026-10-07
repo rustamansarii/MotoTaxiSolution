@@ -22,6 +22,7 @@ import DriverMapScreen from '../screens/driver/DriverMapScreen';
 import VehicleSetupScreen from '../screens/driver/VehicleSetupScreen';
 import DocumentUploadScreen from '../screens/driver/DocumentUploadScreen';
 import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
+import RatingScreen from '../screens/rider/RatingScreen';
 import PersonalDetailsScreen from '../screens/rider/PersonalDetailsScreen';
 import DeleteAccountScreen from '../screens/rider/DeleteAccountScreen';
 
@@ -110,6 +111,7 @@ export const DriverNavigator = () => {
       <Stack.Screen name="DriverTripCompleted" component={DriverTripCompletedScreen} />
       <Stack.Screen name="DriverMap" component={DriverMapScreen} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
+      <Stack.Screen name="Rating" component={RatingScreen} />
       <Stack.Screen name="VehicleSetup" component={VehicleSetupScreen} />
       <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
       <Stack.Screen name="PersonalDetails" component={PersonalDetailsScreen} />

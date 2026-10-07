@@ -20,6 +20,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useResponsive } from '../../utils/responsive';
 import { ACTIVE_MOCK_DRIVER } from '../../data/mockDrivers';
 import { clearRiderTripState } from '../../redux/features/rider/riderSlice';
+import { resetActiveRideState, driverCompleteTrip } from '../../redux/features/driver/driverSlice';
 import { apiPost } from '../../utils/apiClient';
 import ApiConstant from '../../utils/apiConstant';
 
@@ -28,21 +29,40 @@ export const RatingScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { insets } = useResponsive();
 
-  const riderState = useSelector((state) => state.rider);
-  const activeRideId = riderState?.activeRideId || riderState?.completedTrip?.ride_id;
+  const isDriver = route.params?.isDriver ?? false;
+  const passengerName =
+    route.params?.passengerName ||
+    route.params?.riderName ||
+    'Passenger';
 
-  const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
+  const riderState = useSelector((state) => state.rider);
+  const driverState = useSelector((state) => state.driver);
+  const completedTrip = riderState?.completedTrip;
+  const activeRide = driverState?.completedRide || driverState?.activeRide;
+
+  const driver =
+    route.params?.driver ||
+    completedTrip?.driver ||
+    riderState?.driverDetails ||
+    ACTIVE_MOCK_DRIVER;
+
   const rideId =
     route.params?.ride_id ||
     route.params?.rideId ||
-    route.params?.driver?.ride_id ||
-    route.params?.driver?.id ||
-    activeRideId;
+    (isDriver ? activeRide?.ride_id : completedTrip?.ride_id) ||
+    riderState?.activeRideId ||
+    route.params?.driver?.ride_id;
 
   const [rating, setRating] = useState(5);
   const [loading, setLoading] = useState(false);
 
   const getRatingDescriptor = (stars) => {
+    if (isDriver) {
+      if (stars === 5) return t('driver.ratingExcellent', 'Excellent passenger!');
+      if (stars >= 4) return t('driver.ratingGood', 'Good passenger');
+      if (stars >= 3) return t('driver.ratingAverage', 'Average trip');
+      return t('driver.ratingPoor', 'Could be better');
+    }
     if (stars === 5) return t('rider.ratingExcellent', 'Excellent experience!');
     if (stars >= 4) return t('rider.ratingGood', 'Very good ride');
     if (stars >= 3) return t('rider.ratingAverage', 'Average trip');
@@ -51,12 +71,12 @@ export const RatingScreen = ({ navigation, route }) => {
 
   const handleSubmit = async () => {
     setLoading(true);
-    const targetRideId = rideId || 76;
+    const targetRideId = rideId ? Number(rideId) : null;
 
     try {
       if (targetRideId) {
         const payload = {
-          ride_id: Number(targetRideId),
+          ride_id: targetRideId,
           stars: Number(rating),
         };
 
@@ -64,17 +84,36 @@ export const RatingScreen = ({ navigation, route }) => {
           ? ApiConstant.RateRide(targetRideId)
           : `rides/${targetRideId}/rate/`;
 
+        console.log(`[RatingScreen] Submitting rating for ride #${targetRideId} (isDriver: ${isDriver}):`, payload);
         await apiPost(endpoint, payload);
+      } else {
+        console.warn('[RatingScreen] Cannot submit rating: ride_id is missing');
       }
     } catch (err) {
       console.warn('[RatingScreen] Failed to submit rate:', err);
     } finally {
-      dispatch(clearRiderTripState());
       setLoading(false);
-      if (navigation.canGoBack()) {
-        navigation.popToTop();
+      if (isDriver) {
+        if (targetRideId) {
+          dispatch(driverCompleteTrip({ rideId: targetRideId }));
+        }
+        dispatch(resetActiveRideState());
+        navigation.reset({
+          index: 0,
+          routes: [
+            {
+              name: 'DriverTabs',
+              params: { screen: 'DriverHome' },
+            },
+          ],
+        });
       } else {
-        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+        dispatch(clearRiderTripState());
+        if (navigation.canGoBack()) {
+          navigation.popToTop();
+        } else {
+          navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+        }
       }
     }
   };
@@ -84,7 +123,7 @@ export const RatingScreen = ({ navigation, route }) => {
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <ResponsiveContainer maxWidth={540} style={{ flex: 1 }}>
         <Header
-          title={t('rider.rateDriver', 'Rate Your Driver')}
+          title={isDriver ? t('driver.ratePassenger', 'Rate Passenger') : t('rider.rateDriver', 'Rate Your Driver')}
           showBack={false}
         />
 
@@ -95,18 +134,22 @@ export const RatingScreen = ({ navigation, route }) => {
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Driver Profile */}
+          {/* Profile Section */}
           <View style={styles.driverSection}>
-            <ProfileAvatar name={driver.name} size={72} />
-            <Text style={styles.driverName}>{driver.name}</Text>
+            <ProfileAvatar name={isDriver ? passengerName : (driver?.name || 'Driver')} size={72} />
+            <Text style={styles.driverName}>{isDriver ? passengerName : (driver?.name || 'Driver')}</Text>
             <Text style={styles.carInfo}>
-              {driver.car?.model} • {driver.car?.plateNumber}
+              {isDriver
+                ? t('driver.passengerMotoTaxi', 'Passenger • Moto Taxi')
+                : `${driver?.car?.model || driver?.vehicle_model || driver?.vehicle || 'Moto Taxi'} • ${driver?.car?.plateNumber || driver?.vehicle_plate || ''}`}
             </Text>
           </View>
 
           {/* Star Rating Section */}
           <View style={styles.starsCard}>
-            <Text style={styles.rateQuestion}>{t('rider.howWasTrip', 'How was your experience?')}</Text>
+            <Text style={styles.rateQuestion}>
+              {isDriver ? t('driver.howWasPassenger', 'How was your passenger?') : t('rider.howWasTrip', 'How was your experience?')}
+            </Text>
             <RatingStars
               rating={rating}
               size={36}
@@ -121,7 +164,7 @@ export const RatingScreen = ({ navigation, route }) => {
 
           {/* Submit Button */}
           <CustomButton
-            title={t('rider.submitRating', 'Submit Rating')}
+            title={isDriver ? t('driver.submitRating', 'Submit Rating & Go Online') : t('rider.submitRating', 'Submit Rating')}
             onPress={handleSubmit}
             loading={loading}
             variant="primary"

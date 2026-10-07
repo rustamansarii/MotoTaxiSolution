@@ -54,29 +54,6 @@ export const CashPayment = ({
           </View>
         </View>
 
-        {/* Optional Notes / Instructions Input */}
-        <View style={styles.noteField}>
-          <Text style={styles.noteLabel}>
-            {isDriver ? 'Driver Notes (Optional)' : 'Payment Notes / Instructions (Optional)'}
-          </Text>
-          <View style={styles.noteInputWrapper}>
-            <TextInput
-              style={styles.noteInput}
-              value={note}
-              onChangeText={onChangeNote}
-              placeholder={
-                isDriver
-                  ? 'e.g. Passenger handed 30, returned 5.50 change'
-                  : 'e.g. Carrying 50 bill, need change'
-              }
-              placeholderTextColor={COLORS.textLight}
-              multiline={true}
-              numberOfLines={2}
-              editable={!disabled && status !== 'pending'}
-            />
-          </View>
-        </View>
-
         {/* Status indicator when confirmed */}
         {status === 'pending' && (
           <View style={styles.pendingStatusBanner}>

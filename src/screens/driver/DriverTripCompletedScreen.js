@@ -96,10 +96,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleFinish = useCallback(() => {
-    if (isFinishing) return;
-    setIsFinishing(true);
-
+  const handleRate = useCallback(() => {
     const effectiveRideId =
       Number(
         route.params?.ride_id ||
@@ -109,46 +106,23 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
       ) || 1;
 
     console.log(
-      '[DriverTripCompleted] Done pressed. Sending complete_trip socket message for ride_id:',
+      '[DriverTripCompleted] Navigating to Rating screen for ride_id:',
       effectiveRideId,
     );
 
-    // 1. Emit WebSocket message: {"type": "complete_trip", "ride_id": effectiveRideId}
-    dispatch(
-      driverCompleteTrip({
-        rideId: effectiveRideId,
-        fare: totalEarned || fare,
-      }),
-    );
+    navigation.reset({
+  index: 0,
+  routes: [{ name: 'DriverHome' }],
+});
+  }, [navigation, ride, route.params, passengerName, totalEarned, fare, currency]);
 
-    // 2. Clear active ride state in Redux
-    dispatch(resetActiveRideState());
-
-    // 3. Smooth transition back to DriverHome
-    setTimeout(() => {
-      try {
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'DriverTabs',
-              params: { screen: 'DriverHome' },
-            },
-          ],
-        });
-      } catch (e) {
-        console.warn(
-          '[DriverTripCompleted] navigation.reset failed, falling back to navigate:',
-          e,
-        );
-        navigation.navigate('DriverHome');
-      }
-    }, 450);
-  }, [dispatch, navigation, ride, route.params, totalEarned, fare, isFinishing]);
+  const handleFinish = useCallback(() => {
+    handleRate();
+  }, [handleRate]);
 
   useEffect(() => {
     const backAction = () => {
-      handleFinish();
+      handleRate();
       return true;
     };
 
@@ -158,7 +132,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
     );
 
     return () => backHandler.remove();
-  }, [handleFinish]);
+  }, [handleRate]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -295,18 +269,14 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
 
        
 
-          {/* Finish & Go Online Button */}
+          {/* Rate Passenger Action Button */}
           <CustomButton
-            title={
-              isFinishing || actionLoading
-                ? 'Completing Ride...'
-                : t('common.done', 'Done • Back to Online')
-            }
-            onPress={handleFinish}
+            title={t('common.done', 'Rate Passenger ›')}
+            onPress={handleRate}
             loading={isFinishing || actionLoading}
             disabled={isFinishing || actionLoading}
             variant="primary"
-            icon={isFinishing || actionLoading ? undefined : 'arrow-right'}
+            // icon="star"
             iconPosition="right"
             style={styles.nextBtn}
           />

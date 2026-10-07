@@ -35,6 +35,7 @@ export const RideInProgressScreen = ({ navigation, route }) => {
   const {
     tripStatus,
     completedTrip,
+    activeRideId,
     cancellationNotice,
     driverLocation,
     distanceRemainingKm,
@@ -95,21 +96,37 @@ export const RideInProgressScreen = ({ navigation, route }) => {
   // Listen for trip completed from server
   useEffect(() => {
     if (tripStatus === 'completed' || completedTrip) {
+      const resolvedRideId =
+        completedTrip?.ride_id ||
+        route.params?.ride_id ||
+        route.params?.rideId ||
+        activeRideId;
+
       navigation.replace('TripCompleted', {
-        driver,
+        driver: driver || completedTrip?.driver,
         totalFare: completedTrip?.final_fare || totalFare,
         paymentStatus: completedTrip?.payment_status || 'PAID',
+        rideId: resolvedRideId,
+        ride_id: resolvedRideId,
         tripDistance: '5.8 mi',
         tripDuration: '18 mins',
         destination: destinationLabel,
       });
     }
-  }, [tripStatus, completedTrip, driver, totalFare, destinationLabel, navigation]);
+  }, [tripStatus, completedTrip, driver, totalFare, destinationLabel, navigation, activeRideId, route.params]);
 
   const handleCompleteTrip = () => {
+    const resolvedRideId =
+      completedTrip?.ride_id ||
+      route.params?.ride_id ||
+      route.params?.rideId ||
+      activeRideId;
+
     navigation.replace('TripCompleted', {
-      driver,
+      driver: driver || completedTrip?.driver,
       totalFare: completedTrip?.final_fare || totalFare,
+      rideId: resolvedRideId,
+      ride_id: resolvedRideId,
       tripDistance: '5.8 mi',
       tripDuration: '18 mins',
       destination: destinationLabel,
