@@ -1004,7 +1004,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         <View style={styles.periodTabsRow}>
           {[
             { key: 'today', label: t('driver.today', 'Today') },
-            { key: 'week', label: t('driver.thisWeek', 'This Week') },
+            { key: 'week', label: t('driver.thisWeek', 'Weekly') },
             { key: 'all_time', label: t('driver.allTime', 'All Time') },
           ].map((period) => {
             const isActive = selectedPeriod === period.key;

@@ -6,7 +6,6 @@ import {
   StatusBar,
   ScrollView,
   TouchableOpacity,
-  Alert,
   RefreshControl,
   ActivityIndicator,
   Keyboard,
@@ -83,13 +82,11 @@ const parsePhoneAndCountry = (fullPhone, countriesList = []) => {
 const formatDateToDisplay = (dateStr) => {
   if (!dateStr || typeof dateStr !== 'string') return '';
   const clean = dateStr.trim().split('T')[0];
-  // Check if YYYY-MM-DD
   const ymdMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (ymdMatch) {
     const [, y, m, d] = ymdMatch;
     return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
   }
-  // If already DD-MM-YYYY
   const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmyMatch) {
     const [, d, m, y] = dmyMatch;
@@ -104,34 +101,17 @@ const formatDateToDisplay = (dateStr) => {
 const formatDateToApi = (dateStr) => {
   if (!dateStr || typeof dateStr !== 'string') return null;
   const clean = dateStr.trim();
-  // Check if DD-MM-YYYY
   const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmyMatch) {
     const [, d, m, y] = dmyMatch;
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
-  // Check if YYYY-MM-DD
   const ymdMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
   if (ymdMatch) {
     const [, y, m, d] = ymdMatch;
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
   return clean;
-};
-
-/**
- * Formats user input as DD-MM-YYYY automatically while typing digits
- */
-const formatDobInput = (text) => {
-  if (!text) return '';
-  const digits = text.replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) {
-    return digits;
-  }
-  if (digits.length <= 4) {
-    return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-  }
-  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
 };
 
 /**
@@ -218,6 +198,38 @@ export const PersonalDetailsScreen = ({ navigation }) => {
   }, []);
   const isGuest = !authUser || !authUser?.id || isGuestStored;
 
+  // ===== CUSTOM ALERT STATE (replaces all Alert.alert calls) =====
+  const [alertState, setAlertState] = useState({
+    visible: false,
+    type: 'info', // 'info' | 'success' | 'warning' | 'error'
+    title: '',
+    message: '',
+    confirmText: '',
+    cancelText: '',
+    onConfirm: null,
+    onCancel: null,
+    showCancel: false,
+  });
+
+  const showAlert = useCallback((config) => {
+    setAlertState({
+      visible: true,
+      type: config.type || 'info',
+      title: config.title || '',
+      message: config.message || '',
+      confirmText: config.confirmText || t('common.ok', 'OK'),
+      cancelText: config.cancelText || t('common.cancel', 'Cancel'),
+      onConfirm: config.onConfirm || null,
+      onCancel: config.onCancel || null,
+      showCancel: config.showCancel || false,
+    });
+  }, [t]);
+
+  const closeAlert = useCallback(() => {
+    setAlertState((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  // Guest login required alert
   const [guestLoginModal, setGuestLoginModal] = useState({
     visible: false,
     title: '',
@@ -245,9 +257,9 @@ export const PersonalDetailsScreen = ({ navigation }) => {
       const storedRole = await getRole();
       if (storedRole === 'DRIVER' || authUser?.role === 'DRIVER') {
         navigation.reset({
-  index: 0,
-  routes: [{ name: 'Login' }],
-});
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
         return;
       }
     } catch (e) {}
@@ -364,57 +376,63 @@ export const PersonalDetailsScreen = ({ navigation }) => {
       promptGuestLogin();
       return;
     }
-    Alert.alert(
-      t('profile.profilePhoto', 'Profile Photo'),
-      t('profile.selectPhotoOption', 'Select an option to update your profile photo'),
-      [
-        {
-          text: t('profile.takePhoto', 'Take Photo'),
-          onPress: async () => {
-            const res = await captureFromCamera();
-            if (res.success && res.uri) {
-              setPhotoFile({
-                uri: res.uri,
-                name: res.name || `profile_${Date.now()}.jpg`,
-                type: res.type || 'image/jpeg',
-              });
-              setPreviewPhotoUri(res.uri);
-            } else if (res.error && !res.didCancel) {
-              Alert.alert(t('profile.camera', 'Camera'), res.error);
-            }
-          },
-        },
-        {
-          text: t('profile.chooseFromGallery', 'Choose from Gallery'),
-          onPress: async () => {
-            const res = await pickFromGallery();
-            if (res.success && res.uri) {
-              setPhotoFile({
-                uri: res.uri,
-                name: res.name || `profile_${Date.now()}.jpg`,
-                type: res.type || 'image/jpeg',
-              });
-              setPreviewPhotoUri(res.uri);
-            } else if (res.error && !res.didCancel) {
-              Alert.alert(t('profile.gallery', 'Gallery'), res.error);
-            }
-          },
-        },
-        {
-          text: t('common.cancel', 'Cancel'),
-          style: 'cancel',
-        },
-      ]
-    );
+    showAlert({
+      type: 'info',
+      title: t('profile.profilePhoto', 'Profile Photo'),
+      message: t('profile.selectPhotoOption', 'Select an option to update your profile photo'),
+      confirmText: t('profile.takePhoto', 'Take Photo'),
+      cancelText: t('profile.chooseFromGallery', 'Choose from Gallery'),
+      showCancel: true,
+      onConfirm: async () => {
+        closeAlert();
+        const res = await captureFromCamera();
+        if (res.success && res.uri) {
+          setPhotoFile({
+            uri: res.uri,
+            name: res.name || `profile_${Date.now()}.jpg`,
+            type: res.type || 'image/jpeg',
+          });
+          setPreviewPhotoUri(res.uri);
+        } else if (res.error && !res.didCancel) {
+          showAlert({
+            type: 'error',
+            title: t('profile.camera', 'Camera'),
+            message: res.error,
+          });
+        }
+      },
+      onCancel: async () => {
+        closeAlert();
+        const res = await pickFromGallery();
+        if (res.success && res.uri) {
+          setPhotoFile({
+            uri: res.uri,
+            name: res.name || `profile_${Date.now()}.jpg`,
+            type: res.type || 'image/jpeg',
+          });
+          setPreviewPhotoUri(res.uri);
+        } else if (res.error && !res.didCancel) {
+          showAlert({
+            type: 'error',
+            title: t('profile.gallery', 'Gallery'),
+            message: res.error,
+          });
+        }
+      },
+    });
   };
 
-  const handleSave = async () => {
+   const handleSave = async () => {
     if (isGuest) {
       promptGuestLogin();
       return;
     }
     if (!fullName.trim()) {
-      Alert.alert(t('profile.required', 'Required'), t('profile.enterFullNameRequired', 'Please enter your full name.'));
+      showAlert({
+        type: 'warning',
+        title: t('profile.required', 'Required'),
+        message: t('profile.enterFullNameRequired', 'Please enter your full name.'),
+      });
       return;
     }
 
@@ -486,17 +504,28 @@ export const PersonalDetailsScreen = ({ navigation }) => {
       // 3. Re-fetch latest complete profile to synchronize
       await loadProfileData();
 
-      Alert.alert(
-        t('common.success', 'Success'),
-        t('profile.profileUpdatedSuccess', 'Your personal details have been updated successfully.')
-      );
+      // 4. Show success popup — navigate back ONLY after user taps OK
+      showAlert({
+        type: 'success',
+        title: t('common.success', 'Success'),
+        message: t('profile.profileUpdatedSuccess', 'Your personal details have been updated successfully.'),
+        onConfirm: () => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          }
+        },
+      });
     } catch (err) {
       console.warn('[PersonalDetails] Update error:', err);
       const errMsg =
         typeof err === 'string'
           ? err
           : err?.detail || err?.message || 'Failed to update personal details. Please try again.';
-      Alert.alert(t('profile.notice', 'Notice'), errMsg);
+      showAlert({
+        type: 'error',
+        title: t('profile.notice', 'Notice'),
+        message: errMsg,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -545,9 +574,9 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               <Text style={styles.changePhotoText}>{t('profile.changePhoto', 'Change Photo')}</Text>
             </TouchableOpacity>
 
-            <Text style={styles.avatarName}>
+            {/* <Text style={styles.avatarName}>
               {fullName || t('auth.guestRider', 'Rider')}
-            </Text>
+            </Text> */}
 
             {/* Profile Stats from auth/profile/ */}
             <View style={styles.statsRow}>
@@ -906,6 +935,28 @@ export const PersonalDetailsScreen = ({ navigation }) => {
           setShowPhoneCountryPicker(false);
         }}
         loading={countryCodesLoading}
+      />
+
+      {/* ===== CUSTOM ALERT POPUP (replaces Alert.alert) ===== */}
+      <CustomAlertPopup
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        confirmText={alertState.confirmText}
+        cancelText={alertState.cancelText}
+        showCancel={alertState.showCancel}
+        onConfirm={() => {
+          const cb = alertState.onConfirm;
+          closeAlert();
+          if (cb) cb();
+        }}
+        onCancel={() => {
+          const cb = alertState.onCancel;
+          closeAlert();
+          if (cb) cb();
+        }}
+        onClose={closeAlert}
       />
 
       {/* Guest Mode Login Required Alert Popup */}

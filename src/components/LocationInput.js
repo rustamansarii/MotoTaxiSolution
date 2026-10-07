@@ -38,15 +38,26 @@ export const LocationInput = ({
           style={styles.inputWrapper}
         >
           {editable ? (
-            <KeyboardTextInput
-              id="pickup-location-input"
-              value={pickupValue}
-              onChangeText={onPickupChange}
-              placeholder={pickupPlaceholder}
-              placeholderTextColor={COLORS.textLight}
-              style={styles.textInput}
-              onFocus={onPickupPress}
-            />
+            <>
+              <KeyboardTextInput
+                id="pickup-location-input"
+                value={pickupValue}
+                onChangeText={onPickupChange}
+                placeholder={pickupPlaceholder}
+                placeholderTextColor={COLORS.textLight}
+                style={[styles.textInput, pickupValue ? styles.textInputWithClear : null]}
+                onFocus={onPickupPress}
+              />
+              {pickupValue ? (
+                <TouchableOpacity
+                  onPress={() => onPickupChange && onPickupChange('')}
+                  style={styles.clearBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="x" size={14} color={COLORS.iconLight} />
+                </TouchableOpacity>
+              ) : null}
+            </>
           ) : (
             <Text
               numberOfLines={1}
@@ -58,14 +69,6 @@ export const LocationInput = ({
               {pickupValue || pickupPlaceholder}
             </Text>
           )}
-          {editable && pickupValue ? (
-            <TouchableOpacity
-              onPress={() => onPickupChange && onPickupChange('')}
-              style={styles.clearBtn}
-            >
-              <Icon name="x" size={14} color={COLORS.iconLight} />
-            </TouchableOpacity>
-          ) : null}
         </TouchableOpacity>
 
         {/* Divider */}
@@ -78,15 +81,26 @@ export const LocationInput = ({
           style={styles.inputWrapper}
         >
           {editable ? (
-            <KeyboardTextInput
-              id="destination-location-input"
-              value={destinationValue}
-              onChangeText={onDestinationChange}
-              placeholder={destinationPlaceholder}
-              placeholderTextColor={COLORS.textLight}
-              style={styles.textInput}
-              onFocus={onDestinationPress}
-            />
+            <>
+              <KeyboardTextInput
+                id="destination-location-input"
+                value={destinationValue}
+                onChangeText={onDestinationChange}
+                placeholder={destinationPlaceholder}
+                placeholderTextColor={COLORS.textLight}
+                style={[styles.textInput, destinationValue ? styles.textInputWithClear : null]}
+                onFocus={onDestinationPress}
+              />
+              {destinationValue ? (
+                <TouchableOpacity
+                  onPress={() => onDestinationChange && onDestinationChange('')}
+                  style={styles.clearBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Icon name="x" size={14} color={COLORS.iconLight} />
+                </TouchableOpacity>
+              ) : null}
+            </>
           ) : (
             <Text
               numberOfLines={1}
@@ -98,14 +112,6 @@ export const LocationInput = ({
               {destinationValue || destinationPlaceholder}
             </Text>
           )}
-          {editable && destinationValue ? (
-            <TouchableOpacity
-              onPress={() => onDestinationChange && onDestinationChange('')}
-              style={styles.clearBtn}
-            >
-              <Icon name="x" size={14} color={COLORS.iconLight} />
-            </TouchableOpacity>
-          ) : null}
         </TouchableOpacity>
       </View>
 
@@ -169,12 +175,18 @@ const styles = StyleSheet.create({
   inputWrapper: {
     height: 38,
     justifyContent: 'center',
+    position: 'relative',
   },
   textInput: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '500',
     color: COLORS.text,
     paddingVertical: 0,
+    paddingRight: 0,
+  },
+  // Adds right padding when the clear (X) button is visible so text doesn't overlap it
+  textInputWithClear: {
+    paddingRight: 24,
   },
   readOnlyText: {
     ...TYPOGRAPHY.bodySmall,
@@ -192,7 +204,12 @@ const styles = StyleSheet.create({
   clearBtn: {
     position: 'absolute',
     right: 0,
-    padding: SPACING.xs,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.xs,
+    width: 24,
   },
   swapButton: {
     width: 36,

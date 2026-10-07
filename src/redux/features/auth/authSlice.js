@@ -66,30 +66,41 @@ export const loginUser = createAsyncThunk(
         'RIDER'
       ).toUpperCase();
 
-      // Store tokens and role in AsyncStorage for persistent login across app restarts
-      if (data.access || data.token) {
-        await saveTokens({
-          access: data.access || data.token,
-          refresh: data.refresh || '',
-          role: effectiveRole,
-        });
-      } else {
-        await saveRole(effectiveRole);
-      }
+      const isDriver = effectiveRole === 'DRIVER';
+      const isVerified =
+        data.verified === true ||
+        data.verified === 'true' ||
+        data.user?.verified === true ||
+        data.user?.verified === 'true';
 
-      // Save user with role so it is persisted in AsyncStorage
-      const userData = data.user || {
-        role: effectiveRole,
-        verified: data.verified,
-        detail: data.detail,
-        email: credentials.email || '',
-        phone_number: credentials.phone_number || '',
-      };
-      await saveUser({ ...userData, role: effectiveRole });
+      // Only persist session in AsyncStorage if user is not a driver OR driver is verified
+      if (!isDriver || isVerified) {
+        if (data.access || data.token) {
+          await saveTokens({
+            access: data.access || data.token,
+            refresh: data.refresh || '',
+            role: effectiveRole,
+          });
+        } else {
+          await saveRole(effectiveRole);
+        }
+
+        // Save user with role so it is persisted in AsyncStorage
+        const userData = data.user || {
+          role: effectiveRole,
+          verified: data.verified,
+          detail: data.detail,
+          email: credentials.email || '',
+          phone_number: credentials.phone_number || '',
+        };
+        await saveUser({ ...userData, role: effectiveRole });
+      }
 
       return {
         ...data,
         role: effectiveRole,
+        verified: isVerified,
+        isDriverUnverified: isDriver && !isVerified,
       };
     } catch (error) {
       const errorData = error.data || {};
@@ -457,6 +468,12 @@ const authSlice = createSlice({
 
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
+        if (action.payload?.isDriverUnverified) {
+          state.tokens = null;
+          state.user = null;
+          state.error = action.payload.detail || 'Driver account pending verification.';
+          return;
+        }
         const u = action.payload.user || action.payload;
         let fName = u.first_name || '';
         let lName = u.last_name || '';

@@ -36,7 +36,7 @@ export const LoginScreen = ({ navigation, route }) => {
   const isDriver = role === 'driver';
 
   const keyboard = useKeyboardSafe?.();
-  const { showLoading, hideLoading, showError, showSuccess } = usePopup();
+  const { showLoading, hideLoading, showError, showSuccess, showWarning } = usePopup();
 
   const dispatch = useDispatch();
   const {
@@ -142,6 +142,27 @@ export const LoginScreen = ({ navigation, route }) => {
         ).toUpperCase();
 
         const isDriverUser = returnedRole === 'DRIVER';
+
+        // Check verification for driver accounts
+        const isVerified =
+          responseData.verified === true ||
+          responseData.verified === 'true' ||
+          responseData.user?.verified === true ||
+          responseData.user?.verified === 'true';
+
+        if (isDriverUser && !isVerified) {
+          const detailMsg =
+            responseData.detail ||
+            responseData.message ||
+            t('driver.verificationPendingMsg', 'Your driver account is not verified yet. Please wait for approval.');
+
+          showWarning(
+            detailMsg,
+            t('driver.verificationRequired', 'Verification Required')
+          );
+          return;
+        }
+
         const targetNav = isDriverUser ? 'DriverNav' : 'RiderNav';
 
         // Explicitly guarantee role and access token persistence in AsyncStorage
@@ -161,8 +182,12 @@ export const LoginScreen = ({ navigation, route }) => {
           `[Login] Success! Access Token: ${accessToken ? 'Received' : 'None'} | Role: "${returnedRole}" | Navigating to: ${targetNav}`
         );
 
+        const successMessage =
+          responseData.detail ||
+          t('auth.loginSuccessMessage', 'Logged in successfully! Redirecting...');
+
         showSuccess(
-          t('auth.loginSuccessMessage', 'Logged in successfully! Redirecting...'),
+          successMessage,
           t('auth.welcomeBack', 'Welcome Back'),
           () => {
             navigation.replace(targetNav);

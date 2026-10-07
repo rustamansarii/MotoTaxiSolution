@@ -41,6 +41,11 @@ export const SplashScreen = ({ navigation }) => {
 
       if (token) {
         if (effectiveRole === 'DRIVER') {
+          if (user?.verified === false) {
+            console.log('[Splash] Driver is unverified, redirecting to Login');
+            navigation.replace('Login', { role: 'driver' });
+            return;
+          }
           console.log('[Splash] Navigating to DriverNav');
           navigation.replace('DriverNav');
           return;

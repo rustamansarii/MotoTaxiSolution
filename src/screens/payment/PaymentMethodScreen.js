@@ -248,32 +248,28 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
   const handleFinishPayment = () => {
     setPaymentStatus('idle');
 
-    console.log("isDriver",isDriver)
-
-    // if (isDriver) {
-    //   navigation.replace('DriverTripCompleted', {
-    //     ride_id: rideId,
-    //     rideId,
-    //     pickup,
-    //     destination,
-    //     passengerName,
-    //     fare: totalFare,
-    //     currency,
-    //     distance,
-    //     duration,
-    //     vehicleType,
-    //     paymentMethod,
-    //     transactionId,
-    //     isDriver: true,
-    //   });
-    // } else {
-    //   // If opened from rider flow
-    //   if (navigation.canGoBack()) {
-    //     navigation.pop();
-    //   } else {
-    //     navigation.navigate('RiderTabs', { screen: 'RiderHome' });
-    //   }
-    // }
+    if (isDriver) {
+      navigation.replace('DriverTripCompleted', {
+        ride_id: rideId,
+        pickup,
+        destination,
+        passengerName,
+        fare: totalFare,
+        currency,
+        distance,
+        duration,
+        vehicleType,
+        paymentMethod,
+        transactionId,
+      });
+    } else {
+      // If opened from rider flow
+      if (navigation.canGoBack()) {
+        navigation.pop();
+      } else {
+        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+      }
+    }
   };
 
   // Action Button title & icon
