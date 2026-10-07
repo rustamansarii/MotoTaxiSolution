@@ -168,22 +168,52 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     if (!recentSearches || recentSearches.length === 0) {
       return [];
     }
-    return recentSearches.map((item, idx) => ({
-      ...item,
-      id: item.id || `recent_${idx}`,
-      title:
-        item.title ||
-        item.city ||
-        (typeof item.display_name === 'string' ? item.display_name.split(',')[0].trim() : '') ||
-        (typeof item.address === 'string' ? item.address.split(',')[0].trim() : '') ||
-        'Recent Place',
-      address: item.address || item.display_name || '',
-      display_name: item.display_name || item.address || '',
-      latitude: item.latitude ?? (item.lat ? parseFloat(item.lat) : undefined),
-      longitude: item.longitude ?? (item.lon ? parseFloat(item.lon) : undefined),
-      icon: item.icon || 'clock',
-    }));
-  }, [recentSearches]);
+
+    const savedIds = new Set(userSavedPlaces.map((p) => String(p.id)));
+    const savedAddresses = new Set(
+      userSavedPlaces
+        .map((p) => (p.address || p.display_name || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    const seenAddresses = new Set();
+
+    return recentSearches
+      .filter((item) => {
+        if (!item) return false;
+        const itemId = item.id ? String(item.id) : '';
+        if (savedIds.has(itemId) || itemId.startsWith('user_saved_')) {
+          return false;
+        }
+        const addr = (item.address || item.display_name || item.title || '').trim().toLowerCase();
+        if (addr) {
+          if (savedAddresses.has(addr)) return false;
+          if (seenAddresses.has(addr)) return false;
+          seenAddresses.add(addr);
+        }
+        return true;
+      })
+      .map((item, idx) => {
+        const rawId = item.id || item.place_id || `${idx}`;
+        const uniqueId = String(rawId).startsWith('recent_') ? String(rawId) : `recent_${rawId}`;
+
+        return {
+          ...item,
+          id: uniqueId,
+          title:
+            item.title ||
+            item.city ||
+            (typeof item.display_name === 'string' ? item.display_name.split(',')[0].trim() : '') ||
+            (typeof item.address === 'string' ? item.address.split(',')[0].trim() : '') ||
+            'Recent Place',
+          address: item.address || item.display_name || '',
+          display_name: item.display_name || item.address || '',
+          latitude: item.latitude ?? (item.lat ? parseFloat(item.lat) : undefined),
+          longitude: item.longitude ?? (item.lon ? parseFloat(item.lon) : undefined),
+          icon: item.icon || 'clock',
+        };
+      });
+  }, [recentSearches, userSavedPlaces]);
 
   const handlePickupPress = () => {
     setActiveField('pickup');
@@ -363,12 +393,26 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       : userTypedDestination && destination.trim().length >= 2;
 
   // Decide what data list to render
-  const listData = isQueryActive
-    ? searchResults
-    : [
-        ...userSavedPlaces,
-        ...formattedRecentSearches,
-      ];
+  const listData = useMemo(() => {
+    if (isQueryActive) {
+      const seen = new Set();
+      return (searchResults || []).filter((item, index) => {
+        const key = item.id ? String(item.id) : (item.place_id ? String(item.place_id) : `search_${index}`);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    const combined = [...userSavedPlaces, ...formattedRecentSearches];
+    const seen = new Set();
+    return combined.filter((item, index) => {
+      const key = item.id ? String(item.id) : `item_${index}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [isQueryActive, searchResults, userSavedPlaces, formattedRecentSearches]);
 
   const renderDestinationItem = ({ item }) => (
     <TouchableOpacity
@@ -556,7 +600,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
               ) : null
             }
             data={listData}
-            keyExtractor={(item, index) => (item.id ? String(item.id) : `loc_${index}`)}
+            keyExtractor={(item, index) => (item.id ? `${item.id}_${index}` : `loc_${index}`)}
             renderItem={renderDestinationItem}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             showsVerticalScrollIndicator={false}

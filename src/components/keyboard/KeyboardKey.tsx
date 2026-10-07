@@ -1,13 +1,14 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { StyleSheet, Text, Pressable, Platform, View, ViewStyle } from 'react-native';
 import { KeyboardKeyConfig } from './layouts';
 import { colors } from '../../theme/colors';
 import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
+import { useKeyboardSafe } from './KeyboardContext';
 
 interface KeyboardKeyProps {
   config: KeyboardKeyConfig;
-  onPress: (config: KeyboardKeyConfig) => void;
+  onPress: (config: KeyboardKeyConfig) => boolean | void;
   theme: 'light' | 'dark';
   isShiftActive: boolean;
   isCapsLock: boolean;
@@ -23,6 +24,8 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
   const isDark = theme === 'dark';
   const repeatIntervalRef = useRef<any>(null);
   const repeatTimeoutRef = useRef<any>(null);
+  const isPressedRef = useRef(false);
+  const keyboard = useKeyboardSafe();
 
   // Determine if this is a special function key
   const isSpecial = config.action !== 'char' && config.action !== 'space';
@@ -33,25 +36,13 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
   const isShiftActiveOrCaps = isShiftActive || isCapsLock;
 
   // Immediate press trigger for ultra-fast typing response
-  const triggerPress = useCallback(() => {
-    onPress(config);
+  const triggerPress = useCallback((): boolean | void => {
+    return onPress(config);
   }, [config, onPress]);
 
-  // Handle press in: immediate key execution + backspace hold-to-repeat
-  const handlePressIn = () => {
-    triggerPress();
-
-    if (isBackspaceKey) {
-      // Auto-repeat backspace if held down
-      repeatTimeoutRef.current = setTimeout(() => {
-        repeatIntervalRef.current = setInterval(() => {
-          triggerPress();
-        }, 55); // 55ms rapid deletion
-      }, 350); // 350ms initial hold delay
-    }
-  };
-
-  const handlePressOut = () => {
+  // Cleanly stop any active repeat timers
+  const stopRepeat = useCallback(() => {
+    isPressedRef.current = false;
     if (repeatTimeoutRef.current) {
       clearTimeout(repeatTimeoutRef.current);
       repeatTimeoutRef.current = null;
@@ -60,6 +51,65 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
       clearInterval(repeatIntervalRef.current);
       repeatIntervalRef.current = null;
     }
+    if (isBackspaceKey && keyboard?.registerRepeatCanceler) {
+      keyboard.registerRepeatCanceler(null);
+    }
+  }, [isBackspaceKey, keyboard]);
+
+  // Cleanup on unmount or re-render
+  useEffect(() => {
+    return () => {
+      stopRepeat();
+    };
+  }, [stopRepeat]);
+
+  // Handle press in: immediate key execution + backspace hold-to-repeat
+  const handlePressIn = () => {
+    // 1. Immediately clear any previous timers to prevent stacking on rapid clicks
+    stopRepeat();
+    isPressedRef.current = true;
+
+    // 2. Perform the initial delete / action
+    const result = triggerPress();
+
+    if (isBackspaceKey) {
+      // If the field is already empty or at start, backspace returns false; do not schedule repeat
+      if (result === false) {
+        isPressedRef.current = false;
+        return;
+      }
+
+      // Register canceler with global keyboard context so any other key tap can cancel it
+      if (keyboard?.registerRepeatCanceler) {
+        keyboard.registerRepeatCanceler(stopRepeat);
+      }
+
+      // Auto-repeat backspace if held down
+      repeatTimeoutRef.current = setTimeout(() => {
+        repeatTimeoutRef.current = null;
+        // Verify user is STILL pressing down
+        if (!isPressedRef.current) {
+          return;
+        }
+
+        repeatIntervalRef.current = setInterval(() => {
+          // Double check pressed state on every tick
+          if (!isPressedRef.current) {
+            stopRepeat();
+            return;
+          }
+          const repeatResult = triggerPress();
+          // If text became empty (returns false), stop immediately!
+          if (repeatResult === false) {
+            stopRepeat();
+          }
+        }, 70); // 70ms rapid deletion
+      }, 380); // 380ms hold delay
+    }
+  };
+
+  const handlePressOut = () => {
+    stopRepeat();
   };
 
   // Color schemes
@@ -169,8 +219,9 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
       <Pressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        delayPressIn={0}
-        delayPressOut={0}
+        onTouchEnd={stopRepeat}
+        onTouchCancel={stopRepeat}
+        onResponderTerminate={stopRepeat}
         style={({ pressed }) => [
           styles.keyContainer,
           {

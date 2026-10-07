@@ -590,7 +590,7 @@ export const DriverProfileScreen = ({ navigation }) => {
         style={styles.logoutBtn}
       >
         <Icon
-          name={isGuest ? 'arrow-right' : 'close'}
+          name={isGuest ? 'log-out' : 'log-out'}
           size={16}
           color={isGuest ? COLORS.primary : COLORS.danger}
         />

@@ -32,6 +32,7 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
     isNumericOnly,
     hideKeyboard,
     setKeyboardHeight,
+    moveCursor,
   } = useKeyboard();
 
   const totalHeight = KEYBOARD_HEIGHT + ACCESSORY_HEIGHT + (insets.bottom || 8);
@@ -102,6 +103,32 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
             <Text style={[styles.layoutBadgeText, { color: isDark ? '#A1A1AA' : '#475569' }]}>
               {isNumericOnly ? '123' : activeLayout === 'numbers' ? 'NUM' : activeLayout.toUpperCase()}
             </Text>
+          </View>
+
+          {/* Cursor Step Left / Right Buttons */}
+          <View style={styles.cursorRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => moveCursor('left')}
+              style={[
+                styles.shortcutChip,
+                { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
+              ]}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            >
+              <Icon name="chevron-left" size={13} color={isDark ? '#FFFFFF' : '#0F172A'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => moveCursor('right')}
+              style={[
+                styles.shortcutChip,
+                { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
+              ]}
+              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            >
+              <Icon name="chevron-right" size={13} color={isDark ? '#FFFFFF' : '#0F172A'} />
+            </TouchableOpacity>
           </View>
 
           {/* Quick Shortcuts for faster typing */}
@@ -201,6 +228,11 @@ const styles = StyleSheet.create({
     fontSize: responsiveFont(10),
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  cursorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 6,
   },
   shortcutsRow: {
     flexDirection: 'row',

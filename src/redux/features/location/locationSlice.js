@@ -15,9 +15,15 @@ const formatRecentItem = (item) => {
     'Recent Place';
   const latitude = item.latitude ?? (item.lat ? parseFloat(item.lat) : undefined);
   const longitude = item.longitude ?? (item.lon ? parseFloat(item.lon) : undefined);
+  const rawId = item.id || item.place_id;
+  const safeId =
+    rawId && !String(rawId).startsWith('user_saved_')
+      ? (String(rawId).startsWith('recent_') ? String(rawId) : `recent_${rawId}`)
+      : `recent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
   return {
     ...item,
-    id: item.id || item.place_id || `recent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    id: safeId,
     title,
     address,
     display_name: item.display_name || address,
@@ -55,7 +61,12 @@ export const loadRecentSearches = createAsyncThunk(
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          return parsed.map((item, idx) => {
+            if (item && item.id && String(item.id).startsWith('user_saved_')) {
+              return { ...item, id: `recent_${idx}_${Date.now()}` };
+            }
+            return item;
+          });
         }
       }
     } catch (_) {}

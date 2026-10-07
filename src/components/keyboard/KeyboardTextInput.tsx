@@ -35,6 +35,7 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     onValueChange: contextOnValueChange,
     registerInput,
     unregisterInput,
+    showKeyboard,
   } = useKeyboard();
 
   const inputRef = useRef<any>(null);
@@ -108,6 +109,9 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       blur: () => {
         inputRef.current?.blur();
       },
+      focus: () => {
+        inputRef.current?.focus();
+      },
     });
   }, [id, keyboardType, maxLength, onChangeText, onSubmitEditing, onBlur, registerInput]);
 
@@ -133,34 +137,40 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
   useEffect(() => {
     if (!isActive) return;
 
-    // If the incoming prop matches a pending keystroke from our keyboard, consume it and do not overwrite context
-    if (pendingSentValuesRef.current.has(value)) {
-      pendingSentValuesRef.current.delete(value);
+    if (value === lastSentValueRef.current) {
+      // Parent is in sync with latest sent value; clear pending queue
+      pendingSentValuesRef.current.clear();
       return;
     }
 
-    // If there are still pending keystrokes in flight, ignore intermediate in-flight values from parent
-    if (pendingSentValuesRef.current.size > 0) {
+    // If the incoming prop matches a pending keystroke from our keyboard, consume it
+    if (pendingSentValuesRef.current.has(value)) {
+      pendingSentValuesRef.current.delete(value);
+      if (pendingSentValuesRef.current.size === 0) {
+        lastSentValueRef.current = value;
+      }
       return;
     }
 
     // External change (e.g. user selected an address suggestion or pressed the clear button)
-    if (value !== lastSentValueRef.current) {
-      lastSentValueRef.current = value;
-      contextOnValueChange(id, value);
-    }
+    lastSentValueRef.current = value;
+    pendingSentValuesRef.current.clear();
+    contextOnValueChange(id, value);
   }, [value, isActive, id, contextOnValueChange]);
 
   const handleFocus = (e: any) => {
-    const valLen = value ? value.length : 0;
-    const currentSelection = {
-      start: valLen,
-      end: valLen,
-    };
-
     if (customKeyboardEnabled) {
       Keyboard.dismiss();
-      contextOnFocus(id, value, currentSelection);
+      if (!isActive) {
+        const valLen = value ? value.length : 0;
+        const currentSelection = selection || {
+          start: valLen,
+          end: valLen,
+        };
+        contextOnFocus(id, value, currentSelection);
+      } else {
+        showKeyboard();
+      }
     }
 
     if (onFocus) {
@@ -176,8 +186,11 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
 
   const handleSelectionChange = (e: NativeSyntheticEvent<any>) => {
     const newSelection = e.nativeEvent?.selection;
-    if (customKeyboardEnabled && isActive && newSelection) {
-      contextOnSelectionChange(id, newSelection);
+    if (customKeyboardEnabled && newSelection) {
+      const isManualUserTap = userTappedRef.current;
+      // Reset the flag immediately after passing it to context
+      userTappedRef.current = false;
+      contextOnSelectionChange(id, newSelection, isManualUserTap);
     }
     if (onSelectionChange) {
       onSelectionChange(e);
@@ -202,24 +215,26 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     }
     touchTimeoutRef.current = setTimeout(() => {
       userTappedRef.current = false;
-    }, 500);
+    }, 250);
 
     if (customKeyboardEnabled) {
       Keyboard.dismiss();
-      const valLen = value ? value.length : 0;
-      const currentSelection = {
-        start: valLen,
-        end: valLen,
-      };
-      contextOnFocus(id, value, currentSelection);
+      if (!isActive) {
+        const valLen = value ? value.length : 0;
+        const currentSelection = selection || {
+          start: valLen,
+          end: valLen,
+        };
+        contextOnFocus(id, value, currentSelection);
+      } else {
+        showKeyboard();
+      }
     }
   };
 
   const valLen = typeof value === 'string' ? value.length : 0;
-  const isSelectionAtEnd =
-    selection && selection.start === valLen && selection.end === valLen;
   const safeSelection =
-    customKeyboardEnabled && isActive && selection && !isSelectionAtEnd
+    customKeyboardEnabled && isActive && selection
       ? {
           start: Math.max(0, Math.min(selection.start, valLen)),
           end: Math.max(0, Math.min(selection.end, valLen)),
@@ -238,9 +253,11 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       onSelectionChange={handleSelectionChange}
       onSubmitEditing={onSubmitEditing}
       showSoftInputOnFocus={customKeyboardEnabled ? false : showSoftInputOnFocus}
-      editable={Platform.OS === 'ios' && customKeyboardEnabled ? false : editable}
+      editable={editable}
       keyboardType={keyboardType}
       selection={safeSelection}
+      cursorColor={colors.primary}
+      selectionColor={colors.primary}
       placeholderTextColor={props.placeholderTextColor || colors.text.secondary}
       {...props}
       style={[{ color: colors.text.primary }, props.style]}

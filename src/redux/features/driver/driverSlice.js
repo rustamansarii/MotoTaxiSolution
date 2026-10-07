@@ -308,6 +308,7 @@ export const connectDriverWebSocket = createAsyncThunk(
 
       if (!isListenerAttached) {
         driverWebSocket.addListener((event, payload) => {
+          console.log("payload",payload)
           if (event === 'connecting') {
             dispatch(setSocketConnecting(true));
           } else if (event === 'open') {
@@ -699,7 +700,11 @@ export const driverSlice = createSlice({
         case 'ride_request': {
           // {"type": "ride_request", "ride_id": .., "vehicle_type": .., ...}
           // If driver is already engaged in an active trip, ignore duplicate/new ride offers
-          if (state.rideStatus !== 'idle' || state.activeRide) {
+          const isBusyWithActiveTrip =
+            Boolean(state.activeRide?.ride_id) &&
+            ['accepted', 'arrived', 'in_progress'].includes(state.rideStatus);
+
+          if (isBusyWithActiveTrip) {
             console.warn(
               `[DriverSlice] ⚠️ Ignored ride_request for ride #${msg.ride_id} because driver is currently active (status: ${state.rideStatus}, activeRideId: ${state.activeRide?.ride_id})`
             );
@@ -762,6 +767,7 @@ export const driverSlice = createSlice({
         }
 
         case 'reject_success':
+          console.log("reject_successreject_success")
           // {"type": "reject_success", "ride_id": .., "detail": ".."}
           state.incomingRideRequest = null;
           state.rideStatus = 'idle';
@@ -822,7 +828,7 @@ export const driverSlice = createSlice({
 
         case 'cancel_ride_success':
           // {"type": "cancel_ride_success", "ride_id": .., "detail": ".."}
-          state.rideStatus = 'cancelled';
+          state.rideStatus = 'idle';
           state.activeRide = null;
           state.actionSuccessNotice = msg.detail || 'Ride cancelled';
           state.actionError = null;
@@ -835,7 +841,7 @@ export const driverSlice = createSlice({
 
         case 'ride_cancelled':
           // {"type": "ride_cancelled", "ride_id": .., "cancelled_by": "RIDER"}
-          state.rideStatus = 'cancelled';
+          state.rideStatus = 'idle';
           state.rideCancelledNotice = msg;
           state.activeRide = null;
           state.incomingRideRequest = null;

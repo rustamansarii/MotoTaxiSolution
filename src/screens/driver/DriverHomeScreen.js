@@ -256,7 +256,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     currentLocation?.lat || 30.6948,
   ]);
   const [driverHeading, setDriverHeading] = useState(45);
-  const [requestCountdown, setRequestCountdown] = useState(60);
+  const [requestCountdown, setRequestCountdown] = useState(30);
   const handledRideIdRef = useRef(null);
   const navigatedRideIdRef = useRef(null);
   const driverLocationRef = useRef(driverLocation);
@@ -398,9 +398,9 @@ export const DriverHomeScreen = ({ navigation }) => {
     return () => clearInterval(intervalId);
   }, [socketConnected, isOnline, rideStatus, activeRide, dispatch]);
 
-  // Listen for WebSocket incoming ride requests (only when driver is idle and has no active ride)
+  // Listen for WebSocket incoming ride requests (only when driver is available and has no active ride)
   useEffect(() => {
-    if (rideStatus !== 'idle' || activeRide) {
+    if (activeRide || (rideStatus !== 'idle' && rideStatus !== 'requested')) {
       return;
     }
 
@@ -408,7 +408,7 @@ export const DriverHomeScreen = ({ navigation }) => {
       console.log('[DriverHome] Real-time ride request received:', incomingRideRequest);
       if (handledRideIdRef.current !== incomingRideRequest.ride_id) {
         handledRideIdRef.current = incomingRideRequest.ride_id;
-        setRequestCountdown(60);
+        setRequestCountdown(30);
 
         const req = incomingRideRequest;
         const curLoc = driverLocationRef.current || driverLocation;
@@ -458,29 +458,40 @@ export const DriverHomeScreen = ({ navigation }) => {
     if (rideTakenNotice) {
       console.log('[DriverHome] Ride taken or offer expired:', rideTakenNotice);
       handledRideIdRef.current = null;
-      setRequestCountdown(0);
+      setRequestCountdown(30);
       dispatch(clearIncomingRideRequest());
       dispatch(clearActionNotices());
     }
   }, [rideTakenNotice, dispatch]);
 
-  // Request countdown timer (60s / 1 min)
+  // Request countdown timer (30s)
   useEffect(() => {
-    if (!incomingRideRequest) return;
-    if (requestCountdown <= 0) {
-      const rideId = incomingRideRequest.ride_id;
-      console.log('[DriverHome] Request countdown expired, declining ride:', rideId);
-      if (incomingRideRequest && incomingRideRequest.ride_id === rideId) {
-        dispatch(driverRejectRide({ rideId }));
-      }
-      dispatch(clearIncomingRideRequest());
+    if (!incomingRideRequest) {
+      setRequestCountdown(30);
       return;
     }
+
+    const currentRideId = incomingRideRequest.ride_id;
+    setRequestCountdown(30);
+    let remaining = 30;
+
     const timer = setInterval(() => {
-      setRequestCountdown((prev) => prev - 1);
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setRequestCountdown(30);
+        handledRideIdRef.current = null;
+        console.log('[DriverHome] Request countdown expired for ride:', currentRideId);
+        // Do NOT call driverRejectRide! Reject is ONLY sent when driver explicitly clicks Decline.
+        // Simply clear incoming request so driver returns to idle and can receive subsequent requests.
+        dispatch(clearIncomingRideRequest());
+      } else {
+        setRequestCountdown(remaining);
+      }
     }, 1000);
+
     return () => clearInterval(timer);
-  }, [incomingRideRequest, requestCountdown, dispatch]);
+  }, [incomingRideRequest?.ride_id, dispatch]);
 
   // Transition to accepted screen when ride status changes to accepted (first time only)
   useEffect(() => {
@@ -625,6 +636,8 @@ export const DriverHomeScreen = ({ navigation }) => {
     const rideId = incomingRideRequest.ride_id;
     const req = incomingRideRequest;
     console.log('[DriverHome] Accepting ride:', rideId);
+    handledRideIdRef.current = null;
+    setRequestCountdown(30);
     dispatch(driverAcceptRide({ rideId }));
 
     setTimeout(() => {
@@ -667,6 +680,8 @@ export const DriverHomeScreen = ({ navigation }) => {
     if (!incomingRideRequest) return;
     const rideId = incomingRideRequest.ride_id;
     console.log('[DriverHome] Declining ride:', rideId);
+    handledRideIdRef.current = null;
+    setRequestCountdown(30);
     dispatch(driverRejectRide({ rideId }));
     dispatch(clearIncomingRideRequest());
   }, [dispatch, incomingRideRequest, isGuest, promptGuestLogin]);

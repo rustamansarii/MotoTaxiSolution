@@ -7,7 +7,9 @@ export type KeyboardKeyAction =
   | 'lang'
   | 'page'
   | 'enter'
-  | 'hide';
+  | 'hide'
+  | 'cursor_left'
+  | 'cursor_right';
 
 export interface KeyboardKeyConfig {
   label: string;

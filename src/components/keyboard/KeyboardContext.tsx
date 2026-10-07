@@ -16,6 +16,7 @@ export interface KeyboardInputMetadata {
   onSubmitEditing?: () => void;
   onBlur?: () => void;
   blur?: () => void;
+  focus?: () => void;
   maxLength?: number;
 }
 
@@ -35,14 +36,17 @@ export interface KeyboardContextType {
   unregisterInput: (id: string) => void;
   onFocus: (id: string, value: string, selection: { start: number; end: number }) => void;
   onBlur: (id: string) => void;
-  onSelectionChange: (id: string, selection: { start: number; end: number }) => void;
+  onSelectionChange: (id: string, selection: { start: number; end: number }, isUserTap?: boolean) => void;
   onValueChange: (id: string, value: string) => void;
-  handleKeyPress: (key: KeyboardKeyConfig) => void;
+  handleKeyPress: (key: KeyboardKeyConfig) => boolean | void;
+  moveCursor: (direction: 'left' | 'right') => void;
   hideKeyboard: () => void;
   showKeyboard: () => void;
   toggleTheme: () => void;
   isNumericOnly: boolean;
   getLastKeyPressTime: () => number;
+  registerRepeatCanceler?: (canceler: (() => void) | null) => void;
+  cancelActiveRepeat?: () => void;
 }
 
 const KeyboardContext = createContext<KeyboardContextType | undefined>(undefined);
@@ -131,6 +135,21 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
   }, [keyboardVisible]);
 
+  const activeRepeatCancelerRef = useRef<(() => void) | null>(null);
+
+  const cancelActiveRepeat = useCallback(() => {
+    if (activeRepeatCancelerRef.current) {
+      try {
+        activeRepeatCancelerRef.current();
+      } catch (e) {}
+      activeRepeatCancelerRef.current = null;
+    }
+  }, []);
+
+  const registerRepeatCanceler = useCallback((canceler: (() => void) | null) => {
+    activeRepeatCancelerRef.current = canceler;
+  }, []);
+
   const registerInput = useCallback((id: string, metadata: Omit<KeyboardInputMetadata, 'value' | 'selection'>) => {
     inputsRef.current[id] = metadata;
   }, []);
@@ -140,10 +159,12 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (activeInputIdRef.current === id) {
       setActiveInputId(null);
       setKeyboardVisible(false);
+      cancelActiveRepeat();
     }
-  }, []);
+  }, [cancelActiveRepeat]);
 
   const onFocus = useCallback((id: string, initialValue: string, initialSelection: { start: number; end: number }) => {
+    cancelActiveRepeat();
     activeInputIdRef.current = id;
     const safeVal = typeof initialValue === 'string' ? initialValue : '';
     valueRef.current = safeVal;
@@ -167,17 +188,29 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     setIsShiftActive(false);
     setIsCapsLock(false);
-  }, []);
+  }, [cancelActiveRepeat]);
 
   const onBlur = useCallback((id: string) => {
+    cancelActiveRepeat();
     if (activeInputIdRef.current === id) {
       // Trigger target input blur callback
       inputsRef.current[id]?.onBlur?.();
     }
-  }, []);
+  }, [cancelActiveRepeat]);
 
-  const onSelectionChange = useCallback((id: string, newSelection: { start: number; end: number }) => {
+  const onSelectionChange = useCallback((id: string, newSelection: { start: number; end: number }, isUserTap?: boolean) => {
     if (activeInputIdRef.current === id) {
+      // If this is an echo from typing (not an explicit manual touch on the input)
+      // and a key was typed recently (< 300ms), ignore the echo to prevent jumbled letters!
+      if (!isUserTap && Date.now() - lastKeyPressTimeRef.current < 300) {
+        return;
+      }
+
+      // If user explicitly touched the text input, accept the selection and clear lastKeyPressTime
+      if (isUserTap) {
+        lastKeyPressTimeRef.current = 0;
+      }
+
       const valLen = valueRef.current ? valueRef.current.length : 0;
       const safeSel = {
         start: Math.max(0, Math.min(newSelection.start, valLen)),
@@ -193,7 +226,10 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const safeVal = typeof newValue === 'string' ? newValue : '';
       valueRef.current = safeVal;
       const valLen = safeVal.length;
-      const safeSel = { start: valLen, end: valLen };
+      const curSel = selectionRef.current;
+      const safeStart = Math.max(0, Math.min(curSel?.start ?? valLen, valLen));
+      const safeEnd = Math.max(0, Math.min(curSel?.end ?? valLen, valLen));
+      const safeSel = { start: safeStart, end: safeEnd };
       selectionRef.current = safeSel;
       setValue(safeVal);
       setSelection(safeSel);
@@ -201,6 +237,7 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const hideKeyboard = useCallback(() => {
+    cancelActiveRepeat();
     setKeyboardVisible(false);
     setActiveInputId(null);
     const activeId = activeInputIdRef.current;
@@ -210,22 +247,57 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         input.blur();
       }
     }
-  }, []);
+  }, [cancelActiveRepeat]);
 
   const showKeyboard = useCallback(() => {
     const activeId = activeInputIdRef.current;
     if (activeId) {
       setKeyboardVisible(true);
+      inputsRef.current[activeId]?.focus?.();
     }
   }, []);
 
-  const handleKeyPress = useCallback((key: KeyboardKeyConfig) => {
-    lastKeyPressTimeRef.current = Date.now();
+  const moveCursor = useCallback((direction: 'left' | 'right') => {
+    const rawVal = valueRef.current;
+    const val = typeof rawVal === 'string' ? rawVal : '';
+    const valLen = val.length;
+    const rawSel = selectionRef.current;
+    const currentStart = rawSel?.start ?? valLen;
+    const currentEnd = rawSel?.end ?? valLen;
+
+    let newPos = currentStart;
+    if (direction === 'left') {
+      newPos = Math.max(0, currentStart - 1);
+    } else {
+      newPos = Math.min(valLen, currentEnd + 1);
+    }
+
+    const newSelection = { start: newPos, end: newPos };
+    selectionRef.current = newSelection;
+    setSelection(newSelection);
+
     const activeId = activeInputIdRef.current;
-    if (!activeId) return;
+    if (activeId) {
+      inputsRef.current[activeId]?.focus?.();
+    }
+  }, []);
+
+  const handleKeyPress = useCallback((key: KeyboardKeyConfig): boolean | void => {
+    lastKeyPressTimeRef.current = Date.now();
+
+    // If ANY key other than backspace is pressed, cancel any repeating timer immediately
+    if (key.action !== 'backspace') {
+      cancelActiveRepeat();
+    }
+
+    const activeId = activeInputIdRef.current;
+    if (!activeId) return false;
 
     const input = inputsRef.current[activeId];
-    if (!input) return;
+    if (!input) return false;
+
+    // Keep native input focused on each keypress so blinking cursor stays visible
+    input.focus?.();
 
     const rawVal = valueRef.current;
     const val = typeof rawVal === 'string' ? rawVal : '';
@@ -266,7 +338,7 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           setIsShiftActive(false);
           isShiftActiveRef.current = false;
         }
-        break;
+        return true;
       }
       case 'space': {
         if (input.maxLength !== undefined && input.maxLength !== null) {
@@ -287,9 +359,15 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setValue(newValue);
         setSelection(newSelection);
         input.onChangeText(newValue);
-        break;
+        return true;
       }
       case 'backspace': {
+        if (valLen === 0 || (start === 0 && end === 0)) {
+          // Already empty or cursor at start: nothing to delete!
+          cancelActiveRepeat();
+          return false;
+        }
+
         let newValue = val;
         let newSelection = { start, end };
 
@@ -297,6 +375,9 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (start > 0) {
             newValue = val.substring(0, start - 1) + val.substring(start);
             newSelection = { start: start - 1, end: start - 1 };
+          } else {
+            cancelActiveRepeat();
+            return false;
           }
         } else {
           newValue = val.substring(0, start) + val.substring(end);
@@ -310,7 +391,12 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setValue(newValue);
         setSelection(newSelection);
         input.onChangeText(newValue);
-        break;
+
+        // If the resulting text is now empty, cancel any repeat immediately
+        if (newValue.length === 0) {
+          cancelActiveRepeat();
+        }
+        return true;
       }
       case 'shift': {
         const now = Date.now();
@@ -365,10 +451,18 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         hideKeyboard();
         break;
       }
+      case 'cursor_left': {
+        moveCursor('left');
+        return true;
+      }
+      case 'cursor_right': {
+        moveCursor('right');
+        return true;
+      }
       default:
         break;
     }
-  }, [hideKeyboard]);
+  }, [hideKeyboard, moveCursor, cancelActiveRepeat]);
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -395,11 +489,14 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         onSelectionChange,
         onValueChange,
         handleKeyPress,
+        moveCursor,
         hideKeyboard,
         showKeyboard,
         toggleTheme,
         isNumericOnly,
         getLastKeyPressTime: () => lastKeyPressTimeRef.current,
+        registerRepeatCanceler,
+        cancelActiveRepeat,
       }}
     >
       {children}

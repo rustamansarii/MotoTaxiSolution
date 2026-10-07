@@ -130,7 +130,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
     return !isNaN(parsed) && parsed > 0 ? parsed : 91.56;
   }, [route.params, incomingReq, tripDistance]);
 
-  const [countdown, setCountdown] = useState(60);
+  const [countdown, setCountdown] = useState(30);
   const hasNavigatedRef = useRef(false);
 
   const navigateToAccepted = useCallback(() => {
@@ -193,9 +193,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (countdown <= 0) {
-      if (incomingRideRequest && String(incomingRideRequest.ride_id) === String(rideId)) {
-        dispatch(driverRejectRide({ rideId }));
-      }
+      console.log('[RideRequest] Request countdown expired for ride:', rideId);
       dismissToHome();
       return;
     }
@@ -203,7 +201,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
       setCountdown((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [countdown, incomingRideRequest, rideId, dismissToHome, dispatch]);
+  }, [countdown, rideId, dismissToHome]);
 
   // Listen for ride taken by another driver or offer expired
   useEffect(() => {
