@@ -9,9 +9,11 @@ import {
   RefreshControl,
   ActivityIndicator,
   Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { useKeyboard } from '../../components/keyboard';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -36,14 +38,14 @@ import { isGuestMode, getRole } from '../../utils/storage';
 import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 
 const DEFAULT_COUNTRY = {
-  name: 'India',
-  iso2: 'IN',
-  dial_code: '+91',
-  flag: '🇮🇳',
+  name: 'Cameroon',
+  iso2: 'CM',
+  dial_code: '+237',
+  flag: '🇨🇲',
 };
 
 /**
- * Parses a phone string like +919812345678 into { country, digits }
+ * Parses a phone string like +2379812345678 into { country, digits }
  */
 const parsePhoneAndCountry = (fullPhone, countriesList = []) => {
   if (!fullPhone || typeof fullPhone !== 'string') {
@@ -63,16 +65,16 @@ const parsePhoneAndCountry = (fullPhone, countriesList = []) => {
         };
       }
     }
-    if (clean.startsWith('+91')) {
+    if (clean.startsWith('+237')) {
       return {
         country: DEFAULT_COUNTRY,
-        digits: clean.slice(3).trim(),
+        digits: clean.slice(4).trim(),
       };
     }
   }
   return {
     country: DEFAULT_COUNTRY,
-    digits: clean.replace(/^\+91/, '').trim(),
+    digits: clean.replace(/^\+237/, '').trim(),
   };
 };
 
@@ -132,6 +134,7 @@ export const PersonalDetailsScreen = ({ navigation }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { isFoldableOrTablet, insets } = useResponsive();
+  const keyboard = useKeyboard();
 
   const authUser = useSelector((state) => state.auth?.user);
   const riderProfile = useSelector((state) => state.auth?.riderProfile);
@@ -193,7 +196,23 @@ export const PersonalDetailsScreen = ({ navigation }) => {
   const [isGuestStored, setIsGuestStored] = useState(false);
   useEffect(() => {
     isGuestMode().then((val) => {
-      if (val) setIsGuestStored(true);
+      if (val) {
+        setIsGuestStored(true);
+        setFullName('');
+        setEmail('');
+        setPhone('');
+        setPhoneDigits('');
+        setAddressLine('');
+        setCity('');
+        setStateName('');
+        setPincode('');
+        setEmergencyContactName('');
+        setEmergencyContactPhone('');
+        setEmergencyPhoneDigits('');
+        setHomeAddress('');
+        setWorkAddress('');
+        setPreviewPhotoUri(null);
+      }
     });
   }, []);
   const isGuest = !authUser || !authUser?.id || isGuestStored;
@@ -366,10 +385,10 @@ export const PersonalDetailsScreen = ({ navigation }) => {
 
   // Secondary sync when Redux authUser or riderProfile updates
   useEffect(() => {
-    if (authUser || riderProfile) {
+    if (!isGuest && (authUser || riderProfile)) {
       applyProfileToForm(authUser, riderProfile);
     }
-  }, [authUser, riderProfile, applyProfileToForm]);
+  }, [authUser, riderProfile, applyProfileToForm, isGuest]);
 
   const handlePickPhoto = () => {
     if (isGuest) {
@@ -548,6 +567,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
             { paddingBottom: Math.max(insets.bottom + SPACING.xl, SPACING.xxxl) },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={isProfileLoading}
@@ -557,11 +578,19 @@ export const PersonalDetailsScreen = ({ navigation }) => {
             />
           }
         >
+          <TouchableWithoutFeedback
+            onPress={() => {
+              keyboard?.hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
+            accessible={false}
+          >
+            <View>
           {/* Avatar & Welcome Section */}
           <View style={styles.avatarSection}>
             <ProfileAvatar
-              imageUri={previewPhotoUri || authUser?.profile_photo}
-              name={fullName || t('auth.guestUser', 'User')}
+              imageUri={isGuest ? null : (previewPhotoUri || authUser?.profile_photo)}
+              name={isGuest ? t('auth.guestUser', 'Guest') : (fullName || t('auth.guestUser', 'User'))}
               size={88}
               showEdit={true}
               onEditPress={handlePickPhoto}
@@ -574,26 +603,22 @@ export const PersonalDetailsScreen = ({ navigation }) => {
               <Text style={styles.changePhotoText}>{t('profile.changePhoto', 'Change Photo')}</Text>
             </TouchableOpacity>
 
-            {/* <Text style={styles.avatarName}>
-              {fullName || t('auth.guestRider', 'Rider')}
-            </Text> */}
-
             {/* Profile Stats from auth/profile/ */}
             <View style={styles.statsRow}>
               <View style={styles.statItem}>
                 <Icon name="star" size={13} color="#F59E0B" />
                 <Text style={styles.statText}>
-                  {riderProfile?.rating_avg || '5.00'}
+                  {isGuest ? '—' : (riderProfile?.rating_avg || '5.00')}
                 </Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Icon name="navigation" size={13} color={COLORS.primary} />
                 <Text style={styles.statText}>
-                  {riderProfile?.total_rides !== undefined ? riderProfile.total_rides : 0} {t('profile.rides', 'Rides')}
+                  {isGuest ? 0 : (riderProfile?.total_rides !== undefined ? riderProfile.total_rides : 0)} {t('profile.rides', 'Rides')}
                 </Text>
               </View>
-              {authUser?.date_joined ? (
+              {!isGuest && authUser?.date_joined ? (
                 <>
                   <View style={styles.statDivider} />
                   <View style={styles.statItem}>
@@ -746,8 +771,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
                 }}
                 style={styles.countryBox}
               >
-                <Text style={styles.flag}>{phoneCountry.flag || '🇮🇳'}</Text>
-                <Text style={styles.countryCode}>{phoneCountry.dial_code || '+91'}</Text>
+                <Text style={styles.flag}>{phoneCountry.flag || '🇨🇲'}</Text>
+                <Text style={styles.countryCode}>{phoneCountry.dial_code || '+237'}</Text>
                 <Text style={styles.arrow}>▾</Text>
               </TouchableOpacity>
 
@@ -865,8 +890,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
                 }}
                 style={styles.countryBox}
               >
-                <Text style={styles.flag}>{emergencyCountry.flag || '🇮🇳'}</Text>
-                <Text style={styles.countryCode}>{emergencyCountry.dial_code || '+91'}</Text>
+                <Text style={styles.flag}>{emergencyCountry.flag || '🇨🇲'}</Text>
+                <Text style={styles.countryCode}>{emergencyCountry.dial_code || '+237'}</Text>
                 <Text style={styles.arrow}>▾</Text>
               </TouchableOpacity>
 
@@ -893,6 +918,8 @@ export const PersonalDetailsScreen = ({ navigation }) => {
             variant="primary"
             style={styles.saveBtn}
           />
+            </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </ResponsiveContainer>
 

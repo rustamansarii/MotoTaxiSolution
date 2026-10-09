@@ -29,6 +29,11 @@ import {
   watchLocation,
   clearLocationWatch,
 } from '../../utils/locationService';
+import {
+  resolveDropCoordinates,
+  resolvePickupCoordinates,
+} from '../../utils/coordinateResolver';
+import { getVehicleIconName } from '../../utils/vehicleAssets';
 
 export const DriverTripScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -52,22 +57,50 @@ export const DriverTripScreen = ({ navigation, route }) => {
     route.params?.tripId ||
     activeRide?.ride_id ||
     1;
-  const pickup =
-    route.params?.pickup ||
-    activeRide?.pickup_address ||
-    activeRide?.pickup ||
-    'Pickup Location';
-  const destination =
-    route.params?.destination ||
-    activeRide?.drop_address ||
-    activeRide?.destination_address ||
-    activeRide?.destination ||
-    'Destination';
-  const passengerName =
-    route.params?.passengerName ||
-    activeRide?.rider_name ||
-    activeRide?.passengerName ||
-    'Rider';
+  const extractString = (val, fallback = '') => {
+    if (typeof val === 'string' && val.trim()) return val;
+    if (val && typeof val === 'object') {
+      return val.address || val.display_name || val.name || val.shortAddress || fallback;
+    }
+    return fallback;
+  };
+
+  const pickup = useMemo(() => {
+    return extractString(
+      route.params?.pickup || activeRide?.pickup_address || activeRide?.pickup,
+      'Pickup Location'
+    );
+  }, [route.params?.pickup, activeRide?.pickup_address, activeRide?.pickup]);
+
+  const destination = useMemo(() => {
+    return extractString(
+      route.params?.destination ||
+        activeRide?.drop_address ||
+        activeRide?.destination_address ||
+        activeRide?.drop ||
+        activeRide?.destination,
+      'Destination'
+    );
+  }, [
+    route.params?.destination,
+    activeRide?.drop_address,
+    activeRide?.destination_address,
+    activeRide?.drop,
+    activeRide?.destination,
+  ]);
+
+  const passengerName = useMemo(() => {
+    const raw =
+      route.params?.passengerName ||
+      activeRide?.rider_name ||
+      activeRide?.passengerName ||
+      activeRide?.rider;
+    if (typeof raw === 'string' && raw.trim()) return raw;
+    if (raw && typeof raw === 'object') {
+      return raw.name || raw.full_name || 'Rider';
+    }
+    return 'Rider';
+  }, [route.params?.passengerName, activeRide?.rider_name, activeRide?.passengerName, activeRide?.rider]);
   const estimatedFare =
     route.params?.estimatedFare ??
     activeRide?.driver_payout ??
@@ -84,10 +117,15 @@ export const DriverTripScreen = ({ navigation, route }) => {
       ? `${activeRide.distance_km} km`
       : '16.4 mi');
   const distance = tripDistance;
-  const vehicleType =
+  const rawVehicleType =
+    route.params?.vehicle_type ||
     route.params?.vehicleType ||
+    route.params?.ride?.vehicle_type ||
     activeRide?.vehicle_type ||
+    activeRide?.vehicleType ||
     'CAR';
+  const vehicleType = String(rawVehicleType).trim().toUpperCase();
+  const vehicleIcon = getVehicleIconName(vehicleType);
 
   const pickupCoords = useMemo(() => {
     if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
@@ -114,31 +152,11 @@ export const DriverTripScreen = ({ navigation, route }) => {
   ]);
 
   const dropCoords = useMemo(() => {
-    if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
-      return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
-    }
-    const dLon =
-      route.params?.drop_lon ??
-      activeRide?.drop_lon ??
-      activeRide?.drop_longitude ??
-      activeRide?.destination_lon;
-    const dLat =
-      route.params?.drop_lat ??
-      activeRide?.drop_lat ??
-      activeRide?.drop_latitude ??
-      activeRide?.destination_lat;
-    if (dLon && dLat) {
-      return [Number(dLon), Number(dLat)];
-    }
-    // Local destination offset (~2.1 km in Chandigarh area) rather than defaulting to Ludhiana (92 km away)
-    return [pickupCoords[0] + 0.015, pickupCoords[1] + 0.012];
+    return resolveDropCoordinates(route.params, activeRide, destination);
   }, [
-    route.params?.dropCoordinates,
-    route.params?.drop_lon,
-    route.params?.drop_lat,
-    activeRide?.drop_lon,
-    activeRide?.drop_lat,
-    pickupCoords,
+    route.params,
+    activeRide,
+    destination,
   ]);
 
   const numDistanceKm = useMemo(() => {
@@ -236,11 +254,16 @@ export const DriverTripScreen = ({ navigation, route }) => {
   // Listen for rider cancelling trip
   useEffect(() => {
     if (rideCancelledNotice) {
-      Alert.alert('Ride Cancelled', 'The rider has cancelled this ride.');
-      dispatch(clearActionNotices());
-      navigation.navigate('DriverTabs', { screen: 'DriverHome' });
+      const noticeRideId = rideCancelledNotice.ride_id || rideCancelledNotice.id;
+      if (!noticeRideId || String(noticeRideId) === String(rideId)) {
+        Alert.alert('Ride Cancelled', 'The rider has cancelled this ride.');
+        dispatch(clearActionNotices());
+        navigation.navigate('DriverTabs', { screen: 'DriverHome' });
+      } else {
+        dispatch(clearActionNotices());
+      }
     }
-  }, [rideCancelledNotice, dispatch, navigation]);
+  }, [rideCancelledNotice, rideId, dispatch, navigation]);
 
   const navigateToCompleted = useCallback(() => {
     if (hasNavigatedRef.current) return;
@@ -255,6 +278,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
       distance: displayDistance || distance,
       duration: etaMin ? `${etaMin} mins` : '12 mins',
       vehicleType,
+      vehicle_type: vehicleType,
     });
   }, [
     rideId,
@@ -300,6 +324,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
       distance: displayDistance || distance,
       duration: etaMin ? `${etaMin} mins` : '12 mins',
       vehicleType,
+      vehicle_type: vehicleType,
       isDriver: true,
     });
   };
@@ -339,16 +364,17 @@ export const DriverTripScreen = ({ navigation, route }) => {
         pickupCoords={pickupCoords}
         dropCoords={dropCoords}
         driverCoords={driverCoords}
-        pickupLabel="Pick-up"
+        pickupLabel={pickup || 'Pick-up'}
         destinationLabel={destination || 'Drop-off'}
         distanceKm={initialTripDistanceRef.current || 2.5}
         isDriverEnRoute={true}
+        isOnTrip={true}
         vehicleType={vehicleType || 'CAR'}
         focusOnStart={true}
         style={{ flex: 1, width: '100%', height: '100%' }}
       />
     </View>
-  ), [pickupCoords, dropCoords, driverCoords, destination, vehicleType]);
+  ), [pickupCoords, dropCoords, driverCoords, pickup, destination, vehicleType]);
 
   const tripPane = (
     <View
@@ -402,6 +428,12 @@ export const DriverTripScreen = ({ navigation, route }) => {
           </View>
           <Text style={styles.passengerName}>{passengerName}</Text>
           <View style={styles.comfortBadge}>
+            <Icon
+              name={vehicleIcon}
+              size={13}
+              color={COLORS.primaryDark}
+              style={{ marginRight: 4 }}
+            />
             <Text style={styles.comfortText}>{vehicleType || 'Moto Taxi'}</Text>
           </View>
         </View>
@@ -435,7 +467,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
         ]}
       >
         <View style={styles.turnIcon}>
-          <Icon name="navigation" size={24} color={COLORS.white} />
+          <Icon name={vehicleIcon} size={22} color={COLORS.white} />
         </View>
         <View style={styles.turnDetails}>
           <Text style={styles.turnDistance}>
@@ -676,8 +708,10 @@ const styles = StyleSheet.create({
   comfortBadge: {
     backgroundColor: COLORS.primaryLight,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: RADIUS.small,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   comfortText: {
     ...TYPOGRAPHY.caption,

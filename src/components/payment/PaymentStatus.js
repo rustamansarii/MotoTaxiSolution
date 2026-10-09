@@ -112,7 +112,7 @@ export const PaymentStatus = ({
                 ) : null}
               </View>
 
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={onPrimaryAction}
                 style={styles.successBtn}
@@ -120,7 +120,7 @@ export const PaymentStatus = ({
                 <Text style={styles.successBtnText}>
                   {isDriver ? 'Complete Trip & View Receipt ›' : 'Done ›'}
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           )}
 

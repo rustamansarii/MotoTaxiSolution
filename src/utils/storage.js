@@ -167,8 +167,16 @@ export const setGuestMode = async (isGuest) => {
   try {
     if (typeof AsyncStorage?.setItem === 'function') {
       if (isGuest) {
-        await AsyncStorage.setItem(STORAGE_KEYS.IS_GUEST, 'true');
-        console.log('[Storage] Guest mode enabled in AsyncStorage');
+        await Promise.all([
+          AsyncStorage.setItem(STORAGE_KEYS.IS_GUEST, 'true'),
+          AsyncStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN),
+          AsyncStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
+          AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
+          AsyncStorage.removeItem(STORAGE_KEYS.API_TOKEN),
+          AsyncStorage.removeItem('apiToken'),
+          AsyncStorage.removeItem(STORAGE_KEYS.USER),
+        ]);
+        console.log('[Storage] Guest mode enabled in AsyncStorage and cleared old user/tokens');
       } else {
         await AsyncStorage.removeItem(STORAGE_KEYS.IS_GUEST);
         console.log('[Storage] Guest mode disabled in AsyncStorage');

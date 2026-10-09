@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Modal,
   FlatList,
@@ -13,6 +12,7 @@ import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
+import { KeyboardTextInput } from '../keyboard/KeyboardTextInput';
 import {
   MOBILE_MONEY_PROVIDERS,
   MOBILE_MONEY_COUNTRIES,
@@ -117,13 +117,14 @@ export const MobileMoneyForm = ({
           <View style={styles.verticalDivider} />
 
           {/* Number Input */}
-          <TextInput
+          <KeyboardTextInput
+            id="payment_mobile_phone"
             style={styles.phoneInput}
             value={mobileData.phone}
             onChangeText={handlePhoneChange}
             placeholder={`e.g. ${'712345678'.slice(0, selectedCountry.length)}`}
             placeholderTextColor={COLORS.textLight}
-            keyboardType="phone-pad"
+            keyboardType="numeric"
             editable={!disabled}
             maxLength={14}
           />

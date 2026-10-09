@@ -22,6 +22,9 @@ const ApiConstant = {
   DriverHomeStats: 'drivers/stats/home/',
   DeleteAccount: 'auth/delete-account/',
   RateRide: (id) => `rides/${id}/rate/`,
+  RecentDrops: 'rides/recent-drops/',
+  DriverRequests: 'rides/driver-requests/',
+  AvailableRides: 'rides/available/',
 };
 
 export const SUCCESS = "success";

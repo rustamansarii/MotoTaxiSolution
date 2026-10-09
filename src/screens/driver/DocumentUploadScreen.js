@@ -262,7 +262,7 @@ export const DocumentUploadScreen = ({ navigation, route }) => {
               <View style={styles.cardHeaderLeft}>
                 <Icon name="document" size={22} color={GREEN} />
                 <Text style={styles.highlightTitle}>
-                  {t('driver.licenseUploadTitle', 'Driving License Document')}
+                  {t('driver.licenseUploadTitle', 'Driving License Document')} <Text style={styles.requiredAsterisk}>*</Text> 
                 </Text>
               </View>
               <StatusBadge
@@ -908,6 +908,12 @@ const styles = StyleSheet.create({
     color: '#B45309',
     marginTop: 2,
     lineHeight: 15,
+  },
+      requiredAsterisk: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.danger, // red *
+    marginLeft: 2,
   },
 });
 

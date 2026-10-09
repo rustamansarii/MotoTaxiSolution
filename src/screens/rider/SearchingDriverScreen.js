@@ -28,6 +28,7 @@ import {
   setActiveRideId,
   setRideOtp,
 } from '../../redux/features/rider/riderSlice';
+import { clearBookingState } from '../../redux/features/rides/ridesSlice';
 import { riderWebSocket } from '../../utils/riderWebSocket';
 
 export const SearchingDriverScreen = ({ navigation, route }) => {
@@ -59,6 +60,8 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
     socketConnecting,
     activeRideId,
     rideOtp,
+    rideExpiredNotice,
+    actionError,
   } = useSelector((state) => state.rider);
 
   const reduxBookingOtp = useSelector((state) => state.rides?.currentBooking?.otp);
@@ -218,8 +221,52 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
     }
   }, [tripStatus, dispatch, navigation]);
 
+  const isExpired =
+    tripStatus === 'expired' ||
+    tripStatus === 'no_driver_found' ||
+    Boolean(rideExpiredNotice);
+
+  const handleTryAgain = () => {
+    dispatch(clearRiderTripState());
+    dispatch(clearBookingState());
+    navigation.replace('RideOptions', {
+      pickup,
+      pickupData: route.params?.pickupData,
+      destination,
+      destinationData: route.params?.destinationData,
+      pickupCoordinates:
+        pickupLon && pickupLat ? [Number(pickupLon), Number(pickupLat)] : userLocation,
+      pickup_lat: pickupLat,
+      pickup_lon: pickupLon,
+      dropCoordinates:
+        route.params?.drop_lon && route.params?.drop_lat
+          ? [Number(route.params.drop_lon), Number(route.params.drop_lat)]
+          : undefined,
+      drop_lat: route.params?.drop_lat,
+      drop_lon: route.params?.drop_lon,
+      distance_km: route.params?.distance_km ?? route.params?.bookingPayload?.distance_km,
+      preferredVehicle: route.params?.preferredVehicle || selectedRide?.id,
+    });
+  };
+
+  const handleBackToHome = () => {
+    dispatch(clearRiderTripState());
+    dispatch(clearBookingState());
+    if (navigation.canGoBack()) {
+      navigation.popToTop();
+    } else {
+      navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+    }
+  };
+
   // 4. Pulsating radar & animated progress bar
   useEffect(() => {
+    if (isExpired) {
+      pulseAnim.setValue(1);
+      progressAnim.setValue(0);
+      return;
+    }
+
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -256,7 +303,7 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
       pulse.stop();
       progress.stop();
     };
-  }, [pulseAnim, progressAnim]);
+  }, [pulseAnim, progressAnim, isExpired]);
 
   // 5. Handle cancellation: sends cancel_ride over WebSocket
   const handleConfirmCancel = () => {
@@ -299,17 +346,19 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
       />
 
       {/* Pulsating Radar Overlay */}
-      <View style={styles.radarContainer} pointerEvents="none">
-        <Animated.View
-          style={[
-            styles.pulseCircle,
-            { transform: [{ scale: pulseAnim }] },
-          ]}
-        />
-        <View style={styles.radarCore}>
-          <Icon name="user" size={24} color={COLORS.white} />
+      {!isExpired && (
+        <View style={styles.radarContainer} pointerEvents="none">
+          <Animated.View
+            style={[
+              styles.pulseCircle,
+              { transform: [{ scale: pulseAnim }] },
+            ]}
+          />
+          <View style={styles.radarCore}>
+            <Icon name="user" size={24} color={COLORS.white} />
+          </View>
         </View>
-      </View>
+      )}
     </View>
   );
 
@@ -323,84 +372,126 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
         },
       ]}
     >
-      <View style={styles.statusHeader}>
-        <View style={styles.statusBadgeRow}>
-          <View
-            style={[
-              styles.connectionDot,
-              socketConnected
-                ? styles.dotConnected
-                : socketConnecting
-                ? styles.dotConnecting
-                : styles.dotOffline,
-            ]}
-          />
-          <Text style={styles.connectionLabel}>
-            {socketConnected
-              ? 'Live Dispatch Connected'
-              : socketConnecting
-              ? 'Connecting to Dispatch...'
-              : 'Connecting...'}
-          </Text>
-        </View>
-
-        <View style={styles.titleRow}>
-          <Text style={styles.statusTitle}>
-            {tripStatus === 'driver_assigned' || tripStatus === 'driver_arrived'
-              ? t('rider.driverAssigned', 'Driver is on the way')
-              : t('rider.searchingDriversTitle')}
-          </Text>
-          {otp ? (
-            <View style={styles.otpBadge}>
-              <Text style={styles.otpLabel}>OTP: </Text>
-              <Text style={styles.otpValue}>{otp}</Text>
+      {isExpired ? (
+        <View style={styles.expiredContainer}>
+          <View style={styles.statusHeader}>
+            <View style={styles.statusBadgeRow}>
+              <View style={[styles.connectionDot, styles.dotExpired]} />
+              <Text style={[styles.connectionLabel, { color: '#EF4444' }]}>
+                {t('rider.noDriverFoundTitle', 'No Driver Found')}
+              </Text>
             </View>
-          ) : null}
-        </View>
 
-        <Text style={styles.statusSubtitle}>
-          {socketConnecting
-            ? 'Establishing live WebSocket connection...'
-            : t('rider.searchingSubtitle')}
-        </Text>
-      </View>
+            <View style={styles.titleRow}>
+              <Text style={styles.statusTitle}>
+                {t('rider.noDriverFoundTitle', 'No Driver Found')}
+              </Text>
+            </View>
 
-      {/* Animated progress bar line */}
-      <View style={styles.progressTrack}>
-        <Animated.View
-          style={[styles.progressFill, { width: progressInterpolate }]}
-        />
-      </View>
-
-      {/* Ride specs info */}
-      <View style={styles.infoRow}>
-        <View style={styles.infoCol}>
-          <Text style={styles.infoLabel}>{t('driver.vehicleInfo')}</Text>
-          <Text style={styles.infoValue}>
-            {selectedRide?.name || route.params?.bookingPayload?.vehicle_type || 'Moto Taxi'}
-          </Text>
-        </View>
-        {otp ? (
-          <View style={styles.infoColCenter}>
-            <Text style={styles.infoLabel}>Ride OTP</Text>
-            <Text style={styles.infoOtpValue}>{otp}</Text>
+            <Text style={styles.statusSubtitle}>
+              {rideExpiredNotice?.detail ||
+                actionError ||
+                t('rider.noDriverFoundMsg', 'No driver found. Please try again.')}
+            </Text>
           </View>
-        ) : null}
-        <View style={styles.infoColRight}>
-          <Text style={styles.infoLabel}>{t('rider.estimatedFare')}</Text>
-          <Text style={styles.infoValue}>
-            {totalFare ? formatCurrency(totalFare) : '--'}
-          </Text>
-        </View>
-      </View>
 
-      {/* Cancel Button */}
-      <CustomButton
-        title={t('rider.cancelRequest')}
-        variant="outline"
-        onPress={() => setShowCancelModal(true)}
-        style={styles.cancelBtn}
-      />
+          <View style={styles.expiredButtonsCol}>
+            <CustomButton
+              title={t('rider.tryAgain', 'Try Again')}
+              variant="primary"
+              onPress={handleTryAgain}
+              style={styles.tryAgainBtn}
+            />
+            <CustomButton
+              title={t('rider.backToHome', 'Back to Home')}
+              variant="outline"
+              onPress={handleBackToHome}
+              style={styles.backHomeBtn}
+            />
+          </View>
+        </View>
+      ) : (
+        <>
+          <View style={styles.statusHeader}>
+            <View style={styles.statusBadgeRow}>
+              <View
+                style={[
+                  styles.connectionDot,
+                  socketConnected
+                    ? styles.dotConnected
+                    : socketConnecting
+                    ? styles.dotConnecting
+                    : styles.dotOffline,
+                ]}
+              />
+              <Text style={styles.connectionLabel}>
+                {socketConnected
+                  ? 'Live Dispatch Connected'
+                  : socketConnecting
+                  ? 'Connecting to Dispatch...'
+                  : 'Connecting...'}
+              </Text>
+            </View>
+
+            <View style={styles.titleRow}>
+              <Text style={styles.statusTitle}>
+                {tripStatus === 'driver_assigned' || tripStatus === 'driver_arrived'
+                  ? t('rider.driverAssigned', 'Driver is on the way')
+                  : t('rider.searchingDriversTitle')}
+              </Text>
+              {otp ? (
+                <View style={styles.otpBadge}>
+                  <Text style={styles.otpLabel}>OTP: </Text>
+                  <Text style={styles.otpValue}>{otp}</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <Text style={styles.statusSubtitle}>
+              {socketConnecting
+                ? 'Establishing live WebSocket connection...'
+                : t('rider.searchingSubtitle')}
+            </Text>
+          </View>
+
+          {/* Animated progress bar line */}
+          <View style={styles.progressTrack}>
+            <Animated.View
+              style={[styles.progressFill, { width: progressInterpolate }]}
+            />
+          </View>
+
+          {/* Ride specs info */}
+          <View style={styles.infoRow}>
+            <View style={styles.infoCol}>
+              <Text style={styles.infoLabel}>{t('driver.vehicleInfo')}</Text>
+              <Text style={styles.infoValue}>
+                {selectedRide?.name || route.params?.bookingPayload?.vehicle_type || 'Moto Taxi'}
+              </Text>
+            </View>
+            {otp ? (
+              <View style={styles.infoColCenter}>
+                <Text style={styles.infoLabel}>Ride OTP</Text>
+                <Text style={styles.infoOtpValue}>{otp}</Text>
+              </View>
+            ) : null}
+            <View style={styles.infoColRight}>
+              <Text style={styles.infoLabel}>{t('rider.estimatedFare')}</Text>
+              <Text style={styles.infoValue}>
+                {totalFare ? formatCurrency(totalFare) : '--'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Cancel Button */}
+          <CustomButton
+            title={t('rider.cancelRequest')}
+            variant="outline"
+            onPress={() => setShowCancelModal(true)}
+            style={styles.cancelBtn}
+          />
+        </>
+      )}
     </View>
   );
 
@@ -425,6 +516,23 @@ export const SearchingDriverScreen = ({ navigation, route }) => {
         isDanger={true}
         onConfirm={handleConfirmCancel}
         icon="alert-triangle"
+      />
+
+      {/* Ride Expired / No Driver Found Modal */}
+      <CustomModal
+        visible={isExpired}
+        onClose={handleBackToHome}
+        title={t('rider.noDriverFoundTitle', 'No Driver Found')}
+        message={
+          rideExpiredNotice?.detail ||
+          actionError ||
+          t('rider.noDriverFoundMsg', 'No driver found. Please try again.')
+        }
+        confirmText={t('rider.tryAgain', 'Try Again')}
+        cancelText={t('rider.backToHome', 'Back to Home')}
+        isDanger={false}
+        onConfirm={handleTryAgain}
+        icon="alert-circle"
       />
     </SafeAreaView>
   );
@@ -606,6 +714,9 @@ const styles = StyleSheet.create({
   dotOffline: {
     backgroundColor: '#9CA3AF',
   },
+  dotExpired: {
+    backgroundColor: '#EF4444',
+  },
   connectionLabel: {
     ...TYPOGRAPHY.caption,
     fontSize: responsiveFont(11),
@@ -613,6 +724,20 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
   },
   cancelBtn: {
+    width: '100%',
+  },
+  expiredContainer: {
+    width: '100%',
+  },
+  expiredButtonsCol: {
+    width: '100%',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  tryAgainBtn: {
+    width: '100%',
+  },
+  backHomeBtn: {
     width: '100%',
   },
   langFloating: {

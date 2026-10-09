@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -40,13 +41,21 @@ const DateInputTrigger = ({
   value,
   onPress,
   placeholder = 'YYYY-MM-DD',
+  error,
+  required = true,
 }) => (
   <View style={styles.dateTriggerWrap}>
-    <Text style={styles.dateTriggerLabel}>{label}</Text>
+    <View style={styles.labelRow}>
+      <Text style={styles.dateTriggerLabel}>{label}</Text>
+      {required ? <Text style={styles.requiredAsterisk}>*</Text> : null}
+    </View>
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={onPress}
-      style={styles.dateTriggerBtn}
+      style={[
+        styles.dateTriggerBtn,
+        error ? styles.dateTriggerBtnError : null,
+      ]}
     >
       <View style={styles.dateTriggerLeft}>
         <Icon name="calendar" size={17} color={value ? GREEN : '#94A3B8'} />
@@ -61,6 +70,7 @@ const DateInputTrigger = ({
       </View>
       <Icon name="chevron-down" size={15} color="#94A3B8" />
     </TouchableOpacity>
+    {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
   </View>
 );
 
@@ -109,6 +119,8 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
   const [permitType, setPermitType] = useState('image/jpeg');
   const [permitImageSource, setPermitImageSource] = useState(null);
 
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeDocForPicker, setActiveDocForPicker] = useState(null); // 'rc' | 'insurance' | 'puc' | 'permit'
   const [showGalleryModal, setShowGalleryModal] = useState(false);
@@ -124,14 +136,32 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
   const handleDateConfirm = (formattedDate) => {
     if (!activeDatePicker) return;
     const { id } = activeDatePicker;
-    if (id === 'rc_issue') setRcIssueDate(formattedDate);
-    else if (id === 'rc_expiry') setRcExpiryDate(formattedDate);
-    else if (id === 'insurance_issue') setInsuranceIssueDate(formattedDate);
-    else if (id === 'insurance_expiry') setInsuranceExpiryDate(formattedDate);
-    else if (id === 'puc_issue') setPucIssueDate(formattedDate);
-    else if (id === 'puc_expiry') setPucExpiryDate(formattedDate);
-    else if (id === 'permit_issue') setPermitIssueDate(formattedDate);
-    else if (id === 'permit_expiry') setPermitExpiryDate(formattedDate);
+    if (id === 'rc_issue') {
+      setRcIssueDate(formattedDate);
+      if (fieldErrors.rc_issue_date) setFieldErrors(prev => ({ ...prev, rc_issue_date: '' }));
+    } else if (id === 'rc_expiry') {
+      setRcExpiryDate(formattedDate);
+      if (fieldErrors.rc_expiry_date) setFieldErrors(prev => ({ ...prev, rc_expiry_date: '' }));
+    } else if (id === 'insurance_issue') {
+      setInsuranceIssueDate(formattedDate);
+      if (fieldErrors.insurance_issue_date) setFieldErrors(prev => ({ ...prev, insurance_issue_date: '' }));
+    } else if (id === 'insurance_expiry') {
+      setInsuranceExpiryDate(formattedDate);
+      if (fieldErrors.insurance_expiry_date) setFieldErrors(prev => ({ ...prev, insurance_expiry_date: '' }));
+    } else if (id === 'puc_issue') {
+      setPucIssueDate(formattedDate);
+      if (fieldErrors.puc_issue_date) setFieldErrors(prev => ({ ...prev, puc_issue_date: '' }));
+    } else if (id === 'puc_expiry') {
+      setPucExpiryDate(formattedDate);
+      if (fieldErrors.puc_expiry_date) setFieldErrors(prev => ({ ...prev, puc_expiry_date: '' }));
+    } else if (id === 'permit_issue') {
+      setPermitIssueDate(formattedDate);
+      if (fieldErrors.permit_issue_date) setFieldErrors(prev => ({ ...prev, permit_issue_date: '' }));
+    } else if (id === 'permit_expiry') {
+      setPermitExpiryDate(formattedDate);
+      if (fieldErrors.permit_expiry_date) setFieldErrors(prev => ({ ...prev, permit_expiry_date: '' }));
+    }
+    if (generalError) setGeneralError('');
     setActiveDatePicker(null);
   };
 
@@ -192,55 +222,63 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
       setRcFileName(name);
       setRcType(type);
       setRcImageSource(source);
+      if (fieldErrors.rc_file) setFieldErrors(prev => ({ ...prev, rc_file: '' }));
     } else if (activeDocForPicker === 'insurance') {
       setInsuranceUri(uri);
       setInsuranceFileName(name);
       setInsuranceType(type);
       setInsuranceImageSource(source);
+      if (fieldErrors.insurance_file) setFieldErrors(prev => ({ ...prev, insurance_file: '' }));
     } else if (activeDocForPicker === 'puc') {
       setPucUri(uri);
       setPucFileName(name);
       setPucType(type);
       setPucImageSource(source);
+      if (fieldErrors.puc_file) setFieldErrors(prev => ({ ...prev, puc_file: '' }));
     } else if (activeDocForPicker === 'permit') {
       setPermitUri(uri);
       setPermitFileName(name);
       setPermitType(type);
       setPermitImageSource(source);
+      if (fieldErrors.permit_file) setFieldErrors(prev => ({ ...prev, permit_file: '' }));
     }
+    if (generalError) setGeneralError('');
   };
 
   const validateForm = () => {
-    if (!rcUri && !rcImageSource) return 'Please add Registration Certificate (RC) document photo';
-    if (!rcNumber.trim()) return 'Please enter Registration Certificate (RC) number';
-    if (!rcIssueDate.trim()) return 'Please enter RC issue date (YYYY-MM-DD)';
-    if (!rcExpiryDate.trim()) return 'Please enter RC expiry date (YYYY-MM-DD)';
+    const errors = {};
+    if (!rcUri && !rcImageSource) errors.rc_file = 'This field is required.';
+    if (!rcNumber.trim()) errors.rc_number = 'This field is required.';
+    if (!rcIssueDate.trim()) errors.rc_issue_date = 'This field is required.';
+    if (!rcExpiryDate.trim()) errors.rc_expiry_date = 'This field is required.';
 
-    if (!insuranceUri && !insuranceImageSource) return 'Please add Motorcycle Insurance document photo';
-    if (!insuranceNumber.trim()) return 'Please enter Insurance policy number';
-    if (!insuranceIssueDate.trim()) return 'Please enter Insurance issue date (YYYY-MM-DD)';
-    if (!insuranceExpiryDate.trim()) return 'Please enter Insurance expiry date (YYYY-MM-DD)';
+    if (!insuranceUri && !insuranceImageSource) errors.insurance_file = 'This field is required.';
+    if (!insuranceNumber.trim()) errors.insurance_number = 'This field is required.';
+    if (!insuranceIssueDate.trim()) errors.insurance_issue_date = 'This field is required.';
+    if (!insuranceExpiryDate.trim()) errors.insurance_expiry_date = 'This field is required.';
 
-    if (!pucUri && !pucImageSource) return 'Please add PUC certificate photo';
-    if (!pucNumber.trim()) return 'Please enter PUC certificate number';
-    if (!pucIssueDate.trim()) return 'Please enter PUC issue date (YYYY-MM-DD)';
-    if (!pucExpiryDate.trim()) return 'Please enter PUC expiry date (YYYY-MM-DD)';
+    if (!pucUri && !pucImageSource) errors.puc_file = 'This field is required.';
+    if (!pucNumber.trim()) errors.puc_number = 'This field is required.';
+    if (!pucIssueDate.trim()) errors.puc_issue_date = 'This field is required.';
+    if (!pucExpiryDate.trim()) errors.puc_expiry_date = 'This field is required.';
 
-    if (!permitUri && !permitImageSource) return 'Please add Vehicle Permit document photo';
-    if (!permitNumber.trim()) return 'Please enter Permit number';
-    if (!permitIssueDate.trim()) return 'Please enter Permit issue date (YYYY-MM-DD)';
-    if (!permitExpiryDate.trim()) return 'Please enter Permit expiry date (YYYY-MM-DD)';
+    if (!permitUri && !permitImageSource) errors.permit_file = 'This field is required.';
+    if (!permitNumber.trim()) errors.permit_number = 'This field is required.';
+    if (!permitIssueDate.trim()) errors.permit_issue_date = 'This field is required.';
+    if (!permitExpiryDate.trim()) errors.permit_expiry_date = 'This field is required.';
 
-    return null;
+    return errors;
   };
 
   const handleBulkUpload = async () => {
     keyboard?.hideKeyboard?.();
     Keyboard.dismiss();
 
-    const err = validateForm();
-    if (err) {
-      showError(err, 'Validation Error');
+    const clientErrors = validateForm();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      setGeneralError('Please fill all required fields marked with *');
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
 
@@ -399,28 +437,47 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
           );
         }
       } else {
-        let errorMsg =
-          data.message ||
-          data.detail ||
-          data.error ||
-          (data.non_field_errors && data.non_field_errors[0]);
+        const parsedFieldErrors = {};
+        let nonFieldErrMsg = '';
 
-        if (!errorMsg) {
-          const fieldErrors = Object.entries(data)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-            .join('\n');
-          errorMsg = fieldErrors || 'Failed to upload vehicle documents. Please review the inputs.';
+        if (typeof data === 'object' && data !== null) {
+          Object.entries(data).forEach(([key, val]) => {
+            const msg = Array.isArray(val) ? val.join(' ') : String(val);
+            if (
+              [
+                'rc_file', 'rc_number', 'rc_issue_date', 'rc_expiry_date',
+                'insurance_file', 'insurance_number', 'insurance_issue_date', 'insurance_expiry_date',
+                'puc_file', 'puc_number', 'puc_issue_date', 'puc_expiry_date',
+                'permit_file', 'permit_number', 'permit_issue_date', 'permit_expiry_date',
+              ].includes(key)
+            ) {
+              parsedFieldErrors[key] = msg;
+            } else if (key === 'non_field_errors' || key === 'detail' || key === 'message' || key === 'error') {
+              nonFieldErrMsg = msg;
+            } else {
+              parsedFieldErrors[key] = msg;
+            }
+          });
         }
 
-        showError(errorMsg, 'Upload Failed');
+        if (Object.keys(parsedFieldErrors).length > 0) {
+          setFieldErrors(parsedFieldErrors);
+          if (nonFieldErrMsg) {
+            setGeneralError(nonFieldErrMsg);
+          }
+          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        } else {
+          const fallbackMsg = nonFieldErrMsg || 'Failed to upload vehicle documents. Please review the inputs.';
+          setGeneralError(fallbackMsg);
+          showError(fallbackMsg, 'Upload Failed');
+        }
       }
     } catch (err) {
       hideLoading();
       setLoading(false);
-      showError(
-        err.message || 'Unable to connect to vehicle documents server',
-        'Connection Error'
-      );
+      const connErrMsg = err.message || 'Unable to connect to vehicle documents server';
+      setGeneralError(connErrMsg);
+      showError(connErrMsg, 'Connection Error');
     }
   };
 
@@ -460,362 +517,510 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
             </View>
           </View>
 
+          {/* General Error Banner */}
+          {generalError ? (
+            <View style={styles.errorBanner}>
+              <Icon name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
+              <Text style={styles.errorBannerText}>{generalError}</Text>
+            </View>
+          ) : null}
+
           {/* =========================================================
               DOCUMENT 1: REGISTRATION CERTIFICATE (RC)
           ========================================================= */}
-          <View style={styles.docSectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.docNumberBadge}>
-                  <Text style={styles.docNumberText}>1</Text>
+          <TouchableWithoutFeedback
+            onPress={() => {
+              keyboard?.hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
+            accessible={false}
+          >
+            <View style={styles.docSectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <View style={styles.docNumberBadge}>
+                    <Text style={styles.docNumberText}>1</Text>
+                  </View>
+                  <Text style={styles.sectionTitleText}>Registration Certificate (RC)</Text>
                 </View>
-                <Text style={styles.sectionTitleText}>Registration Certificate (RC)</Text>
+                <View style={styles.badgeSuccess}>
+                  <Text style={styles.badgeSuccessText}>Required</Text>
+                </View>
               </View>
-              <View style={styles.badgeSuccess}>
-                <Text style={styles.badgeSuccessText}>Required</Text>
-              </View>
-            </View>
 
-            {/* Document Image Preview */}
-            {rcImageSource ? (
-              <View style={styles.previewContainer}>
-                <Image source={rcImageSource} style={styles.previewImage} resizeMode="cover" />
-                <View style={styles.previewOverlay}>
-                  <Text style={styles.previewFileName} numberOfLines={1}>
-                    {rcFileName}
-                  </Text>
+              {/* Document Image Preview */}
+              {rcImageSource ? (
+                <View style={styles.previewContainer}>
+                  <Image source={rcImageSource} style={styles.previewImage} resizeMode="cover" />
+                  <View style={styles.previewOverlay}>
+                    <Text style={styles.previewFileName} numberOfLines={1}>
+                      {rcFileName}
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => openGalleryFor('rc')}
+                      style={styles.galleryTriggerBtn}
+                    >
+                      <Icon name="image" size={14} color="#FFFFFF" />
+                      <Text style={styles.galleryTriggerText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.docBoxWrapper}>
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => openGalleryFor('rc')}
-                    style={styles.galleryTriggerBtn}
+                    style={[
+                      styles.emptyDocBox,
+                      fieldErrors.rc_file ? styles.emptyDocBoxError : null,
+                    ]}
                   >
-                    <Icon name="image" size={14} color="#FFFFFF" />
-                    <Text style={styles.galleryTriggerText}>Change</Text>
+                    <View style={styles.emptyDocIconWrap}>
+                      <Icon
+                        name="camera"
+                        size={22}
+                        color={fieldErrors.rc_file ? '#EF4444' : GREEN}
+                      />
+                    </View>
+                    <View style={styles.emptyDocTextCol}>
+                      <View style={styles.docTitleRow}>
+                        <Text style={styles.emptyDocTitle}>Add RC Document Photo</Text>
+                        <Text style={styles.requiredAsterisk}>*</Text>
+                      </View>
+                      <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
+                    </View>
+                    <Icon name="chevron-right" size={18} color="#888888" />
                   </TouchableOpacity>
+                  {fieldErrors.rc_file ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors.rc_file}</Text>
+                  ) : null}
                 </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => openGalleryFor('rc')}
-                style={styles.emptyDocBox}
-              >
-                <View style={styles.emptyDocIconWrap}>
-                  <Icon name="camera" size={22} color={GREEN} />
-                </View>
-                <View style={styles.emptyDocTextCol}>
-                  <Text style={styles.emptyDocTitle}>Add RC Document Photo</Text>
-                  <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color="#888888" />
-              </TouchableOpacity>
-            )}
+              )}
 
-            {/* RC Form Inputs */}
-            <CustomInput
-              id="bulk-rc-number"
-              label="RC Registration Number"
-              value={rcNumber}
-              onChangeText={text => setRcNumber(text.toUpperCase())}
-              placeholder="e.g. DL08 2023 RC 445566"
-              autoCapitalize="characters"
-              leftIcon="document"
-              containerStyle={styles.inputGap}
-            />
+              {/* RC Form Inputs */}
+              <CustomInput
+                id="bulk-rc-number"
+                label="RC Registration Number"
+                required={true}
+                error={fieldErrors.rc_number}
+                value={rcNumber}
+                onChangeText={text => {
+                  setRcNumber(text.toUpperCase());
+                  if (fieldErrors.rc_number) {
+                    setFieldErrors(prev => ({ ...prev, rc_number: '' }));
+                  }
+                  if (generalError) setGeneralError('');
+                }}
+                placeholder="e.g. DL08 2023 RC 445566"
+                autoCapitalize="characters"
+                leftIcon="document"
+                containerStyle={styles.inputGap}
+              />
 
-            <View style={styles.rowInputs}>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="RC Issue Date"
-                  value={rcIssueDate}
-                  onPress={() =>
-                    openDatePicker('rc_issue', 'RC Issue Date', rcIssueDate)
-                  }
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="RC Expiry Date"
-                  value={rcExpiryDate}
-                  onPress={() =>
-                    openDatePicker('rc_expiry', 'RC Expiry Date', rcExpiryDate)
-                  }
-                />
+              <View style={styles.rowInputs}>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="RC Issue Date"
+                    required={true}
+                    error={fieldErrors.rc_issue_date}
+                    value={rcIssueDate}
+                    onPress={() =>
+                      openDatePicker('rc_issue', 'RC Issue Date', rcIssueDate)
+                    }
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="RC Expiry Date"
+                    required={true}
+                    error={fieldErrors.rc_expiry_date}
+                    value={rcExpiryDate}
+                    onPress={() =>
+                      openDatePicker('rc_expiry', 'RC Expiry Date', rcExpiryDate)
+                    }
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
 
           {/* =========================================================
               DOCUMENT 2: MOTORCYCLE INSURANCE
           ========================================================= */}
-          <View style={styles.docSectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.docNumberBadge}>
-                  <Text style={styles.docNumberText}>2</Text>
+          <TouchableWithoutFeedback
+            onPress={() => {
+              keyboard?.hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
+            accessible={false}
+          >
+            <View style={styles.docSectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <View style={styles.docNumberBadge}>
+                    <Text style={styles.docNumberText}>2</Text>
+                  </View>
+                  <Text style={styles.sectionTitleText}>Vehicle Insurance Policy</Text>
                 </View>
-                <Text style={styles.sectionTitleText}>Vehicle Insurance Policy</Text>
+                <View style={styles.badgeSuccess}>
+                  <Text style={styles.badgeSuccessText}>Required</Text>
+                </View>
               </View>
-              <View style={styles.badgeSuccess}>
-                <Text style={styles.badgeSuccessText}>Required</Text>
-              </View>
-            </View>
 
-            {/* Document Image Preview */}
-            {insuranceImageSource ? (
-              <View style={styles.previewContainer}>
-                <Image source={insuranceImageSource} style={styles.previewImage} resizeMode="cover" />
-                <View style={styles.previewOverlay}>
-                  <Text style={styles.previewFileName} numberOfLines={1}>
-                    {insuranceFileName}
-                  </Text>
+              {/* Document Image Preview */}
+              {insuranceImageSource ? (
+                <View style={styles.previewContainer}>
+                  <Image source={insuranceImageSource} style={styles.previewImage} resizeMode="cover" />
+                  <View style={styles.previewOverlay}>
+                    <Text style={styles.previewFileName} numberOfLines={1}>
+                      {insuranceFileName}
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => openGalleryFor('insurance')}
+                      style={styles.galleryTriggerBtn}
+                    >
+                      <Icon name="image" size={14} color="#FFFFFF" />
+                      <Text style={styles.galleryTriggerText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.docBoxWrapper}>
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => openGalleryFor('insurance')}
-                    style={styles.galleryTriggerBtn}
+                    style={[
+                      styles.emptyDocBox,
+                      fieldErrors.insurance_file ? styles.emptyDocBoxError : null,
+                    ]}
                   >
-                    <Icon name="image" size={14} color="#FFFFFF" />
-                    <Text style={styles.galleryTriggerText}>Change</Text>
+                    <View style={styles.emptyDocIconWrap}>
+                      <Icon
+                        name="camera"
+                        size={22}
+                        color={fieldErrors.insurance_file ? '#EF4444' : GREEN}
+                      />
+                    </View>
+                    <View style={styles.emptyDocTextCol}>
+                      <View style={styles.docTitleRow}>
+                        <Text style={styles.emptyDocTitle}>Add Insurance Policy Photo</Text>
+                        <Text style={styles.requiredAsterisk}>*</Text>
+                      </View>
+                      <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
+                    </View>
+                    <Icon name="chevron-right" size={18} color="#888888" />
                   </TouchableOpacity>
+                  {fieldErrors.insurance_file ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors.insurance_file}</Text>
+                  ) : null}
                 </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => openGalleryFor('insurance')}
-                style={styles.emptyDocBox}
-              >
-                <View style={styles.emptyDocIconWrap}>
-                  <Icon name="camera" size={22} color={GREEN} />
-                </View>
-                <View style={styles.emptyDocTextCol}>
-                  <Text style={styles.emptyDocTitle}>Add Insurance Policy Photo</Text>
-                  <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color="#888888" />
-              </TouchableOpacity>
-            )}
+              )}
 
-            <CustomInput
-              id="bulk-insurance-number"
-              label="Insurance Policy Number"
-              value={insuranceNumber}
-              onChangeText={text => setInsuranceNumber(text.toUpperCase())}
-              placeholder="e.g. POL-2026-889912"
-              autoCapitalize="characters"
-              leftIcon="shield"
-              containerStyle={styles.inputGap}
-            />
+              <CustomInput
+                id="bulk-insurance-number"
+                label="Insurance Policy Number"
+                required={true}
+                error={fieldErrors.insurance_number}
+                value={insuranceNumber}
+                onChangeText={text => {
+                  setInsuranceNumber(text.toUpperCase());
+                  if (fieldErrors.insurance_number) {
+                    setFieldErrors(prev => ({ ...prev, insurance_number: '' }));
+                  }
+                  if (generalError) setGeneralError('');
+                }}
+                placeholder="e.g. POL-2026-889912"
+                autoCapitalize="characters"
+                leftIcon="shield"
+                containerStyle={styles.inputGap}
+              />
 
-            <View style={styles.rowInputs}>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="Policy Issue Date"
-                  value={insuranceIssueDate}
-                  onPress={() =>
-                    openDatePicker(
-                      'insurance_issue',
-                      'Insurance Policy Issue Date',
-                      insuranceIssueDate
-                    )
-                  }
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="Policy Expiry Date"
-                  value={insuranceExpiryDate}
-                  onPress={() =>
-                    openDatePicker(
-                      'insurance_expiry',
-                      'Insurance Policy Expiry Date',
-                      insuranceExpiryDate
-                    )
-                  }
-                />
+              <View style={styles.rowInputs}>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="Policy Issue Date"
+                    required={true}
+                    error={fieldErrors.insurance_issue_date}
+                    value={insuranceIssueDate}
+                    onPress={() =>
+                      openDatePicker(
+                        'insurance_issue',
+                        'Insurance Policy Issue Date',
+                        insuranceIssueDate
+                      )
+                    }
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="Policy Expiry Date"
+                    required={true}
+                    error={fieldErrors.insurance_expiry_date}
+                    value={insuranceExpiryDate}
+                    onPress={() =>
+                      openDatePicker(
+                        'insurance_expiry',
+                        'Insurance Policy Expiry Date',
+                        insuranceExpiryDate
+                      )
+                    }
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
 
           {/* =========================================================
               DOCUMENT 3: PUC (POLLUTION UNDER CONTROL)
           ========================================================= */}
-          <View style={styles.docSectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.docNumberBadge}>
-                  <Text style={styles.docNumberText}>3</Text>
+          <TouchableWithoutFeedback
+            onPress={() => {
+              keyboard?.hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
+            accessible={false}
+          >
+            <View style={styles.docSectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <View style={styles.docNumberBadge}>
+                    <Text style={styles.docNumberText}>3</Text>
+                  </View>
+                  <Text style={styles.sectionTitleText}>PUC (Pollution Certificate)</Text>
                 </View>
-                <Text style={styles.sectionTitleText}>PUC (Pollution Certificate)</Text>
+                <View style={styles.badgeSuccess}>
+                  <Text style={styles.badgeSuccessText}>Required</Text>
+                </View>
               </View>
-              <View style={styles.badgeSuccess}>
-                <Text style={styles.badgeSuccessText}>Required</Text>
-              </View>
-            </View>
 
-            {/* Document Image Preview */}
-            {pucImageSource ? (
-              <View style={styles.previewContainer}>
-                <Image source={pucImageSource} style={styles.previewImage} resizeMode="cover" />
-                <View style={styles.previewOverlay}>
-                  <Text style={styles.previewFileName} numberOfLines={1}>
-                    {pucFileName}
-                  </Text>
+              {/* Document Image Preview */}
+              {pucImageSource ? (
+                <View style={styles.previewContainer}>
+                  <Image source={pucImageSource} style={styles.previewImage} resizeMode="cover" />
+                  <View style={styles.previewOverlay}>
+                    <Text style={styles.previewFileName} numberOfLines={1}>
+                      {pucFileName}
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => openGalleryFor('puc')}
+                      style={styles.galleryTriggerBtn}
+                    >
+                      <Icon name="image" size={14} color="#FFFFFF" />
+                      <Text style={styles.galleryTriggerText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.docBoxWrapper}>
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => openGalleryFor('puc')}
-                    style={styles.galleryTriggerBtn}
+                    style={[
+                      styles.emptyDocBox,
+                      fieldErrors.puc_file ? styles.emptyDocBoxError : null,
+                    ]}
                   >
-                    <Icon name="image" size={14} color="#FFFFFF" />
-                    <Text style={styles.galleryTriggerText}>Change</Text>
+                    <View style={styles.emptyDocIconWrap}>
+                      <Icon
+                        name="camera"
+                        size={22}
+                        color={fieldErrors.puc_file ? '#EF4444' : GREEN}
+                      />
+                    </View>
+                    <View style={styles.emptyDocTextCol}>
+                      <View style={styles.docTitleRow}>
+                        <Text style={styles.emptyDocTitle}>Add PUC Certificate Photo</Text>
+                        <Text style={styles.requiredAsterisk}>*</Text>
+                      </View>
+                      <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
+                    </View>
+                    <Icon name="chevron-right" size={18} color="#888888" />
                   </TouchableOpacity>
+                  {fieldErrors.puc_file ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors.puc_file}</Text>
+                  ) : null}
                 </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => openGalleryFor('puc')}
-                style={styles.emptyDocBox}
-              >
-                <View style={styles.emptyDocIconWrap}>
-                  <Icon name="camera" size={22} color={GREEN} />
-                </View>
-                <View style={styles.emptyDocTextCol}>
-                  <Text style={styles.emptyDocTitle}>Add PUC Certificate Photo</Text>
-                  <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color="#888888" />
-              </TouchableOpacity>
-            )}
+              )}
 
-            <CustomInput
-              id="bulk-puc-number"
-              label="PUC Certificate Number"
-              value={pucNumber}
-              onChangeText={text => setPucNumber(text.toUpperCase())}
-              placeholder="e.g. PUC-DL-2026-33211"
-              autoCapitalize="characters"
-              leftIcon="document"
-              containerStyle={styles.inputGap}
-            />
+              <CustomInput
+                id="bulk-puc-number"
+                label="PUC Certificate Number"
+                required={true}
+                error={fieldErrors.puc_number}
+                value={pucNumber}
+                onChangeText={text => {
+                  setPucNumber(text.toUpperCase());
+                  if (fieldErrors.puc_number) {
+                    setFieldErrors(prev => ({ ...prev, puc_number: '' }));
+                  }
+                  if (generalError) setGeneralError('');
+                }}
+                placeholder="e.g. PUC-DL-2026-33211"
+                autoCapitalize="characters"
+                leftIcon="document"
+                containerStyle={styles.inputGap}
+              />
 
-            <View style={styles.rowInputs}>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="PUC Issue Date"
-                  value={pucIssueDate}
-                  onPress={() =>
-                    openDatePicker('puc_issue', 'PUC Issue Date', pucIssueDate)
-                  }
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="PUC Expiry Date"
-                  value={pucExpiryDate}
-                  onPress={() =>
-                    openDatePicker(
-                      'puc_expiry',
-                      'PUC Expiry Date',
-                      pucExpiryDate
-                    )
-                  }
-                />
+              <View style={styles.rowInputs}>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="PUC Issue Date"
+                    required={true}
+                    error={fieldErrors.puc_issue_date}
+                    value={pucIssueDate}
+                    onPress={() =>
+                      openDatePicker('puc_issue', 'PUC Issue Date', pucIssueDate)
+                    }
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="PUC Expiry Date"
+                    required={true}
+                    error={fieldErrors.puc_expiry_date}
+                    value={pucExpiryDate}
+                    onPress={() =>
+                      openDatePicker(
+                        'puc_expiry',
+                        'PUC Expiry Date',
+                        pucExpiryDate
+                      )
+                    }
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
 
           {/* =========================================================
               DOCUMENT 4: VEHICLE PERMIT
           ========================================================= */}
-          <View style={styles.docSectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.docNumberBadge}>
-                  <Text style={styles.docNumberText}>4</Text>
+          <TouchableWithoutFeedback
+            onPress={() => {
+              keyboard?.hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
+            accessible={false}
+          >
+            <View style={styles.docSectionCard}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <View style={styles.docNumberBadge}>
+                    <Text style={styles.docNumberText}>4</Text>
+                  </View>
+                  <Text style={styles.sectionTitleText}>Commercial / Moto Permit</Text>
                 </View>
-                <Text style={styles.sectionTitleText}>Commercial / Moto Permit</Text>
+                <View style={styles.badgeSuccess}>
+                  <Text style={styles.badgeSuccessText}>Required</Text>
+                </View>
               </View>
-              <View style={styles.badgeSuccess}>
-                <Text style={styles.badgeSuccessText}>Required</Text>
-              </View>
-            </View>
 
-            {/* Document Image Preview */}
-            {permitImageSource ? (
-              <View style={styles.previewContainer}>
-                <Image source={permitImageSource} style={styles.previewImage} resizeMode="cover" />
-                <View style={styles.previewOverlay}>
-                  <Text style={styles.previewFileName} numberOfLines={1}>
-                    {permitFileName}
-                  </Text>
+              {/* Document Image Preview */}
+              {permitImageSource ? (
+                <View style={styles.previewContainer}>
+                  <Image source={permitImageSource} style={styles.previewImage} resizeMode="cover" />
+                  <View style={styles.previewOverlay}>
+                    <Text style={styles.previewFileName} numberOfLines={1}>
+                      {permitFileName}
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => openGalleryFor('permit')}
+                      style={styles.galleryTriggerBtn}
+                    >
+                      <Icon name="image" size={14} color="#FFFFFF" />
+                      <Text style={styles.galleryTriggerText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.docBoxWrapper}>
                   <TouchableOpacity
                     activeOpacity={0.8}
                     onPress={() => openGalleryFor('permit')}
-                    style={styles.galleryTriggerBtn}
+                    style={[
+                      styles.emptyDocBox,
+                      fieldErrors.permit_file ? styles.emptyDocBoxError : null,
+                    ]}
                   >
-                    <Icon name="image" size={14} color="#FFFFFF" />
-                    <Text style={styles.galleryTriggerText}>Change</Text>
+                    <View style={styles.emptyDocIconWrap}>
+                      <Icon
+                        name="camera"
+                        size={22}
+                        color={fieldErrors.permit_file ? '#EF4444' : GREEN}
+                      />
+                    </View>
+                    <View style={styles.emptyDocTextCol}>
+                      <View style={styles.docTitleRow}>
+                        <Text style={styles.emptyDocTitle}>Add Vehicle Permit Photo</Text>
+                        <Text style={styles.requiredAsterisk}>*</Text>
+                      </View>
+                      <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
+                    </View>
+                    <Icon name="chevron-right" size={18} color="#888888" />
                   </TouchableOpacity>
+                  {fieldErrors.permit_file ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors.permit_file}</Text>
+                  ) : null}
                 </View>
-              </View>
-            ) : (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => openGalleryFor('permit')}
-                style={styles.emptyDocBox}
-              >
-                <View style={styles.emptyDocIconWrap}>
-                  <Icon name="camera" size={22} color={GREEN} />
-                </View>
-                <View style={styles.emptyDocTextCol}>
-                  <Text style={styles.emptyDocTitle}>Add Vehicle Permit Photo</Text>
-                  <Text style={styles.emptyDocSub}>Take a photo or choose from device gallery</Text>
-                </View>
-                <Icon name="chevron-right" size={18} color="#888888" />
-              </TouchableOpacity>
-            )}
+              )}
 
-            <CustomInput
-              id="bulk-permit-number"
-              label="Permit Number"
-              value={permitNumber}
-              onChangeText={text => setPermitNumber(text.toUpperCase())}
-              placeholder="e.g. PMT-DL-2026-7788"
-              autoCapitalize="characters"
-              leftIcon="document"
-              containerStyle={styles.inputGap}
-            />
+              <CustomInput
+                id="bulk-permit-number"
+                label="Permit Number"
+                required={true}
+                error={fieldErrors.permit_number}
+                value={permitNumber}
+                onChangeText={text => {
+                  setPermitNumber(text.toUpperCase());
+                  if (fieldErrors.permit_number) {
+                    setFieldErrors(prev => ({ ...prev, permit_number: '' }));
+                  }
+                  if (generalError) setGeneralError('');
+                }}
+                placeholder="e.g. PMT-DL-2026-7788"
+                autoCapitalize="characters"
+                leftIcon="document"
+                containerStyle={styles.inputGap}
+              />
 
-            <View style={styles.rowInputs}>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="Permit Issue Date"
-                  value={permitIssueDate}
-                  onPress={() =>
-                    openDatePicker(
-                      'permit_issue',
-                      'Permit Issue Date',
-                      permitIssueDate
-                    )
-                  }
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <DateInputTrigger
-                  label="Permit Expiry Date"
-                  value={permitExpiryDate}
-                  onPress={() =>
-                    openDatePicker(
-                      'permit_expiry',
-                      'Permit Expiry Date',
-                      permitExpiryDate
-                    )
-                  }
-                />
+              <View style={styles.rowInputs}>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="Permit Issue Date"
+                    required={true}
+                    error={fieldErrors.permit_issue_date}
+                    value={permitIssueDate}
+                    onPress={() =>
+                      openDatePicker(
+                        'permit_issue',
+                        'Permit Issue Date',
+                        permitIssueDate
+                      )
+                    }
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <DateInputTrigger
+                    label="Permit Expiry Date"
+                    required={true}
+                    error={fieldErrors.permit_expiry_date}
+                    value={permitExpiryDate}
+                    onPress={() =>
+                      openDatePicker(
+                        'permit_expiry',
+                        'Permit Expiry Date',
+                        permitExpiryDate
+                      )
+                    }
+                  />
+                </View>
               </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
 
           {/* SUBMIT BUTTON */}
           <CustomButton
@@ -1100,11 +1305,21 @@ const styles = StyleSheet.create({
   dateTriggerWrap: {
     marginBottom: 12,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  requiredAsterisk: {
+    color: '#EF4444',
+    fontSize: 14,
+    fontWeight: '700',
+    marginLeft: 3,
+  },
   dateTriggerLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '700',
     color: '#334155',
-    marginBottom: 6,
   },
   dateTriggerBtn: {
     flexDirection: 'row',
@@ -1224,7 +1439,6 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: RADIUS.medium,
     padding: SPACING.md,
-    marginBottom: SPACING.md,
   },
   emptyDocIconWrap: {
     width: 42,
@@ -1284,6 +1498,46 @@ const styles = StyleSheet.create({
     color: '#B45309',
     marginTop: 2,
     lineHeight: 15,
+  },
+  docTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  fieldErrorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 4,
+    marginLeft: 2,
+    fontWeight: '500',
+  },
+  emptyDocBoxError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  dateTriggerBtnError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  docBoxWrapper: {
+    marginBottom: SPACING.md,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#D32F2F',
+    fontWeight: '600',
   },
 });
 

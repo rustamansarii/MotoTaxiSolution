@@ -7,6 +7,7 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
+  RefreshControl,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -45,7 +46,12 @@ import {
   fetchDriverWallet,
   fetchDriverWalletSummary,
   fetchDriverHomeStats,
+  fetchAvailableRideRequests,
 } from '../../redux/features/driver/driverSlice';
+import {
+  resolveDropCoordinates,
+  resolvePickupCoordinates,
+} from '../../utils/coordinateResolver';
 
 /**
  * Format decimal hours to readable string like '6h 30m' or '0h'
@@ -85,6 +91,8 @@ export const DriverHomeScreen = ({ navigation }) => {
     walletSummary,
     homeStats,
     isHomeStatsLoading,
+    availableRideRequests = [],
+    requestsLoading = false,
   } = useSelector((state) => state.driver);
   const authUser = useSelector((state) => state.auth?.user);
 
@@ -119,6 +127,7 @@ export const DriverHomeScreen = ({ navigation }) => {
   );
 
   const driverDisplayName = useMemo(() => {
+    if (isGuest) return t('auth.guestDriver', 'Driver');
     const raw =
       authUser?.full_name ||
       (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
@@ -130,9 +139,10 @@ export const DriverHomeScreen = ({ navigation }) => {
         .join(' ');
     }
     return t('auth.guestDriver', 'Driver');
-  }, [authUser, t]);
+  }, [authUser, t, isGuest]);
 
   const driverRating = useMemo(() => {
+    if (isGuest) return 5.0;
     if (homeStats?.rating !== undefined && homeStats?.rating !== null) {
       return Number(homeStats.rating);
     }
@@ -142,9 +152,16 @@ export const DriverHomeScreen = ({ navigation }) => {
       authUser?.rating ||
       5.0
     );
-  }, [homeStats, authUser]);
+  }, [homeStats, authUser, isGuest]);
 
   const periodStats = useMemo(() => {
+    if (isGuest) {
+      return {
+        online_hours: 0,
+        total_rides: 0,
+        total_earnings: 0,
+      };
+    }
     const statsObj = homeStats?.[selectedPeriod];
     if (statsObj) {
       return {
@@ -176,7 +193,7 @@ export const DriverHomeScreen = ({ navigation }) => {
       total_rides: 0,
       total_earnings: 0,
     };
-  }, [homeStats, selectedPeriod, walletSummary, wallet, authUser]);
+  }, [homeStats, selectedPeriod, walletSummary, wallet, authUser, isGuest]);
 
   const earningsLabel = useMemo(() => {
     switch (selectedPeriod) {
@@ -341,19 +358,55 @@ export const DriverHomeScreen = ({ navigation }) => {
       dispatch(fetchDriverHomeStats());
       dispatch(fetchDriverWallet());
       dispatch(fetchDriverWalletSummary());
+      if (isOnline) {
+        dispatch(fetchAvailableRideRequests());
+      }
     }
-  }, [dispatch, isGuest]);
+  }, [dispatch, isGuest, isOnline]);
 
-  // Refresh home stats and wallet when screen gains focus
+  // Refresh home stats, wallet, and available ride requests when screen gains focus
   useFocusEffect(
     useCallback(() => {
+      isGuestMode().then((val) => {
+        setIsGuestStored(Boolean(val));
+      });
       if (!isGuest) {
         dispatch(fetchDriverHomeStats());
         dispatch(fetchDriverWallet());
         dispatch(fetchDriverWalletSummary());
+        if (isOnline) {
+          dispatch(fetchAvailableRideRequests());
+        }
       }
-    }, [dispatch, isGuest])
+    }, [dispatch, isGuest, isOnline])
   );
+
+  // When online status transitions to true, fetch available ride requests
+  useEffect(() => {
+    if (isOnline && !isGuest) {
+      dispatch(fetchAvailableRideRequests());
+    }
+  }, [isOnline, isGuest, dispatch]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      dispatch(fetchUserProfile());
+      if (!isGuest) {
+        await Promise.allSettled([
+          dispatch(fetchDriverHomeStats()).unwrap(),
+          dispatch(fetchDriverWallet()).unwrap(),
+          dispatch(fetchDriverWalletSummary()).unwrap(),
+          isOnline ? dispatch(fetchAvailableRideRequests()).unwrap() : Promise.resolve(),
+        ]);
+      }
+    } catch (_) {
+      // Ignore errors on pull-to-refresh
+    } finally {
+      setRefreshing(false);
+    }
+  }, [dispatch, isGuest, isOnline]);
 
   const handleRecenterLocation = useCallback(async () => {
     try {
@@ -398,60 +451,13 @@ export const DriverHomeScreen = ({ navigation }) => {
     return () => clearInterval(intervalId);
   }, [socketConnected, isOnline, rideStatus, activeRide, dispatch]);
 
-  // Listen for WebSocket incoming ride requests (only when driver is available and has no active ride)
+  // When a new ride request is received, it is stored in Redux (availableRideRequests)
+  // Driver remains on DriverHomeScreen and manually taps "Ride Requests" to open the list
   useEffect(() => {
-    if (activeRide || (rideStatus !== 'idle' && rideStatus !== 'requested')) {
-      return;
-    }
-
     if (incomingRideRequest) {
-      console.log('[DriverHome] Real-time ride request received:', incomingRideRequest);
-      if (handledRideIdRef.current !== incomingRideRequest.ride_id) {
-        handledRideIdRef.current = incomingRideRequest.ride_id;
-        setRequestCountdown(30);
-
-        const req = incomingRideRequest;
-        const curLoc = driverLocationRef.current || driverLocation;
-        const params = {
-          ride_id: req.ride_id,
-          tripId: req.ride_id,
-          pickup: req.pickup_address,
-          destination: req.drop_address,
-          passengerName: req.rider_name || 'Rider',
-          passengerRating: req.rider_rating ? String(req.rider_rating) : '4.95',
-          estimatedFare: req.driver_payout ?? req.fare ?? 0,
-          currency: req.currency || 'USD',
-          distanceToPickup: 'Nearby',
-          timeToPickup: '3 mins',
-          tripDistance: req.distance_km !== undefined ? `${req.distance_km} km` : '0 km',
-          vehicleType: req.vehicle_type || 'CAR',
-          pickupCoordinates:
-            req.pickup_lat && req.pickup_lon
-              ? [Number(req.pickup_lon), Number(req.pickup_lat)]
-              : [curLoc[0] + 0.003, curLoc[1] + 0.002],
-          dropCoordinates:
-            req.drop_lat && req.drop_lon
-              ? [Number(req.drop_lon), Number(req.drop_lat)]
-              : undefined,
-          pickup_lat: req.pickup_lat,
-          pickup_lon: req.pickup_lon,
-          drop_lat: req.drop_lat,
-          drop_lon: req.drop_lon,
-          distance_km: req.distance_km,
-          driverCoordinates: curLoc,
-        };
-
-        const parentNav = navigation.getParent();
-        if (parentNav) {
-          parentNav.navigate('RideRequest', params);
-        } else {
-          navigation.navigate('RideRequest', params);
-        }
-      }
-    } else {
-      handledRideIdRef.current = null;
+      console.log('[DriverHome] New ride request stored in availableRideRequests:', incomingRideRequest);
     }
-  }, [incomingRideRequest, navigation, rideStatus, activeRide, driverLocation]);
+  }, [incomingRideRequest]);
 
   // Handle ride taken by another driver or offer expired
   useEffect(() => {
@@ -493,46 +499,80 @@ export const DriverHomeScreen = ({ navigation }) => {
     return () => clearInterval(timer);
   }, [incomingRideRequest?.ride_id, dispatch]);
 
-  // Transition to accepted screen when ride status changes to accepted (first time only)
+  // Transition to active screen when ride status changes (accepted, arrived, in_progress)
   useEffect(() => {
-    if (rideStatus === 'accepted' && activeRide && activeRide.ride_id) {
-      if (navigatedRideIdRef.current === activeRide.ride_id) {
-        // Driver already navigated to this ride; do not loop if user navigated back
+    if (!activeRide || !activeRide.ride_id) {
+      if (rideStatus === 'idle') {
+        navigatedRideIdRef.current = null;
+      }
+      return;
+    }
+
+    if (['accepted', 'arrived', 'in_progress'].includes(rideStatus)) {
+      const navKey = `${activeRide.ride_id}_${rideStatus}`;
+      if (navigatedRideIdRef.current === navKey) {
         return;
       }
-      navigatedRideIdRef.current = activeRide.ride_id;
+      navigatedRideIdRef.current = navKey;
+      dispatch(clearActionNotices());
       const parentNav = navigation.getParent();
       const targetNav = parentNav || navigation;
-      targetNav.navigate('DriverAcceptedRide', {
+
+      const pLat = activeRide.pickup_lat ?? activeRide.pickup?.lat;
+      const pLon = activeRide.pickup_lon ?? activeRide.pickup?.lng ?? activeRide.pickup?.lon;
+      const dLat = activeRide.drop_lat ?? activeRide.drop?.lat;
+      const dLon = activeRide.drop_lon ?? activeRide.drop?.lng ?? activeRide.drop?.lon;
+      const curLoc = driverLocationRef.current || driverLocation;
+
+      const pickupStr =
+        typeof activeRide.pickup_address === 'string'
+          ? activeRide.pickup_address
+          : activeRide.pickup?.address || 'Pickup Location';
+      const dropStr =
+        typeof activeRide.drop_address === 'string'
+          ? activeRide.drop_address
+          : activeRide.drop?.address || 'Destination';
+
+      const params = {
         ride_id: activeRide.ride_id,
-        pickup: activeRide.pickup_address,
-        destination: activeRide.drop_address,
-        passengerName: activeRide.rider_name || 'Rider',
+        tripId: activeRide.ride_id,
+        pickup: pickupStr,
+        destination: dropStr,
+        passengerName:
+          typeof activeRide.rider_name === 'string'
+            ? activeRide.rider_name
+            : activeRide.rider?.name || 'Rider',
+        passengerPhone: activeRide.rider_phone || activeRide.rider?.phone,
         passengerRating: activeRide.rider_rating ? String(activeRide.rider_rating) : '4.95',
         estimatedFare: activeRide.driver_payout ?? activeRide.fare ?? 0,
+        fare: activeRide.driver_payout ?? activeRide.fare ?? 0,
         currency: activeRide.currency || 'USD',
         distanceToPickup: 'Nearby',
         timeToPickup: '3 mins',
         tripDistance: activeRide.distance_km !== undefined ? `${activeRide.distance_km} km` : '0 km',
         vehicleType: activeRide.vehicle_type || 'CAR',
-        pickup_lat: activeRide.pickup_lat,
-        pickup_lon: activeRide.pickup_lon,
-        drop_lat: activeRide.drop_lat,
-        drop_lon: activeRide.drop_lon,
+        vehicle_type: activeRide.vehicle_type || 'CAR',
+        pickup_lat: pLat,
+        pickup_lon: pLon,
+        drop_lat: dLat,
+        drop_lon: dLon,
         distance_km: activeRide.distance_km,
         pickupCoordinates:
-          activeRide.pickup_lon && activeRide.pickup_lat
-            ? [Number(activeRide.pickup_lon), Number(activeRide.pickup_lat)]
-            : undefined,
+          resolvePickupCoordinates({}, activeRide, pickupStr),
         dropCoordinates:
-          activeRide.drop_lon && activeRide.drop_lat
-            ? [Number(activeRide.drop_lon), Number(activeRide.drop_lat)]
-            : undefined,
-      });
-    } else if (rideStatus === 'idle' || !activeRide) {
-      navigatedRideIdRef.current = null;
+          resolveDropCoordinates({}, activeRide, dropStr),
+        driverCoordinates: curLoc,
+      };
+
+      if (rideStatus === 'in_progress') {
+        targetNav.navigate('DriverTrip', params);
+      } else if (rideStatus === 'arrived') {
+        targetNav.navigate('DriverArrived', params);
+      } else if (rideStatus === 'accepted') {
+        targetNav.navigate('DriverAcceptedRide', params);
+      }
     }
-  }, [rideStatus, activeRide, navigation]);
+  }, [rideStatus, activeRide, navigation, dispatch, driverLocation]);
 
   // Navigate back to ongoing screen/state when clicking Active Trip Card/Banner
   const handleResumeDriverTrip = useCallback(() => {
@@ -597,6 +637,7 @@ export const DriverHomeScreen = ({ navigation }) => {
           ? `${activeRide.distance_km} km`
           : '0 km',
       vehicleType: activeRide.vehicle_type || 'CAR',
+      vehicle_type: activeRide.vehicle_type || 'CAR',
       pickup_lat: pLat,
       pickup_lon: pLon,
       drop_lat: dLat,
@@ -609,6 +650,7 @@ export const DriverHomeScreen = ({ navigation }) => {
       driverCoordinates: curLoc,
     };
 
+    dispatch(clearActionNotices());
     if (rideStatus === 'arrived') {
       targetNav.navigate('DriverArrived', params);
     } else if (rideStatus === 'in_progress') {
@@ -625,6 +667,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     etaMin,
     isGuest,
     promptGuestLogin,
+    dispatch,
   ]);
 
   const handleAcceptIncomingRide = useCallback(() => {
@@ -638,6 +681,7 @@ export const DriverHomeScreen = ({ navigation }) => {
     console.log('[DriverHome] Accepting ride:', rideId);
     handledRideIdRef.current = null;
     setRequestCountdown(30);
+    dispatch(clearActionNotices());
     dispatch(driverAcceptRide({ rideId }));
 
     setTimeout(() => {
@@ -657,17 +701,13 @@ export const DriverHomeScreen = ({ navigation }) => {
         vehicleType: req.vehicle_type || 'CAR',
         pickup_lat: req.pickup_lat,
         pickup_lon: req.pickup_lon,
-        drop_lat: req.drop_lat,
-        drop_lon: req.drop_lon,
+        drop_lat: req.drop_lat || resolveDropCoordinates({}, req, req.drop_address)?.[1],
+        drop_lon: req.drop_lon || resolveDropCoordinates({}, req, req.drop_address)?.[0],
         distance_km: req.distance_km,
         pickupCoordinates:
-          req.pickup_lon && req.pickup_lat
-            ? [Number(req.pickup_lon), Number(req.pickup_lat)]
-            : undefined,
+          resolvePickupCoordinates({}, req, req.pickup_address),
         dropCoordinates:
-          req.drop_lon && req.drop_lat
-            ? [Number(req.drop_lon), Number(req.drop_lat)]
-            : undefined,
+          resolveDropCoordinates({}, req, req.drop_address),
       });
     }, 1000);
   }, [dispatch, incomingRideRequest, navigation, isGuest, promptGuestLogin]);
@@ -758,7 +798,7 @@ export const DriverHomeScreen = ({ navigation }) => {
         dropCoordinate={
           incomingRideRequest?.drop_lon && incomingRideRequest?.drop_lat
             ? [Number(incomingRideRequest.drop_lon), Number(incomingRideRequest.drop_lat)]
-            : activeDropCoords
+            : resolveDropCoordinates({}, incomingRideRequest, incomingRideRequest?.drop_address) || activeDropCoords
         }
         pickupLabel={incomingRideRequest?.pickup_address || activeRide?.pickup_address || activeRide?.pickup?.address}
         destinationLabel={incomingRideRequest?.drop_address || activeRide?.drop_address || activeRide?.drop?.address}
@@ -1013,6 +1053,65 @@ export const DriverHomeScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      {/* 2b. Ride Requests List Entry Card */}
+      <TouchableOpacity
+        activeOpacity={0.88}
+        onPress={() => {
+          const targetNav = navigation.getParent() || navigation;
+          targetNav.navigate('DriverRequestList');
+        }}
+        style={[
+          styles.rideRequestsCard,
+          isOnline && availableRideRequests.length > 0 && styles.rideRequestsCardActive,
+        ]}
+      >
+        <View
+          style={[
+            styles.rideRequestsIconWrapper,
+            isOnline && availableRideRequests.length > 0 && styles.rideRequestsIconWrapperActive,
+          ]}
+        >
+          <Icon
+            name="list"
+            size={22}
+            color={
+              isOnline && availableRideRequests.length > 0 ? COLORS.white : COLORS.primary
+            }
+          />
+        </View>
+
+        <View style={styles.rideRequestsTextCol}>
+          <View style={styles.rideRequestsTitleRow}>
+            <Text style={styles.rideRequestsTitle}>
+              {t('driver.rideRequests', 'Ride Requests')}
+            </Text>
+            {isOnline && availableRideRequests.length > 0 ? (
+              <View style={styles.rideRequestsBadge}>
+                <Text style={styles.rideRequestsBadgeText}>
+                  {availableRideRequests.length}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.rideRequestsSubtitle} numberOfLines={1}>
+            {!isOnline
+              ? t('driver.goOnlineToViewRequests', 'Go online to view and accept ride requests')
+              : availableRideRequests.length > 0
+                ? t(
+                    'driver.requestsAvailableNotice',
+                    `${availableRideRequests.length} ride ${
+                      availableRideRequests.length === 1 ? 'request' : 'requests'
+                    } waiting for you`
+                  )
+                : t('driver.searchingNearbyRequests', 'Searching for nearby ride requests...')}
+          </Text>
+        </View>
+
+        <View style={styles.rideRequestsArrowWrapper}>
+          <Icon name="arrow-right" size={18} color={COLORS.textLight} />
+        </View>
+      </TouchableOpacity>
+
       {/* 3. Driver Profile & Earnings Summary Card */}
       <View style={styles.driverSummaryCard}>
         {/* Period Selector Tabs: Today | This Week | All Time */}
@@ -1065,7 +1164,7 @@ export const DriverHomeScreen = ({ navigation }) => {
           >
             <View style={styles.avatarWrapper}>
               <ProfileAvatar
-                imageUri={authUser?.profile_photo}
+                imageUri={isGuest ? null : authUser?.profile_photo}
                 name={driverDisplayName}
                 size={54}
                 showRatingBadge={false}
@@ -1295,10 +1394,16 @@ export const DriverHomeScreen = ({ navigation }) => {
             ]}
             showsVerticalScrollIndicator={false}
             bounces={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={COLORS.primary}
+                colors={[COLORS.primary]}
+              />
+            }
           >
-            {incomingRideRequest && rideStatus === 'requested' && !activeRide
-              ? incomingRideSheet
-              : summaryPanel}
+            {summaryPanel}
           </ScrollView>
         }
         primaryRatio={0.42}
@@ -1315,9 +1420,9 @@ export const DriverHomeScreen = ({ navigation }) => {
         onConfirm={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
           navigation.reset({
-  index: 0,
-  routes: [{ name: 'Login' }],
-});
+          index: 0,
+          routes: [{ name: 'Login' }],
+         });
         }}
         onCancel={() => {
           setGuestLoginModal({ visible: false, title: '', message: '' });
@@ -1450,6 +1555,75 @@ const styles = StyleSheet.create({
   },
   statusToggleTextOffline: {
     color: '#16A34A',
+  },
+  rideRequestsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  rideRequestsCardActive: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    backgroundColor: '#FEF9F5',
+  },
+  rideRequestsIconWrapper: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  rideRequestsIconWrapperActive: {
+    backgroundColor: COLORS.primary,
+  },
+  rideRequestsTextCol: {
+    flex: 1,
+  },
+  rideRequestsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rideRequestsTitle: {
+    ...TYPOGRAPHY.body,
+    fontSize: responsiveFont(16),
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  rideRequestsBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rideRequestsBadgeText: {
+    color: COLORS.white,
+    fontSize: responsiveFont(11),
+    fontWeight: '800',
+  },
+  rideRequestsSubtitle: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(12),
+    color: COLORS.textLight,
+    marginTop: 2,
+  },
+  rideRequestsArrowWrapper: {
+    marginLeft: 8,
+    padding: 4,
   },
   driverSummaryCard: {
     backgroundColor: COLORS.white,

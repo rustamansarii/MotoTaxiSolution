@@ -5,6 +5,7 @@ import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
+import { getVehicleIconName } from '../../utils/vehicleAssets';
 
 /**
  * DriverMarker renders a ride-booking navigation vehicle marker.
@@ -13,8 +14,12 @@ import Icon from '../Icon';
 export const DriverMarker = ({
   heading = 0,
   eta,
+  vehicleType = 'CAR',
+  icon,
   style,
 }) => {
+  const iconName = icon || getVehicleIconName(vehicleType);
+
   return (
     <View style={[styles.container, style]}>
       {eta ? (
@@ -40,7 +45,7 @@ export const DriverMarker = ({
       >
         {/* Navigation direction indicator notch */}
         <View style={styles.headingNotch} />
-        <Icon name="bike" size={18} color={COLORS.white} />
+        <Icon name={iconName} size={18} color={COLORS.white} />
       </View>
     </View>
   );

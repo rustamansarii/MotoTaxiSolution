@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StatusBar,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   ScrollView,
   Keyboard,
 } from 'react-native';
@@ -48,11 +49,19 @@ export const RiderSignupScreen = ({ navigation }) => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({
+    full_name: '',
+    phone_number: '',
+    email: '',
+    password: '',
+    confirm_password: '',
+  });
   const [selectedCountry, setSelectedCountry] = useState({
-    name: 'India',
-    iso2: 'IN',
-    dial_code: '+91',
-    flag: '🇮🇳',
+    name: 'Cameroon',
+    iso2: 'CM',
+    dial_code: '+237',
+    flag: '🇨🇲',
   });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -66,6 +75,7 @@ export const RiderSignupScreen = ({ navigation }) => {
       if (keyboard?.activeInputId === 'signup-phone') scrollY = 160;
       else if (keyboard?.activeInputId === 'signup-email') scrollY = 220;
       else if (keyboard?.activeInputId === 'signup-password') scrollY = 280;
+      else if (keyboard?.activeInputId === 'signup-confirmpassword') scrollY = 340;
 
       const timer = setTimeout(() => {
         scrollViewRef.current?.scrollTo({ y: scrollY, animated: true });
@@ -74,48 +84,33 @@ export const RiderSignupScreen = ({ navigation }) => {
     }
   }, [keyboard?.keyboardVisible, keyboard?.activeInputId]);
 
-  const validateForm = () => {
-    if (!fullName.trim()) {
-      return t('auth.fullNameRequired', 'Please enter your full name');
-    }
-    if (!phone.trim()) {
-      return t('auth.phonePlaceholder', 'Please enter your mobile number');
-    }
-    if (phone.trim().length < 6) {
-      return t('auth.phoneInvalid', 'Please enter a valid mobile number');
-    }
-    if (!email.trim()) {
-      return t('auth.emailRequired', 'Please enter your email address');
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      return t('auth.emailInvalid', 'Please enter a valid email address');
-    }
-    if (!password.trim()) {
-      return t('auth.passwordPlaceholder', 'Please enter your password');
-    }
-    if (password.trim().length < 6) {
-      return t('auth.passwordLength', 'Password must be at least 6 characters');
-    }
-    return null;
-  };
-
   const handleRegister = async () => {
     keyboard?.hideKeyboard?.();
     Keyboard.dismiss();
     setValidationError('');
+    setFieldErrors({
+      full_name: '',
+      phone_number: '',
+      email: '',
+      password: '',
+      confirm_password: '',
+    });
     dispatch(clearError());
 
-    const error = validateForm();
-    if (error) {
-      setValidationError(error);
-      showError(error, t('common.error', 'Validation Error'));
+    // Only validate password confirmation mismatch if both passwords are provided
+    if (password.trim() && confirmPassword.trim() && password.trim() !== confirmPassword.trim()) {
+      setFieldErrors(prev => ({
+        ...prev,
+        confirm_password: t('auth.passwordMismatch', 'Passwords do not match'),
+      }));
+      scrollViewRef.current?.scrollTo({ y: 360, animated: true });
       return;
     }
 
-    const formattedPhone = phone.trim().startsWith('+')
-      ? phone.trim()
-      : `${selectedCountry.dial_code}${phone.trim()}`;
+    // Format phone: if empty, send empty string so API returns blank validation error
+    const formattedPhone = phone.trim()
+      ? (phone.trim().startsWith('+') ? phone.trim() : `${selectedCountry?.dial_code || ''}${phone.trim()}`)
+      : '';
 
     const payload = {
       full_name: fullName.trim(),
@@ -143,8 +138,80 @@ export const RiderSignupScreen = ({ navigation }) => {
           }
         );
       } else {
-        const errorMsg = actionResult.payload || 'Registration failed. Please try again.';
-        showError(errorMsg, t('auth.signupFailed', 'Registration Failed'));
+        const payloadData = actionResult.payload;
+        const apiErrors = {};
+        let generalErrorMessage = '';
+
+        if (payloadData && typeof payloadData === 'object') {
+          const rawErrors = payloadData.errors || payloadData.fieldErrors || (payloadData.message ? null : payloadData);
+          if (rawErrors && typeof rawErrors === 'object') {
+            Object.entries(rawErrors).forEach(([key, val]) => {
+              const msg = Array.isArray(val) ? val.join(' ') : String(val);
+              if (key === 'non_field_errors' || key === 'detail') {
+                generalErrorMessage = msg;
+              } else if (['full_name', 'phone_number', 'email', 'password', 'confirm_password'].includes(key)) {
+                apiErrors[key] = msg;
+              } else {
+                apiErrors[key] = msg;
+              }
+            });
+          }
+        }
+
+        if (Object.keys(apiErrors).length === 0 && typeof payloadData === 'string') {
+          const lines = payloadData.split('\n');
+          lines.forEach(line => {
+            const [field, ...rest] = line.split(':');
+            if (rest.length > 0) {
+              const msg = rest.join(':').trim();
+              const trimmedField = field.trim();
+              if (['full_name', 'phone_number', 'email', 'password'].includes(trimmedField)) {
+                apiErrors[trimmedField] = msg;
+              } else {
+                generalErrorMessage = line;
+              }
+            } else {
+              generalErrorMessage = line;
+            }
+          });
+        }
+
+        if (Object.keys(apiErrors).length > 0) {
+          setFieldErrors(prev => ({
+            full_name: '',
+            phone_number: '',
+            email: '',
+            password: '',
+            confirm_password: '',
+            ...apiErrors,
+          }));
+          dispatch(clearError());
+
+          if (generalErrorMessage) {
+            setValidationError(generalErrorMessage);
+          } else {
+            setValidationError('');
+          }
+
+          if (apiErrors.full_name) {
+            scrollViewRef.current?.scrollTo({ y: 80, animated: true });
+          } else if (apiErrors.phone_number) {
+            scrollViewRef.current?.scrollTo({ y: 150, animated: true });
+          } else if (apiErrors.email) {
+            scrollViewRef.current?.scrollTo({ y: 220, animated: true });
+          } else if (apiErrors.password) {
+            scrollViewRef.current?.scrollTo({ y: 290, animated: true });
+          }
+        } else {
+          const errorMsg =
+            generalErrorMessage ||
+            (payloadData && typeof payloadData === 'object'
+              ? payloadData.message || payloadData.detail
+              : payloadData) ||
+            'Registration failed. Please try again.';
+          setValidationError(errorMsg);
+          showError(errorMsg, t('auth.signupFailed', 'Registration Failed'));
+        }
       }
     } catch (err) {
       hideLoading();
@@ -168,7 +235,10 @@ export const RiderSignupScreen = ({ navigation }) => {
         ========================================= */}
         <TouchableOpacity
           activeOpacity={1}
-          onPress={() => keyboard?.hideKeyboard?.()}
+          onPress={() => {
+            keyboard?.hideKeyboard?.();
+            Keyboard.dismiss();
+          }}
           style={[styles.hero, { height: isLandscape ? 160 : isCompact ? 200 : 230 }]}
         >
           {/* Back Button */}
@@ -205,7 +275,14 @@ export const RiderSignupScreen = ({ navigation }) => {
         {/* =========================================
             FORM CARD
         ========================================= */}
-        <View style={styles.card}>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            keyboard?.hideKeyboard?.();
+            Keyboard.dismiss();
+          }}
+          accessible={false}
+        >
+          <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.formTitle}>
               {t('auth.createRiderAccount', 'Create Rider Account')}
@@ -221,44 +298,63 @@ export const RiderSignupScreen = ({ navigation }) => {
               id="signup-fullname"
               label={t('auth.fullName', 'Full Name')}
               value={fullName}
+              required
               onChangeText={text => {
                 setFullName(text);
+                if (fieldErrors.full_name) {
+                  setFieldErrors(prev => ({ ...prev, full_name: '' }));
+                }
                 if (validationError) setValidationError('');
                 if (reduxError) dispatch(clearError());
               }}
               placeholder={t('auth.fullNamePlaceholder', 'e.g. Rahul Sharma')}
               leftIcon="user"
+              error={fieldErrors.full_name}
               containerStyle={styles.inputFieldContainer}
+              
             />
 
             {/* PHONE NUMBER WITH COUNTRY PICKER */}
-            <Text style={styles.inputLabel}>{t('auth.mobileNumber', 'Mobile Number')}</Text>
-            <View style={styles.phoneSection}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => setShowCountryPicker(true)}
-                style={styles.countryBox}
-              >
-                <Text style={styles.flag}>{selectedCountry.flag}</Text>
-                <Text style={styles.countryCode}>{selectedCountry.dial_code}</Text>
-                <Text style={styles.arrow}>▾</Text>
-              </TouchableOpacity>
+            <View style={styles.phoneFieldContainer}>
+              <Text style={styles.inputLabel}>{t('auth.mobileNumber', 'Mobile Number')} <Text style={styles.requiredAsterisk}>*</Text> </Text>
+              <View style={styles.phoneSection}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setShowCountryPicker(true)}
+                  style={[
+                    styles.countryBox,
+                    fieldErrors.phone_number ? styles.countryBoxError : null,
+                  ]}
+                >
+                  <Text style={styles.flag}>{selectedCountry.flag}</Text>
+                  <Text style={styles.countryCode}>{selectedCountry.dial_code}</Text>
+                  <Text style={styles.arrow}>▾</Text>
+                </TouchableOpacity>
 
-              <View style={styles.phoneInput}>
-                <CustomInput
-                  id="signup-phone"
-                  value={phone}
-                  onChangeText={text => {
-                    setPhone(text);
-                    if (validationError) setValidationError('');
-                    if (reduxError) dispatch(clearError());
-                  }}
-                  placeholder={t('auth.phonePlaceholder', 'Mobile Number')}
-                  keyboardType="phone-pad"
-                  leftIcon="phone"
-                  containerStyle={styles.inputNoMargin}
-                />
+                <View style={styles.phoneInput}>
+                  <CustomInput
+                    id="signup-phone"
+                    value={phone}
+                    onChangeText={text => {
+                      setPhone(text);
+                      if (fieldErrors.phone_number) {
+                        setFieldErrors(prev => ({ ...prev, phone_number: '' }));
+                      }
+                      if (validationError) setValidationError('');
+                      if (reduxError) dispatch(clearError());
+                    }}
+                    placeholder={t('auth.phonePlaceholder', 'Mobile Number')}
+                    keyboardType="phone-pad"
+                    leftIcon="phone"
+                    error={fieldErrors.phone_number}
+                    hideErrorText={true}
+                    containerStyle={styles.inputNoMargin}
+                  />
+                </View>
               </View>
+              {fieldErrors.phone_number ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.phone_number}</Text>
+              ) : null}
             </View>
 
             {/* EMAIL */}
@@ -268,6 +364,9 @@ export const RiderSignupScreen = ({ navigation }) => {
               value={email}
               onChangeText={text => {
                 setEmail(text);
+                if (fieldErrors.email) {
+                  setFieldErrors(prev => ({ ...prev, email: '' }));
+                }
                 if (validationError) setValidationError('');
                 if (reduxError) dispatch(clearError());
               }}
@@ -275,6 +374,7 @@ export const RiderSignupScreen = ({ navigation }) => {
               keyboardType="email-address"
               autoCapitalize="none"
               leftIcon="message"
+              error={fieldErrors.email}
               containerStyle={styles.inputFieldContainer}
             />
 
@@ -282,20 +382,60 @@ export const RiderSignupScreen = ({ navigation }) => {
             <CustomInput
               id="signup-password"
               label={t('auth.password', 'Password')}
+              required
               value={password}
               onChangeText={text => {
                 setPassword(text);
+                if (fieldErrors.password) {
+                  setFieldErrors(prev => ({ ...prev, password: '' }));
+                }
+                if (confirmPassword && text !== confirmPassword) {
+                  setFieldErrors(prev => ({
+                    ...prev,
+                    confirm_password: t('auth.passwordMismatch', 'Passwords do not match'),
+                  }));
+                } else if (confirmPassword && text === confirmPassword) {
+                  setFieldErrors(prev => ({ ...prev, confirm_password: '' }));
+                }
                 if (validationError) setValidationError('');
                 if (reduxError) dispatch(clearError());
               }}
               placeholder={t('auth.passwordPlaceholder', 'Enter your password')}
               secureTextEntry
               leftIcon="lock"
+              error={fieldErrors.password}
+              containerStyle={styles.inputFieldContainer}
+            />
+
+            {/* CONFIRM PASSWORD */}
+            <CustomInput
+              id="signup-confirmpassword"
+              label={t('auth.confirmPassword', 'Confirm Password')}
+              required
+              value={confirmPassword}
+              onChangeText={text => {
+                setConfirmPassword(text);
+                if (fieldErrors.confirm_password) {
+                  setFieldErrors(prev => ({ ...prev, confirm_password: '' }));
+                }
+                if (password && text && text !== password) {
+                  setFieldErrors(prev => ({
+                    ...prev,
+                    confirm_password: t('auth.passwordMismatch', 'Passwords do not match'),
+                  }));
+                }
+                if (validationError) setValidationError('');
+                if (reduxError) dispatch(clearError());
+              }}
+              placeholder={t('auth.confirmPasswordPlaceholder', 'Re-enter your password')}
+              secureTextEntry
+              leftIcon="lock"
+              error={fieldErrors.confirm_password}
               containerStyle={styles.inputFieldContainer}
             />
 
             {/* Validation / Redux Error Banner */}
-            {validationError || reduxError ? (
+            {validationError || (reduxError && Object.values(fieldErrors).every(v => !v)) ? (
               <View style={styles.errorContainer}>
                 <Icon name="alert-circle" size={16} color="#D32F2F" />
                 <Text style={styles.errorText}>
@@ -314,6 +454,7 @@ export const RiderSignupScreen = ({ navigation }) => {
             {/* SIGN UP BUTTON */}
             <CustomButton
               title={t('auth.createAccount', 'Create Account')}
+              
               onPress={handleRegister}
               loading={reduxLoading || loading}
               variant="primary"
@@ -359,6 +500,7 @@ export const RiderSignupScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
+        </TouchableWithoutFeedback>
       </ScrollView>
 
       {/* Country Picker Modal */}
@@ -474,11 +616,13 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 6,
   },
+  phoneFieldContainer: {
+    marginBottom: 14,
+  },
   phoneSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    marginBottom: 14,
   },
   countryBox: {
     height: 54,
@@ -491,6 +635,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
+  },
+    requiredAsterisk: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.danger, // red *
+    marginLeft: 2,
+  },
+  countryBoxError: {
+    borderColor: COLORS.danger,
+    backgroundColor: '#FFF5F5',
   },
   flag: {
     fontSize: responsiveFont(18),
@@ -511,6 +665,13 @@ const styles = StyleSheet.create({
   },
   inputNoMargin: {
     marginBottom: 0,
+  },
+  fieldErrorText: {
+    color: '#D32F2F',
+    fontSize: responsiveFont(12),
+    marginTop: 4,
+    marginLeft: 4,
+    fontWeight: '500',
   },
   errorContainer: {
     flexDirection: 'row',

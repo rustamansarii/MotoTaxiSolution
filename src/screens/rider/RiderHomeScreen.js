@@ -10,9 +10,11 @@ import {
   Modal,
   Pressable,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -29,6 +31,7 @@ import {
 } from '../../utils/locationService';
 import { fetchRiderProfile, fetchUserProfile } from '../../redux/features/auth/authSlice';
 import { connectRiderWebSocket } from '../../redux/features/rider/riderSlice';
+import { fetchRecentDrops } from '../../redux/features/rides/ridesSlice';
 import {
   reverseGeocodeLocation,
   loadRecentSearches,
@@ -61,6 +64,7 @@ export const RiderHomeScreen = ({ navigation }) => {
     completedTrip,
   } = useSelector((state) => state.rider);
   const reduxBooking = useSelector((state) => state.rides?.currentBooking);
+  const { recentDrops = [] } = useSelector((state) => state.rides || {});
   // Hook 5b - Location state
   const { recentSearches = [], currentAddress, pickupLocation } = useSelector((state) => state.location);
 
@@ -85,6 +89,8 @@ export const RiderHomeScreen = ({ navigation }) => {
   const [showReferralModal, setShowReferralModal] = useState(false);
   const [referralCodeInput, setReferralCodeInput] = useState('');
   const [referralSuccessMsg, setReferralSuccessMsg] = useState('');
+  // Hook 7c - Selected recent destination state
+  const [selectedRecentDestination, setSelectedRecentDestination] = useState(null);
 
   // Guest detection & login prompt popup state
   const [isGuestStored, setIsGuestStored] = useState(false);
@@ -120,10 +126,47 @@ export const RiderHomeScreen = ({ navigation }) => {
     }, 1400);
   };
 
-  // Fetch user profile from /api/v1/auth/profile/ on mount
+  // Fetch user profile from /api/v1/auth/profile/ and recent drops on mount
   useEffect(() => {
-    dispatch(fetchUserProfile());
-    dispatch(fetchRiderProfile());
+    isGuestMode().then((val) => {
+      if (val) {
+        setIsGuestStored(true);
+      } else {
+        dispatch(fetchUserProfile());
+        dispatch(fetchRiderProfile());
+      }
+    });
+    dispatch(fetchRecentDrops());
+  }, [dispatch]);
+
+  // Refresh rider profile and recent drops whenever screen gains focus
+  useFocusEffect(
+    useCallback(() => {
+      isGuestMode().then((val) => {
+        setIsGuestStored(Boolean(val));
+        if (!val) {
+          dispatch(fetchRiderProfile());
+        }
+      });
+      dispatch(fetchRecentDrops());
+      setSelectedRecentDestination(null);
+    }, [dispatch])
+  );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([
+        dispatch(fetchUserProfile()).unwrap(),
+        dispatch(fetchRiderProfile()).unwrap(),
+        dispatch(fetchRecentDrops()).unwrap(),
+      ]);
+    } catch (_) {
+      // Ignore errors on pull-to-refresh
+    } finally {
+      setRefreshing(false);
+    }
   }, [dispatch]);
 
   // Load recent searches from AsyncStorage on mount
@@ -260,6 +303,7 @@ export const RiderHomeScreen = ({ navigation }) => {
       : t('rider.goodEvening', 'Good evening');
 
   const displayName = useMemo(() => {
+    if (isGuest) return t('auth.guestUser', 'Guest');
     const raw =
       authUser?.full_name ||
       (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
@@ -271,11 +315,49 @@ export const RiderHomeScreen = ({ navigation }) => {
         .join(' ');
     }
     return t('auth.guestUser', 'Guest');
-  }, [authUser, t]);
+  }, [authUser, t, isGuest]);
 
-  const displayedSuggestions =
-    recentSearches && recentSearches.length > 0
-      ? recentSearches.slice(0, 3).map((item, idx) => ({
+  const effectiveRiderProfile = useMemo(() => {
+    if (isGuest) return {};
+    return riderProfile || authUser?.rider_profile || {};
+  }, [riderProfile, authUser?.rider_profile, isGuest]);
+
+  const riderHomeAddress = useMemo(() => {
+    const addr = effectiveRiderProfile?.home_address || authUser?.rider_profile?.home_address;
+    return typeof addr === 'string' && addr.trim().length > 0 ? addr.trim() : null;
+  }, [effectiveRiderProfile?.home_address, authUser?.rider_profile?.home_address]);
+
+  const riderWorkAddress = useMemo(() => {
+    const addr = effectiveRiderProfile?.work_address || authUser?.rider_profile?.work_address;
+    return typeof addr === 'string' && addr.trim().length > 0 ? addr.trim() : null;
+  }, [effectiveRiderProfile?.work_address, authUser?.rider_profile?.work_address]);
+
+  const combinedRecentLocations = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    if (recentDrops && recentDrops.length > 0) {
+      recentDrops.forEach((d, idx) => {
+        if (!d || !d.address) return;
+        const addr = String(d.address).trim().toLowerCase();
+        if (seen.has(addr)) return;
+        seen.add(addr);
+        list.push({
+          id: `recent_drop_${d.ride_id || idx}`,
+          title: d.address.split(',')[0].trim() || 'Recent Drop',
+          address: d.address,
+          latitude: d.lat !== undefined && d.lat !== null ? Number(d.lat) : undefined,
+          longitude: d.lon !== undefined && d.lon !== null ? Number(d.lon) : undefined,
+          icon: 'clock',
+        });
+      });
+    }
+    if (recentSearches && recentSearches.length > 0) {
+      recentSearches.forEach((item, idx) => {
+        if (!item) return;
+        const addr = (item.address || item.display_name || item.title || '').trim().toLowerCase();
+        if (addr && seen.has(addr)) return;
+        if (addr) seen.add(addr);
+        list.push({
           id: item.id || `recent_${idx}`,
           title:
             item.title ||
@@ -286,26 +368,24 @@ export const RiderHomeScreen = ({ navigation }) => {
           latitude: item.latitude ?? item.lat,
           longitude: item.longitude ?? item.lon,
           icon: 'clock',
-        }))
-      : [];
+        });
+      });
+    }
+    return list;
+  }, [recentDrops, recentSearches]);
+
+  const displayedSuggestions = useMemo(() => {
+    return combinedRecentLocations.slice(0, 3);
+  }, [combinedRecentLocations]);
 
   const latestDestination = useMemo(() => {
-    if (recentSearches && recentSearches.length > 0) {
-      const first = recentSearches[0];
-      const title =
-        first.title ||
-        first.display_name?.split(',')[0] ||
-        first.address?.split(',')[0] ||
-        'MAULI JAGRAN';
-      const address =
-        first.address ||
-        first.display_name ||
-        'Vikas Nagar, Chandigarh...';
+    if (combinedRecentLocations.length > 0) {
+      const first = combinedRecentLocations[0];
       return {
-        title,
-        address,
-        latitude: first.latitude ?? first.lat ?? 30.7041,
-        longitude: first.longitude ?? first.lon ?? 76.7176,
+        title: first.title,
+        address: first.address,
+        latitude: first.latitude ?? 30.7041,
+        longitude: first.longitude ?? 76.7176,
       };
     }
     return {
@@ -314,7 +394,7 @@ export const RiderHomeScreen = ({ navigation }) => {
       latitude: 30.7041,
       longitude: 76.7176,
     };
-  }, [recentSearches]);
+  }, [combinedRecentLocations]);
 
   // 1-Tap Destination Selection: jumps straight to RideOptions or DestinationSearch
   const handleSelectDestination = (loc, preferredVehicle = null) => {
@@ -367,6 +447,18 @@ export const RiderHomeScreen = ({ navigation }) => {
         preferredVehicle,
       });
     }
+  };
+
+  const handleContinueRecentDestination = () => {
+    if (!selectedRecentDestination) return;
+    if (isGuest) {
+      promptGuestLogin(
+        'auth.loginRequiredDropoffMsg',
+        'Please log in first to choose a drop-off location and book a ride.'
+      );
+      return;
+    }
+    handleSelectDestination(selectedRecentDestination);
   };
 
   // Navigate back to ongoing screen/state when clicking Active Ride Card/Banner
@@ -489,8 +581,7 @@ export const RiderHomeScreen = ({ navigation }) => {
 
   const searchControls = (
     <View style={[styles.bottomCard, isSplitLayout && styles.sideCard]}>
-      {/* Bottom Sheet Handle Bar */}
-      <View style={styles.sheetHandleBar} />
+  
 
       {/* Active Trip Banner / Card (Visible when Rider backed out to HomeScreen with active ride) */}
     
@@ -675,77 +766,267 @@ export const RiderHomeScreen = ({ navigation }) => {
         </Text>
         <Icon name="arrow-forward" size={20} color={COLORS.white} />
       </TouchableOpacity>
-
-      {/* 4. "Add Places" Horizontal Action Pills */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.addPlacesRow}
       >
-        {/* Add Home */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            if (isGuest) {
-              promptGuestLogin(
-                'auth.loginRequiredHomeMsg',
-                'Please log in first to set and manage your home address.'
-              );
-              return;
-            }
-            if (riderProfile?.home_address) {
-              handleSelectDestination({
-                title: 'Home',
-                address: riderProfile.home_address,
-                latitude: riderProfile.home_lat,
-                longitude: riderProfile.home_lon,
-              });
-            } else {
-              navigation.navigate('SavedPlaces', { initialFocus: 'home' });
-            }
-          }}
-          style={styles.addPlacePill}
-        >
-          <Icon name="plus-circle" size={25} color={COLORS.primary} />
-          <Text style={styles.addPlacePillText}>
-            {riderProfile?.home_address
-              ? t('rider.home', 'Home')
-              : t('rider.addHome', 'Add Home')}
-          </Text>
-        </TouchableOpacity>
+        {/* Home Pill */}
+        {riderHomeAddress ? (
+          <View style={styles.savedPlacePill}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin(
+                    'auth.loginRequiredHomeMsg',
+                    'Please log in first to set and manage your home address.'
+                  );
+                  return;
+                }
+                handleSelectDestination({
+                  title: 'Home',
+                  address: riderHomeAddress,
+                  latitude:
+                    effectiveRiderProfile?.home_lat ?? authUser?.rider_profile?.home_lat,
+                  longitude:
+                    effectiveRiderProfile?.home_lng ??
+                    effectiveRiderProfile?.home_lon ??
+                    authUser?.rider_profile?.home_lng ??
+                    authUser?.rider_profile?.home_lon,
+                });
+              }}
+              style={styles.savedPlaceMain}
+            >
+              <Icon name="home" size={20} color={COLORS.primary} />
+              <Text style={styles.addPlacePillText}>
+                {t('rider.home', 'Home')}
+              </Text>
+            </TouchableOpacity>
 
-        {/* Add Work */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            if (isGuest) {
-              promptGuestLogin(
-                'auth.loginRequiredWorkMsg',
-                'Please log in first to set and manage your work address.'
-              );
-              return;
-            }
-            if (riderProfile?.work_address) {
-              handleSelectDestination({
-                title: 'Work',
-                address: riderProfile.work_address,
-                latitude: riderProfile.work_lat,
-                longitude: riderProfile.work_lon,
-              });
-            } else {
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin(
+                    'auth.loginRequiredHomeMsg',
+                    'Please log in first to set and manage your home address.'
+                  );
+                  return;
+                }
+                navigation.navigate('SavedPlaces', { initialFocus: 'home' });
+              }}
+              style={styles.savedPlaceEditBtn}
+            >
+              <Icon name="pencil" size={15} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin(
+                  'auth.loginRequiredHomeMsg',
+                  'Please log in first to set and manage your home address.'
+                );
+                return;
+              }
+              navigation.navigate('SavedPlaces', { initialFocus: 'home' });
+            }}
+            style={styles.addPlacePill}
+          >
+            <Icon name="plus-circle" size={25} color={COLORS.primary} />
+            <Text style={styles.addPlacePillText}>
+              {t('rider.addHome', 'Add Home')}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Work Pill */}
+        {riderWorkAddress ? (
+          <View style={styles.savedPlacePill}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin(
+                    'auth.loginRequiredWorkMsg',
+                    'Please log in first to set and manage your work address.'
+                  );
+                  return;
+                }
+                handleSelectDestination({
+                  title: 'Work',
+                  address: riderWorkAddress,
+                  latitude:
+                    effectiveRiderProfile?.work_lat ?? authUser?.rider_profile?.work_lat,
+                  longitude:
+                    effectiveRiderProfile?.work_lng ??
+                    effectiveRiderProfile?.work_lon ??
+                    authUser?.rider_profile?.work_lng ??
+                    authUser?.rider_profile?.work_lon,
+                });
+              }}
+              style={styles.savedPlaceMain}
+            >
+              <Icon name="briefcase" size={20} color={COLORS.primary} />
+              <Text style={styles.addPlacePillText}>
+                {t('rider.work', 'Work')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin(
+                    'auth.loginRequiredWorkMsg',
+                    'Please log in first to set and manage your work address.'
+                  );
+                  return;
+                }
+                navigation.navigate('SavedPlaces', { initialFocus: 'work' });
+              }}
+              style={styles.savedPlaceEditBtn}
+            >
+              <Icon name="pencil" size={15} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              if (isGuest) {
+                promptGuestLogin(
+                  'auth.loginRequiredWorkMsg',
+                  'Please log in first to set and manage your work address.'
+                );
+                return;
+              }
               navigation.navigate('SavedPlaces', { initialFocus: 'work' });
-            }
-          }}
-          style={styles.addPlacePill}
-        >
-          <Icon name="plus-circle" size={25} color={COLORS.primary} />
-          <Text style={styles.addPlacePillText}>
-            {riderProfile?.work_address
-              ? t('rider.work', 'Work')
-              : t('rider.addWork', 'Add Work')}
-          </Text>
-        </TouchableOpacity>
+            }}
+            style={styles.addPlacePill}
+          >
+            <Icon name="plus-circle" size={25} color={COLORS.primary} />
+            <Text style={styles.addPlacePillText}>
+              {t('rider.addWork', 'Add Work')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      {/* 5. Recent Drops / Destinations List */}
+      {combinedRecentLocations && combinedRecentLocations.length > 0 && (
+        <View style={styles.recentDropsContainer}>
+          <View style={styles.recentDropsHeaderRow}>
+            <View style={styles.recentDropsHeaderLeft}>
+              <Icon name="time" size={15} color={COLORS.primary} />
+              <Text style={styles.recentDropsHeaderTitle}>
+                {t('rider.recentDestinations', 'Recent Destinations')}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                if (isGuest) {
+                  promptGuestLogin(
+                    'auth.loginRequiredDropoffMsg',
+                    'Please log in first to choose a drop-off location and book a ride.'
+                  );
+                  return;
+                }
+                navigation.navigate('DestinationSearch');
+              }}
+              style={styles.recentDropsSeeAllBtn}
+            >
+              <Text style={styles.recentDropsSeeAllText}>
+                {t('common.seeAll', 'See all')}
+              </Text>
+              <Icon name="arrow-right" size={12} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.recentDropsCard}>
+            {combinedRecentLocations.slice(0, 4).map((loc, idx) => {
+              const isLast = idx === Math.min(combinedRecentLocations.length, 4) - 1;
+              const displayTitle = loc.title || loc.address?.split(',')[0]?.trim() || 'Recent Place';
+              const displayAddress = loc.address || loc.title || '';
+              const isSelected = selectedRecentDestination?.id === loc.id;
+
+              return (
+                <TouchableOpacity
+                  key={loc.id || `drop_${idx}`}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    setSelectedRecentDestination((prev) =>
+                      prev?.id === loc.id ? null : loc
+                    );
+                  }}
+                  style={[
+                    styles.recentDropItemRow,
+                    isLast && styles.recentDropItemRowLast,
+                    isSelected && styles.recentDropItemRowSelected,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.recentDropIconBox,
+                      isSelected && styles.recentDropIconBoxSelected,
+                    ]}
+                  >
+                    <Icon
+                      name="time"
+                      size={16}
+                      color={isSelected ? COLORS.white : COLORS.primary}
+                    />
+                  </View>
+
+                  <View style={styles.recentDropTextCol}>
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.recentDropTitle,
+                        isSelected && styles.recentDropTitleSelected,
+                      ]}
+                    >
+                      {displayTitle}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.recentDropSubtitle}>
+                      {displayAddress}
+                    </Text>
+                  </View>
+
+                  <View style={styles.recentDropActionBox}>
+                    {isSelected ? (
+                      <Icon name="check-circle" size={20} color={COLORS.primary} />
+                    ) : (
+                      <View style={styles.recentDropRadioUnselected} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Continue Button for Selected Recent Destination */}
+          {selectedRecentDestination && (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={handleContinueRecentDestination}
+              style={styles.recentContinueBtn}
+            >
+              <Text style={styles.recentContinueBtnText}>
+                {t('common.continue', 'Continue')}
+              </Text>
+              <Icon name="arrow-forward" size={18} color={COLORS.white} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 
@@ -814,6 +1095,14 @@ export const RiderHomeScreen = ({ navigation }) => {
             <ScrollView
               contentContainerStyle={styles.splitSecondaryScroll}
               showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={COLORS.primary}
+                  colors={[COLORS.primary]}
+                />
+              }
             >
               {searchControls}
             </ScrollView>
@@ -821,7 +1110,15 @@ export const RiderHomeScreen = ({ navigation }) => {
             <ScrollView
               contentContainerStyle={styles.scrollableBottomPane}
               showsVerticalScrollIndicator={false}
-              bounces={false}
+              bounces={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={COLORS.primary}
+                  colors={[COLORS.primary]}
+                />
+              }
             >
               {searchControls}
             </ScrollView>
@@ -1046,14 +1343,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 10,
     paddingBottom: SPACING.sm,
-  },
-  sheetHandleBar: {
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#D1D5DB',
-    alignSelf: 'center',
-    marginBottom: 10,
   },
   pickupBar: {
     flexDirection: 'row',
@@ -1683,6 +1972,135 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  recentDropsContainer: {
+    paddingHorizontal: SPACING.md,
+    marginTop: 8,
+    marginBottom: 14,
+  },
+  recentDropsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  recentDropsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recentDropsHeaderTitle: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(13),
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: 0.2,
+  },
+  recentDropsSeeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  recentDropsSeeAllText: {
+    fontSize: responsiveFont(12),
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  recentDropsCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  recentDropItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  recentDropItemRowLast: {
+    borderBottomWidth: 0,
+  },
+  recentDropItemRowSelected: {
+    backgroundColor: '#F0FDFA',
+  },
+  recentDropIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  recentDropIconBoxSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  recentDropTextCol: {
+    flex: 1,
+    marginRight: 8,
+  },
+  recentDropTitle: {
+    ...TYPOGRAPHY.body,
+    fontSize: responsiveFont(14),
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  recentDropTitleSelected: {
+    color: COLORS.primary,
+    fontWeight: '800',
+  },
+  recentDropSubtitle: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(12),
+    color: '#6B7280',
+    fontWeight: '400',
+  },
+  recentDropActionBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentDropRadioUnselected: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+  },
+  recentContinueBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  recentContinueBtnText: {
+    color: COLORS.white,
+    fontSize: responsiveFont(15),
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   addPlacesRow: {
     paddingHorizontal: SPACING.md,
     paddingBottom: 8,
@@ -1702,6 +2120,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 3,
     elevation: 1,
+  },
+  savedPlacePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  savedPlaceMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  savedPlaceEditBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
   },
   addPlacePillText: {
     fontSize: responsiveFont(18),

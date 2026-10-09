@@ -31,6 +31,7 @@ import {
   loadRecentSearches,
   addRecentSearch,
 } from '../../redux/features/location/locationSlice';
+import { fetchRecentDrops } from '../../redux/features/rides/ridesSlice';
 import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 import { isGuestMode } from '../../utils/storage';
 
@@ -50,6 +51,9 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     dropoffLocation,
     recentSearches,
   } = useSelector((state) => state.location);
+  const { recentDrops = [], isLoadingRecentDrops = false } = useSelector(
+    (state) => state.rides || {}
+  );
   const authRiderProfile = useSelector((state) => state.auth?.riderProfile);
   const authUser = useSelector((state) => state.auth?.user);
 
@@ -70,37 +74,56 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
 
   const userSavedPlaces = useMemo(() => {
     const list = [];
-    if (authRiderProfile?.home_address) {
+    const prof = authRiderProfile || authUser?.rider_profile;
+    if (prof?.home_address) {
+      const hLat = prof.home_lat !== undefined && prof.home_lat !== null ? Number(prof.home_lat) : undefined;
+      const hLng =
+        prof.home_lng !== undefined && prof.home_lng !== null
+          ? Number(prof.home_lng)
+          : prof.home_lon !== undefined && prof.home_lon !== null
+          ? Number(prof.home_lon)
+          : undefined;
       list.push({
         id: 'user_saved_home',
-        title: 'Home',
-        address: authRiderProfile.home_address,
-        display_name: authRiderProfile.home_address,
-        latitude: authRiderProfile.home_lat,
-        longitude: authRiderProfile.home_lon,
-        lat: authRiderProfile.home_lat,
-        lon: authRiderProfile.home_lon,
+        title: t('rider.home', 'Home'),
+        address: prof.home_address,
+        display_name: prof.home_address,
+        latitude: hLat,
+        longitude: hLng,
+        lat: hLat,
+        lon: hLng,
         icon: 'home',
       });
     }
-    if (authRiderProfile?.work_address) {
+    if (prof?.work_address) {
+      const wLat = prof.work_lat !== undefined && prof.work_lat !== null ? Number(prof.work_lat) : undefined;
+      const wLng =
+        prof.work_lng !== undefined && prof.work_lng !== null
+          ? Number(prof.work_lng)
+          : prof.work_lon !== undefined && prof.work_lon !== null
+          ? Number(prof.work_lon)
+          : undefined;
       list.push({
         id: 'user_saved_work',
-        title: 'Work / Office',
-        address: authRiderProfile.work_address,
-        display_name: authRiderProfile.work_address,
-        latitude: authRiderProfile.work_lat,
-        longitude: authRiderProfile.work_lon,
-        lat: authRiderProfile.work_lat,
-        lon: authRiderProfile.work_lon,
+        title: t('rider.work', 'Work / Office'),
+        address: prof.work_address,
+        display_name: prof.work_address,
+        latitude: wLat,
+        longitude: wLng,
+        lat: wLat,
+        lon: wLng,
         icon: 'briefcase',
       });
     }
     return list;
-  }, [authRiderProfile]);
+  }, [authRiderProfile, authUser?.rider_profile, t]);
 
   // Field actively being edited ('pickup' | 'destination')
   const [activeField, setActiveField] = useState('destination');
+
+  // Hold the full selected dropoff object locally (no auto navigation)
+  const [selectedDropoff, setSelectedDropoff] = useState(dropoffLocation || null);
+
   const [pickup, setPickup] = useState(
     route?.params?.pickup || route?.params?.initialPickup || pickupLocation?.address || ''
   );
@@ -122,9 +145,10 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     pickupRef.current = pickup;
   }, [pickup]);
 
-  // Load recent searches from AsyncStorage on screen mount
+  // Load recent searches and recent drops from API on screen mount
   useEffect(() => {
     dispatch(loadRecentSearches());
+    dispatch(fetchRecentDrops());
   }, [dispatch]);
 
   // Pre-fetch live GPS on mount and reverse geocode via backend API
@@ -163,6 +187,54 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     }
   }, [currentAddress]);
 
+  // Formatted Recent Drops from API GET /api/v1/rides/recent-drops/
+  const formattedRecentDrops = useMemo(() => {
+    if (!recentDrops || recentDrops.length === 0) {
+      return [];
+    }
+
+    const savedAddresses = new Set(
+      userSavedPlaces
+        .map((p) => (p.address || p.display_name || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    const seenAddresses = new Set();
+
+    return recentDrops
+      .filter((item) => {
+        if (!item || !item.address) return false;
+        const addr = String(item.address).trim().toLowerCase();
+        if (savedAddresses.has(addr)) return false;
+        if (seenAddresses.has(addr)) return false;
+        seenAddresses.add(addr);
+        return true;
+      })
+      .map((item, idx) => {
+        const addr = item.address || '';
+        const title = addr.split(',')[0].trim() || 'Recent Drop';
+        const lat =
+          item.lat !== undefined && item.lat !== null ? Number(item.lat) : undefined;
+        const lon =
+          item.lon !== undefined && item.lon !== null ? Number(item.lon) : undefined;
+
+        return {
+          id: `recent_drop_${item.ride_id || idx}`,
+          ride_id: item.ride_id,
+          title,
+          address: addr,
+          display_name: addr,
+          latitude: lat,
+          longitude: lon,
+          lat,
+          lon,
+          icon: 'clock',
+          last_used: item.last_used,
+          isRecentDrop: true,
+        };
+      });
+  }, [recentDrops, userSavedPlaces]);
+
   // Formatted Recent Searches available for both pickup and destination selection
   const formattedRecentSearches = useMemo(() => {
     if (!recentSearches || recentSearches.length === 0) {
@@ -172,6 +244,11 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     const savedIds = new Set(userSavedPlaces.map((p) => String(p.id)));
     const savedAddresses = new Set(
       userSavedPlaces
+        .map((p) => (p.address || p.display_name || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const dropAddresses = new Set(
+      formattedRecentDrops
         .map((p) => (p.address || p.display_name || '').trim().toLowerCase())
         .filter(Boolean)
     );
@@ -188,6 +265,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
         const addr = (item.address || item.display_name || item.title || '').trim().toLowerCase();
         if (addr) {
           if (savedAddresses.has(addr)) return false;
+          if (dropAddresses.has(addr)) return false;
           if (seenAddresses.has(addr)) return false;
           seenAddresses.add(addr);
         }
@@ -213,7 +291,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
           icon: item.icon || 'clock',
         };
       });
-  }, [recentSearches, userSavedPlaces]);
+  }, [recentSearches, userSavedPlaces, formattedRecentDrops]);
 
   const handlePickupPress = () => {
     setActiveField('pickup');
@@ -324,6 +402,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
   };
 
   // Handle selecting an address suggestion or search result
+  // No auto navigation; just store selection
   const handleSelectLocation = (loc) => {
     const selectedAddress = loc.address || loc.display_name || loc.title;
     dispatch(addRecentSearch(loc));
@@ -349,42 +428,20 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       }
       setDestination(selectedAddress);
       setUserTypedDestination(false);
+      setSelectedDropoff(loc);
       dispatch(setDropoffLocation(loc));
       dispatch(clearSearchResults());
-
-      const activePickup = pickup || currentAddress?.display_name || 'Current Location';
-      const activePickupData =
-        pickupLocation || (currentCoords ? { ...currentAddress, ...currentCoords } : null);
-
-      const pLat =
-        pickupLocation?.latitude ??
-        pickupLocation?.lat ??
-        currentCoords?.latitude ??
-        30.6948;
-      const pLon =
-        pickupLocation?.longitude ??
-        pickupLocation?.lon ??
-        currentCoords?.longitude ??
-        76.7834;
-      const dLat = loc?.latitude ?? loc?.lat ?? 30.7055;
-      const dLon = loc?.longitude ?? loc?.lon ?? 76.8013;
-
-      navigation.navigate('RideOptions', {
-        pickup: activePickup,
-        pickupData: activePickupData,
-        destination: selectedAddress,
-        destinationData: loc,
-        pickup_lat: pLat,
-        pickup_lon: pLon,
-        drop_lat: dLat,
-        drop_lon: dLon,
-      });
     }
   };
 
+  // Highlight Live Location row based on the active field
   const isLiveSelected = Boolean(
-    (currentAddress?.display_name && pickup === currentAddress.display_name) ||
-    pickup === 'Current Location (GPS)'
+    (activeField === 'pickup' &&
+      ((currentAddress?.display_name && pickup === currentAddress.display_name) ||
+        pickup === 'Current Location (GPS)')) ||
+      (activeField === 'destination' &&
+        ((currentAddress?.display_name && destination === currentAddress.display_name) ||
+          destination === 'Current Location (GPS)'))
   );
 
   const isQueryActive =
@@ -404,7 +461,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       });
     }
 
-    const combined = [...userSavedPlaces, ...formattedRecentSearches];
+    const combined = [...userSavedPlaces, ...formattedRecentDrops, ...formattedRecentSearches];
     const seen = new Set();
     return combined.filter((item, index) => {
       const key = item.id ? String(item.id) : `item_${index}`;
@@ -412,44 +469,131 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       seen.add(key);
       return true;
     });
-  }, [isQueryActive, searchResults, userSavedPlaces, formattedRecentSearches]);
+  }, [isQueryActive, searchResults, userSavedPlaces, formattedRecentDrops, formattedRecentSearches]);
 
-  const renderDestinationItem = ({ item }) => (
-    <TouchableOpacity
-      activeOpacity={0.7}
-      onPress={() => handleSelectLocation(item)}
-      style={styles.resultItem}
-    >
-      <View style={styles.iconCircle}>
-        <Icon
-          name={item.icon || (item.distance_km ? 'navigation' : 'map-pin')}
-          size={18}
-          color={COLORS.secondPrimary}
-        />
-      </View>
-      <View style={styles.resultDetails}>
-        <Text numberOfLines={1} style={styles.resultTitle}>
-          {item.title || item.city || item.display_name?.split(',')[0] || item.address?.split(',')[0] || 'Recent Place'}
-        </Text>
-        <Text numberOfLines={1} style={styles.resultAddress}>
-          {item.address || item.display_name}
-        </Text>
-      </View>
+  // Continue enabled only when both pickup + destination are chosen (and not guest)
+  const canContinue = useMemo(() => {
+    const hasPickup = Boolean(pickup && pickup.trim().length > 0);
+    const hasDropoff = Boolean(
+      (selectedDropoff || dropoffLocation) &&
+        destination &&
+        destination.trim().length > 0
+    );
+    return hasPickup && hasDropoff && !isGuest;
+  }, [pickup, destination, selectedDropoff, dropoffLocation, isGuest]);
 
-      {item.distance ? (
-        <View style={styles.distanceBadge}>
-          <Text style={styles.distanceBadgeText}>{item.distance}</Text>
+  // Navigation moved into Continue handler
+  const handleContinue = () => {
+    if (!canContinue) return;
+
+    const loc = selectedDropoff || dropoffLocation;
+    const selectedAddress = loc?.address || loc?.display_name || destination;
+
+    const activePickup = pickup || currentAddress?.display_name || 'Current Location';
+    const activePickupData =
+      pickupLocation || (currentCoords ? { ...currentAddress, ...currentCoords } : null);
+
+    const pLat =
+      pickupLocation?.latitude ??
+      pickupLocation?.lat ??
+      currentCoords?.latitude ??
+      30.6948;
+    const pLon =
+      pickupLocation?.longitude ??
+      pickupLocation?.lon ??
+      currentCoords?.longitude ??
+      76.7834;
+    const dLat = loc?.latitude ?? loc?.lat ?? 30.7055;
+    const dLon = loc?.longitude ?? loc?.lon ?? 76.8013;
+
+    navigation.navigate('RideOptions', {
+      pickup: activePickup,
+      pickupData: activePickupData,
+      destination: selectedAddress,
+      destinationData: loc,
+      pickup_lat: pLat,
+      pickup_lon: pLon,
+      drop_lat: dLat,
+      drop_lon: dLon,
+    });
+  };
+
+  // Helper: check if a list item is currently selected (active)
+  const isItemSelected = (item) => {
+    if (!item) return false;
+
+    const target =
+      activeField === 'pickup'
+        ? pickupLocation
+        : selectedDropoff || dropoffLocation;
+
+    if (!target) return false;
+
+    // Match by id first
+    if (item.id && target.id && String(item.id) === String(target.id)) {
+      return true;
+    }
+
+    // Fallback: match by address / display_name (case-insensitive)
+    const itemAddr = (item.address || item.display_name || '').trim().toLowerCase();
+    const targetAddr = (target.address || target.display_name || '')
+      .trim()
+      .toLowerCase();
+    if (itemAddr && targetAddr && itemAddr === targetAddr) return true;
+
+    return false;
+  };
+
+  const renderDestinationItem = ({ item }) => {
+    const isSelected = isItemSelected(item);
+
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => handleSelectLocation(item)}
+        style={[styles.resultItem, isSelected && styles.resultItemSelected]}
+      >
+        <View
+          style={[styles.iconCircle, isSelected && styles.iconCircleSelected]}
+        >
+          <Icon
+            name={item.icon || (item.distance_km ? 'navigation' : 'map-pin')}
+            size={18}
+            color={isSelected ? COLORS.white : COLORS.secondPrimary}
+          />
         </View>
-      ) : item.estTime ? (
-        <View style={styles.timeDistanceBadge}>
-          <Text style={styles.estTimeText}>{item.estTime}</Text>
-          {item.distance ? <Text style={styles.estDistText}>{item.distance}</Text> : null}
+        <View style={styles.resultDetails}>
+          <Text
+            numberOfLines={1}
+            style={[styles.resultTitle, isSelected && { color: COLORS.primary }]}
+          >
+            {item.title || item.city || item.display_name?.split(',')[0] || item.address?.split(',')[0] || 'Recent Place'}
+          </Text>
+          <Text numberOfLines={1} style={styles.resultAddress}>
+            {item.address || item.display_name}
+          </Text>
         </View>
-      ) : (
-        <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
-      )}
-    </TouchableOpacity>
-  );
+
+        {/* SELECTED → GREEN TICK */}
+        {isSelected ? (
+          <View style={styles.selectedTickCircle}>
+            <Icon name="check" size={14} color={COLORS.white} />
+          </View>
+        ) : item.distance ? (
+          <View style={styles.distanceBadge}>
+            <Text style={styles.distanceBadgeText}>{item.distance}</Text>
+          </View>
+        ) : item.estTime ? (
+          <View style={styles.timeDistanceBadge}>
+            <Text style={styles.estTimeText}>{item.estTime}</Text>
+            {item.distance ? <Text style={styles.estDistText}>{item.distance}</Text> : null}
+          </View>
+        ) : (
+          <Icon name="chevron-right" size={16} color={COLORS.iconLight} />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -479,8 +623,6 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
           />
         </View>
 
-     
-
         {/* Dynamic List Section */}
         <View style={styles.listSection}>
           {isQueryActive || listData.length > 0 ? (
@@ -492,7 +634,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
                   ? t('rider.recentPickups', 'Recent & Saved Pickups')
                   : t('rider.recentPlaces', 'Saved & Recent Places')}
               </Text>
-              {isSearching && (
+              {(isSearching || isLoadingRecentDrops) && (
                 <ActivityIndicator size="small" color={COLORS.primary} style={styles.headerSpinner} />
               )}
             </View>
@@ -608,6 +750,35 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
             keyboardShouldPersistTaps="handled"
           />
         </View>
+
+        {/* Continue Button Bar */}
+        <View
+          style={[
+            styles.continueBar,
+            { paddingBottom: (insets?.bottom || 0) + SPACING.md },
+          ]}
+        >
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={!canContinue}
+            onPress={handleContinue}
+            style={[styles.continueBtn, !canContinue && styles.continueBtnDisabled]}
+          >
+            <Text
+              style={[
+                styles.continueBtnText,
+                !canContinue && styles.continueBtnTextDisabled,
+              ]}
+            >
+              {t('common.continue', 'Continue')}
+            </Text>
+            <Icon
+              name="arrow-right"
+              size={18}
+              color={canContinue ? COLORS.white : COLORS.textLight}
+            />
+          </TouchableOpacity>
+        </View>
       </ResponsiveContainer>
 
       {/* Guest Mode Login Required Alert Popup */}
@@ -642,32 +813,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     backgroundColor: COLORS.white,
-  },
-  setPinBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
-    marginBottom: SPACING.sm,
-  },
-  pinIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.round,
-    backgroundColor: COLORS.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  setPinText: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '600',
-    color: COLORS.text,
-    flex: 1,
   },
   listSection: {
     flex: 1,
@@ -765,6 +910,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
   },
+  // Active / selected row background
+  resultItemSelected: {
+    backgroundColor: 'rgba(23, 186, 161, 0.08)',
+  },
   iconCircle: {
     width: 40,
     height: 40,
@@ -773,6 +922,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+  },
+  // Filled icon circle when selected
+  iconCircleSelected: {
+    backgroundColor: COLORS.primary,
   },
   resultDetails: {
     flex: 1,
@@ -786,6 +939,16 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
+  },
+  // NEW: green tick circle for the selected item
+  selectedTickCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: RADIUS.round,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
   },
   distanceBadge: {
     backgroundColor: 'rgba(23, 186, 161, 0.12)',
@@ -836,6 +999,35 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: 4,
     textAlign: 'center',
+  },
+
+  // Continue Button Bar
+  continueBar: {
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  continueBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+  },
+  continueBtnDisabled: {
+    backgroundColor: COLORS.inputBg,
+  },
+  continueBtnText: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginRight: 6,
+  },
+  continueBtnTextDisabled: {
+    color: COLORS.textLight,
   },
 });
 

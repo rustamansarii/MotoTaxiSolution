@@ -1,11 +1,16 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { COLORS } from '../theme/colors';
 import { SPACING, RADIUS } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
 import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
+import {
+  getVehicleImageSource,
+  getVehicleDisplayName,
+  getVehiclePlateNumber,
+} from '../utils/vehicleAssets';
 
 export const DriverCard = ({
   driver,
@@ -18,22 +23,45 @@ export const DriverCard = ({
   const { t } = useTranslation();
   if (!driver) return null;
 
+  const vehicleImage = getVehicleImageSource(driver);
+  const vehicleModel = getVehicleDisplayName(driver, 'Vehicle');
+  const plateNumber = getVehiclePlateNumber(driver, '');
+  const vehicleColor =
+    driver.vehicle_color ||
+    driver.color ||
+    driver.car?.color ||
+    (driver.vehicle_type ? String(driver.vehicle_type).toUpperCase() : '');
+
+  const driverPhoto = driver.photo || driver.avatar || driver.avatarUrl;
+
   return (
     <View style={[styles.card, style]}>
       {/* Driver Header Row */}
       <View style={styles.topRow}>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarInitials}>
-            {driver.name ? driver.name.charAt(0) : 'D'}
-          </Text>
+          {driverPhoto ? (
+            <Image
+              source={{ uri: driverPhoto }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarInitials}>
+              {driver.name ? driver.name.charAt(0).toUpperCase() : 'D'}
+            </Text>
+          )}
         </View>
 
         <View style={styles.driverInfo}>
           <Text style={styles.driverName}>{driver.name}</Text>
           <View style={styles.ratingRow}>
             <Icon name="star" size={14} color={COLORS.primary} />
-            <Text style={styles.ratingText}>{driver.rating}</Text>
-            <Text style={styles.tripsText}>• {driver.totalTrips} {t('driver.trips').toLowerCase()}</Text>
+            <Text style={styles.ratingText}>{driver.rating || '5.0'}</Text>
+            {driver.totalTrips ? (
+              <Text style={styles.tripsText}>
+                • {driver.totalTrips} {t('driver.trips', 'trips').toLowerCase()}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -45,46 +73,37 @@ export const DriverCard = ({
         ) : null}
       </View>
 
-      {/* Vehicle Details */}
+      {/* Vehicle Details & According Image */}
       <View style={styles.vehicleRow}>
+        {/* Vehicle Image Thumbnail */}
+        <View style={styles.vehicleImageContainer}>
+          <Image
+            source={vehicleImage}
+            style={styles.vehicleImage}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* Model & Color */}
         <View style={styles.vehicleDetails}>
-          <Text style={styles.carModel}>
-            {driver.car?.model || 'Honda CB500X'}
+          <Text numberOfLines={1} style={styles.carModel}>
+            {vehicleModel}
           </Text>
-          <Text style={styles.carColor}>
-            {driver.car?.color || 'Midnight Black'}
+          <Text numberOfLines={1} style={styles.carColor}>
+            {vehicleColor || (driver.vehicle_type || 'Ride')}
           </Text>
         </View>
 
-        <View style={styles.plateBadge}>
-          <Text style={styles.plateText}>
-            {driver.car?.plateNumber || '7XYZ892'}
-          </Text>
-        </View>
+        {/* Vehicle License Plate Number Badge */}
+        {plateNumber ? (
+          <View style={styles.plateBadge}>
+            <Text numberOfLines={1} style={styles.plateText}>
+              {plateNumber}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
-      {/* Actions */}
-      {showContactActions ? (
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onCall}
-            style={styles.actionButton}
-          >
-            <Icon name="phone" size={16} color={COLORS.secondPrimary} />
-            <Text style={styles.actionText}>{t('rider.call')}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onChat}
-            style={styles.actionButton}
-          >
-            <Icon name="chat" size={16} color={COLORS.secondPrimary} />
-            <Text style={styles.actionText}>{t('rider.message')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
     </View>
   );
 };
@@ -115,6 +134,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.md,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: RADIUS.round,
   },
   avatarInitials: {
     ...TYPOGRAPHY.title,
@@ -169,38 +194,63 @@ const styles = StyleSheet.create({
   vehicleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: COLORS.inputBg,
     borderRadius: RADIUS.medium,
-    padding: SPACING.md,
+    padding: SPACING.sm + 2,
     marginBottom: SPACING.md,
+  },
+  vehicleImageContainer: {
+    width: 60,
+    height: 44,
+    borderRadius: RADIUS.small,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm + 2,
+    overflow: 'hidden',
+    padding: 2,
+  },
+  vehicleImage: {
+    width: '100%',
+    height: '100%',
   },
   vehicleDetails: {
     flex: 1,
+    justifyContent: 'center',
+    marginRight: SPACING.xs,
   },
   carModel: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '700',
     color: COLORS.text,
+    fontSize: responsiveFont(13),
   },
   carColor: {
     ...TYPOGRAPHY.caption,
     color: COLORS.textLight,
     marginTop: 2,
+    fontSize: responsiveFont(11),
   },
   plateBadge: {
     backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
+    paddingHorizontal: SPACING.sm + 2,
+    paddingVertical: 5,
     borderRadius: RADIUS.small,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   plateText: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: 1,
+    color: '#0F172A',
+    letterSpacing: 0.8,
+    fontSize: responsiveFont(12),
+    textTransform: 'uppercase',
   },
   actionsRow: {
     flexDirection: 'row',

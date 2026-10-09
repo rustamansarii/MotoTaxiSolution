@@ -11,6 +11,7 @@ import {
   Modal,
   ScrollView,
   Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -29,7 +30,6 @@ import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { formatCurrency } from '../../utils/formatters';
 import { fetchDriverRides } from '../../redux/features/driver/driverSlice';
 import { isGuestMode } from '../../utils/storage';
-import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 
 /**
  * Format ISO datetime string to user-friendly string
@@ -59,10 +59,14 @@ const formatTripDate = (dateString, t, language = 'en') => {
       hi: 'hi-IN',
     };
     const currentLocale = localeMap[language] || 'en-US';
-    const timeStr = date.toLocaleTimeString(currentLocale, { hour: '2-digit', minute: '2-digit' });
+    const timeStr = date.toLocaleTimeString(currentLocale, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     if (isToday) return `${t ? t('common.today', 'Today') : 'Today'}, ${timeStr}`;
-    if (isYesterday) return `${t ? t('common.yesterday', 'Yesterday') : 'Yesterday'}, ${timeStr}`;
+    if (isYesterday)
+      return `${t ? t('common.yesterday', 'Yesterday') : 'Yesterday'}, ${timeStr}`;
 
     const day = String(date.getDate()).padStart(2, '0');
     const month = date.toLocaleString(currentLocale, { month: 'short' });
@@ -163,7 +167,8 @@ const getStatusInfo = (status, t) => {
 const formatPaymentMethod = (method, t) => {
   const m = (method || 'CASH').toUpperCase();
   if (m === 'CASH') return t ? t('rider.payCash', 'Cash') : 'Cash';
-  if (m === 'ONLINE' || m === 'CARD' || m === 'UPI') return t ? t('rider.payOnline', 'Online') : 'Online';
+  if (m === 'ONLINE' || m === 'CARD' || m === 'UPI')
+    return t ? t('rider.payOnline', 'Online') : 'Online';
   if (m === 'WALLET') return t ? t('rider.payWallet', 'Wallet') : 'Wallet';
   return method || 'Cash';
 };
@@ -173,7 +178,8 @@ const formatPaymentMethod = (method, t) => {
  */
 const formatPaymentStatus = (status, t) => {
   const s = (status || '').toUpperCase();
-  if (s === 'PAID' || s === 'COMPLETED') return t ? t('rider.statusCompleted', 'Paid') : 'Paid';
+  if (s === 'PAID' || s === 'COMPLETED')
+    return t ? t('rider.statusCompleted', 'Paid') : 'Paid';
   if (s === 'PENDING') return t ? t('rider.statusPending', 'Pending') : 'Pending';
   if (s === 'FAILED') return t ? t('rider.statusCancelled', 'Failed') : 'Failed';
   return status || '';
@@ -185,7 +191,8 @@ const formatPaymentStatus = (status, t) => {
 const formatCancelledBy = (by, t) => {
   const b = (by || 'RIDER').toUpperCase();
   if (b === 'DRIVER') return t ? t('rider.cancelledByDriver', 'Driver') : 'Driver';
-  if (b === 'SYSTEM' || b === 'ADMIN') return t ? t('rider.cancelledBySystem', 'System') : 'System';
+  if (b === 'SYSTEM' || b === 'ADMIN')
+    return t ? t('rider.cancelledBySystem', 'System') : 'System';
   return t ? t('rider.cancelledByRider', 'Rider') : 'Rider';
 };
 
@@ -200,32 +207,53 @@ export const DriverTripsScreen = ({ navigation }) => {
   const [selectedTrip, setSelectedTrip] = useState(null);
 
   const authUser = useSelector((state) => state.auth?.user);
-  const [isGuestStored, setIsGuestStored] = useState(false);
-  useEffect(() => {
-    isGuestMode().then((val) => {
-      if (val) setIsGuestStored(true);
-    });
-  }, []);
-  const isGuest = !authUser || !authUser?.id || isGuestStored;
 
-  const [guestLoginModal, setGuestLoginModal] = useState({
-    visible: false,
-    title: '',
-    message: '',
-  });
+  // null = not yet determined (pending), true/false = resolved
+  const [isGuestStored, setIsGuestStored] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    isGuestMode()
+      .then((val) => {
+        if (mounted) setIsGuestStored(!!val);
+      })
+      .catch(() => {
+        if (mounted) setIsGuestStored(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Guest check is still pending if we have no auth user AND storage hasn't resolved
+  const isGuestCheckPending = !authUser?.id && isGuestStored === null;
+
+  // Guest if: no auth user OR storage says guest
+  const isGuest = !authUser?.id || isGuestStored === true;
 
   const promptGuestLogin = useCallback(
     (
       msgKey = 'auth.loginRequiredTripsMsg',
       defMsg = 'Please log in first to view and manage your trips.'
     ) => {
-      setGuestLoginModal({
-        visible: true,
-        title: t('auth.loginRequired', 'Login Required'),
-        message: t(msgKey, defMsg),
-      });
+      Alert.alert(
+        t('auth.loginRequired', 'Login Required'),
+        t(msgKey, defMsg),
+        [
+          { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+          {
+            text: t('auth.login', 'Log In'),
+            onPress: () =>
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              }),
+          },
+        ],
+        { cancelable: true }
+      );
     },
-    [t]
+    [t, navigation]
   );
 
   // Redux driver rides state
@@ -239,45 +267,63 @@ export const DriverTripsScreen = ({ navigation }) => {
     driverRidesError = null,
   } = useSelector((state) => state.driver);
 
-  // Fetch page 1 when screen gains focus
+  // Fetch page 1 when screen gains focus (skips guests & waits for guest check)
   useFocusEffect(
     useCallback(() => {
+      if (isGuestCheckPending) return; // wait until guest status resolves
       if (isGuest) {
-        promptGuestLogin();
-        return;
+        // promptGuestLogin(); 
+        return; // 🚫 no API call for guests
       }
       dispatch(fetchDriverRides({ page: 1, page_size: 10 }));
-    }, [dispatch, isGuest, promptGuestLogin])
+    }, [dispatch, isGuest, isGuestCheckPending, promptGuestLogin])
   );
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
+    if (isGuestCheckPending) return;
     if (isGuest) {
       promptGuestLogin();
-      return;
+      return; // 🚫 no API call
     }
     setIsRefreshing(true);
     await dispatch(fetchDriverRides({ page: 1, page_size: 10 }));
     setIsRefreshing(false);
-  }, [dispatch, isGuest, promptGuestLogin]);
+  }, [dispatch, isGuest, isGuestCheckPending, promptGuestLogin]);
 
   // Infinite scroll pagination: load next page
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
+    if (isGuestCheckPending || isGuest) return; // 🚫 explicit guest guard
     if (!isDriverRidesLoading && !isLoadingMoreDriverRides && driverRidesNext) {
-      dispatch(fetchDriverRides({ page: driverRidesCurrentPage + 1, page_size: 10 }));
+      dispatch(
+        fetchDriverRides({ page: driverRidesCurrentPage + 1, page_size: 10 })
+      );
     }
-  };
+  }, [
+    dispatch,
+    isGuest,
+    isGuestCheckPending,
+    isDriverRidesLoading,
+    isLoadingMoreDriverRides,
+    driverRidesNext,
+    driverRidesCurrentPage,
+  ]);
+
+  // Source trips: hide any stale Redux data from guests
+  const visibleTrips = isGuest ? [] : driverRides;
 
   // Filter trips based on active filter tab
   const filteredTrips = useMemo(() => {
     if (filter === 'today') {
-      return driverRides.filter((t) => isTripToday(t.created_at));
+      return visibleTrips.filter((t) => isTripToday(t.created_at));
     }
     if (filter === 'completed') {
-      return driverRides.filter((t) => (t.status || '').toUpperCase() === 'COMPLETED');
+      return visibleTrips.filter(
+        (t) => (t.status || '').toUpperCase() === 'COMPLETED'
+      );
     }
-    return driverRides;
-  }, [driverRides, filter]);
+    return visibleTrips;
+  }, [visibleTrips, filter]);
 
   // Render individual trip card item
   const renderTripItem = ({ item }) => {
@@ -285,8 +331,8 @@ export const DriverTripsScreen = ({ navigation }) => {
     const statusInfo = getStatusInfo(item.status, t);
     const isCancelled = (item.status || '').toUpperCase() === 'CANCELLED';
 
-    // Earnings: Driver payout is the driver's net earnings from the trip
-    const driverPayout = item.driver_payout || item.final_fare || item.estimated_fare || '0';
+    const driverPayout =
+      item.driver_payout || item.final_fare || item.estimated_fare || '0';
     const totalFare = item.final_fare || item.estimated_fare || '0';
 
     return (
@@ -306,7 +352,11 @@ export const DriverTripsScreen = ({ navigation }) => {
           <View style={styles.topLeftCol}>
             <View style={styles.tripIdRow}>
               <View style={styles.vehicleIconBadge}>
-                <Icon name={typeInfo.icon} size={14} color={COLORS.secondPrimary} />
+                <Icon
+                  name={typeInfo.icon}
+                  size={14}
+                  color={COLORS.secondPrimary}
+                />
               </View>
               <Text style={styles.tripIdText}>
                 {t('driver.tripNumber', 'Trip #{{id}}', { id: item.id })}
@@ -346,14 +396,16 @@ export const DriverTripsScreen = ({ navigation }) => {
           <View style={styles.routeRow}>
             <View style={styles.dotPickup} />
             <Text numberOfLines={1} style={styles.addressText}>
-              {item.pickup_address || t('rider.pickupLocation', 'Pickup Location')}
+              {item.pickup_address ||
+                t('rider.pickupLocation', 'Pickup Location')}
             </Text>
           </View>
           <View style={styles.routeLine} />
           <View style={styles.routeRow}>
             <View style={styles.squareDest} />
             <Text numberOfLines={1} style={styles.addressText}>
-              {item.drop_address || t('rider.dropoffLocation', 'Drop Location')}
+              {item.drop_address ||
+                t('rider.dropoffLocation', 'Drop Location')}
             </Text>
           </View>
         </View>
@@ -372,7 +424,9 @@ export const DriverTripsScreen = ({ navigation }) => {
               <Icon name="cash" size={11} color={COLORS.textLight} />
               <Text style={styles.metaPillText}>
                 {formatPaymentMethod(item.payment_method, t)}
-                {item.payment_status ? ` • ${formatPaymentStatus(item.payment_status, t)}` : ''}
+                {item.payment_status
+                  ? ` • ${formatPaymentStatus(item.payment_status, t)}`
+                  : ''}
               </Text>
             </View>
           ) : null}
@@ -432,7 +486,7 @@ export const DriverTripsScreen = ({ navigation }) => {
         />
 
         {/* Guest Mode Notice Banner */}
-        {isGuest && (
+        {isGuest && !isGuestCheckPending && (
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => promptGuestLogin()}
@@ -475,7 +529,7 @@ export const DriverTripsScreen = ({ navigation }) => {
               ]}
             >
               {t('rider.allTrips', 'All Trips')}
-              {driverRidesCount > 0 ? ` (${driverRidesCount})` : ''}
+              {!isGuest && driverRidesCount > 0 ? ` (${driverRidesCount})` : ''}
             </Text>
           </TouchableOpacity>
 
@@ -527,7 +581,7 @@ export const DriverTripsScreen = ({ navigation }) => {
         </View>
 
         {/* Error Banner */}
-        {driverRidesError && driverRides.length === 0 ? (
+        {!isGuest && driverRidesError && visibleTrips.length === 0 ? (
           <View style={styles.errorBanner}>
             <Icon name="alert-circle" size={18} color={COLORS.danger} />
             <Text style={styles.errorText}>{String(driverRidesError)}</Text>
@@ -541,17 +595,22 @@ export const DriverTripsScreen = ({ navigation }) => {
               }}
               style={styles.retryBtn}
             >
-              <Text style={styles.retryBtnText}>{t('common.retry', 'Retry')}</Text>
+              <Text style={styles.retryBtnText}>
+                {t('common.retry', 'Retry')}
+              </Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
         {/* Content List */}
-        {isDriverRidesLoading && driverRides.length === 0 ? (
+        {isGuestCheckPending ||
+        (isDriverRidesLoading && visibleTrips.length === 0 && !isGuest) ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
             <Text style={styles.loadingText}>
-              {t('driver.loadingYourTrips', 'Loading your trips...')}
+              {isGuestCheckPending
+                ? t('common.loading', 'Loading...')
+                : t('driver.loadingYourTrips', 'Loading your trips...')}
             </Text>
           </View>
         ) : filteredTrips.length > 0 ? (
@@ -561,10 +620,17 @@ export const DriverTripsScreen = ({ navigation }) => {
             keyExtractor={(item) => String(item.id)}
             renderItem={renderTripItem}
             numColumns={isFoldableOrTablet ? 2 : 1}
-            columnWrapperStyle={isFoldableOrTablet ? { gap: SPACING.md } : undefined}
+            columnWrapperStyle={
+              isFoldableOrTablet ? { gap: SPACING.md } : undefined
+            }
             contentContainerStyle={[
               styles.listContent,
-              { paddingBottom: Math.max(insets.bottom + SPACING.lg, SPACING.xxxl) },
+              {
+                paddingBottom: Math.max(
+                  insets.bottom + SPACING.lg,
+                  SPACING.xxxl
+                ),
+              },
             ]}
             showsVerticalScrollIndicator={false}
             refreshControl={
@@ -590,15 +656,15 @@ export const DriverTripsScreen = ({ navigation }) => {
             description={
               isGuest
                 ? t(
-                  'auth.loginRequiredTripsMsg',
-                  'Please log in first to view and manage your trips.'
-                )
+                    'auth.loginRequiredTripsMsg',
+                    'Please log in first to view and manage your trips.'
+                  )
                 : filter === 'today'
-                  ? t(
+                ? t(
                     'driver.noTripsTodayDesc',
                     "You haven't completed any trips today. Go online to start receiving ride requests!"
                   )
-                  : t(
+                : t(
                     'driver.noTripsMatchDesc',
                     'No trips match this filter. When you complete trips, they will appear here.'
                   )
@@ -624,7 +690,7 @@ export const DriverTripsScreen = ({ navigation }) => {
 
         {/* Detailed Trip Modal */}
         <Modal
-          visible={Boolean(selectedTrip)}
+          visible={Boolean(selectedTrip) && !isGuest}
           transparent
           animationType="fade"
           onRequestClose={() => setSelectedTrip(null)}
@@ -633,7 +699,10 @@ export const DriverTripsScreen = ({ navigation }) => {
             style={styles.modalBackdrop}
             onPress={() => setSelectedTrip(null)}
           >
-            <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={styles.modalCard}
+              onPress={(e) => e.stopPropagation()}
+            >
               <View style={styles.modalHeader}>
                 <View>
                   <Text style={styles.modalTitle}>
@@ -642,7 +711,11 @@ export const DriverTripsScreen = ({ navigation }) => {
                     })}
                   </Text>
                   <Text style={styles.modalDate}>
-                    {formatTripDate(selectedTrip?.created_at, t, currentLanguage)}
+                    {formatTripDate(
+                      selectedTrip?.created_at,
+                      t,
+                      currentLanguage
+                    )}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -665,14 +738,19 @@ export const DriverTripsScreen = ({ navigation }) => {
                       {t('driver.yourEarnings', 'Your Earnings')}
                     </Text>
                     <Text style={styles.modalEarningsValue}>
-                      +{formatCurrency(
-                        selectedTrip?.driver_payout || selectedTrip?.final_fare || '0'
+                      +
+                      {formatCurrency(
+                        selectedTrip?.driver_payout ||
+                          selectedTrip?.final_fare ||
+                          '0'
                       )}
                     </Text>
                     <Text style={styles.modalCustomerFareLabel}>
                       {t('driver.customerFareLabel', 'Customer Fare: {{fare}}', {
                         fare: formatCurrency(
-                          selectedTrip?.final_fare || selectedTrip?.estimated_fare || '0'
+                          selectedTrip?.final_fare ||
+                            selectedTrip?.estimated_fare ||
+                            '0'
                         ),
                       })}
                     </Text>
@@ -716,15 +794,21 @@ export const DriverTripsScreen = ({ navigation }) => {
                 {/* Trip Info Grid */}
                 <View style={styles.modalGrid}>
                   <View style={styles.modalGridCol}>
-                    <Text style={styles.modalGridLabel}>{t('rider.vehicle', 'Vehicle')}</Text>
+                    <Text style={styles.modalGridLabel}>
+                      {t('rider.vehicle', 'Vehicle')}
+                    </Text>
                     <Text style={styles.modalGridValue}>
                       {getVehicleTypeInfo(selectedTrip?.vehicle_type, t).label}
                     </Text>
                   </View>
                   <View style={styles.modalGridCol}>
-                    <Text style={styles.modalGridLabel}>{t('rider.distance', 'Distance')}</Text>
+                    <Text style={styles.modalGridLabel}>
+                      {t('rider.distance', 'Distance')}
+                    </Text>
                     <Text style={styles.modalGridValue}>
-                      {selectedTrip?.distance_km ? `${selectedTrip.distance_km} km` : '—'}
+                      {selectedTrip?.distance_km
+                        ? `${selectedTrip.distance_km} km`
+                        : '—'}
                     </Text>
                   </View>
                   <View style={styles.modalGridCol}>
@@ -744,13 +828,17 @@ export const DriverTripsScreen = ({ navigation }) => {
                     </Text>
                   </View>
                   <View style={styles.modalGridCol}>
-                    <Text style={styles.modalGridLabel}>{t('driver.driverId', 'Driver ID')}</Text>
+                    <Text style={styles.modalGridLabel}>
+                      {t('driver.driverId', 'Driver ID')}
+                    </Text>
                     <Text style={styles.modalGridValue}>
                       #{selectedTrip?.driver || '—'}
                     </Text>
                   </View>
                   <View style={styles.modalGridCol}>
-                    <Text style={styles.modalGridLabel}>{t('rider.otpCode', 'OTP Code')}</Text>
+                    <Text style={styles.modalGridLabel}>
+                      {t('rider.otpCode', 'OTP Code')}
+                    </Text>
                     <Text
                       style={[
                         styles.modalGridValue,
@@ -789,35 +877,14 @@ export const DriverTripsScreen = ({ navigation }) => {
                   onPress={() => setSelectedTrip(null)}
                   style={styles.modalDismissBtn}
                 >
-                  <Text style={styles.modalDismissBtnText}>{t('common.close', 'Close')}</Text>
+                  <Text style={styles.modalDismissBtnText}>
+                    {t('common.close', 'Close')}
+                  </Text>
                 </TouchableOpacity>
               </ScrollView>
             </Pressable>
           </Pressable>
         </Modal>
-
-        {/* Guest Mode Login Required Alert Popup */}
-        {/* <CustomAlertPopup
-          visible={guestLoginModal.visible}
-          type="warning"
-          title={guestLoginModal.title || t('auth.loginRequired', 'Login Required')}
-          message={guestLoginModal.message}
-          confirmText={t('auth.login', 'Log In')}
-          cancelText={t('common.cancel', 'Cancel')}
-          onConfirm={() => {
-            setGuestLoginModal({ visible: false, title: '', message: '' });
-           navigation.reset({
-  index: 0,
-  routes: [{ name: 'Login' }],
-});
-          }}
-          onCancel={() => {
-            setGuestLoginModal({ visible: false, title: '', message: '' });
-          }}
-          onClose={() => {
-            setGuestLoginModal({ visible: false, title: '', message: '' });
-          }}
-        /> */}
       </ResponsiveContainer>
     </SafeAreaView>
   );

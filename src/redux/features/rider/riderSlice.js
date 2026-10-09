@@ -18,6 +18,7 @@ const initialState = {
   target: null, // 'pickup' | 'drop'
   completedTrip: null, // { ride_id, final_fare, payment_status }
   cancellationNotice: null, // { ride_id, cancelled_by: "DRIVER" | "RIDER" }
+  rideExpiredNotice: null, // { ride_id, detail }
   activeRideData: null, // Full ride object if received from server / current_state
 
   // Action status
@@ -178,6 +179,7 @@ export const riderSlice = createSlice({
       state.actionError = null;
       state.actionSuccessNotice = null;
       state.cancellationNotice = null;
+      state.rideExpiredNotice = null;
     },
     clearRiderTripState: (state) => {
       state.activeRideId = null;
@@ -190,6 +192,7 @@ export const riderSlice = createSlice({
       state.target = null;
       state.completedTrip = null;
       state.cancellationNotice = null;
+      state.rideExpiredNotice = null;
       state.actionError = null;
       state.actionSuccessNotice = null;
       state.activeRideData = null;
@@ -241,9 +244,33 @@ export const riderSlice = createSlice({
             const v = msg.vehicle || {};
             const vMake = v.make || d.vehicle_make || '';
             const vModel = v.model || d.vehicle_model || '';
-            const vPlate = v.plate || d.vehicle_plate || d.vehicle_number || '';
-            const vType = v.vehicle_type || d.vehicle_type || 'CAR';
+            const vPlate = v.plate || d.vehicle_plate || d.vehicle_number || d.plate_number || '';
+            const vColor = v.color || d.vehicle_color || d.color || '';
             const vName = v.name || `${vMake} ${vModel}`.trim() || 'Vehicle';
+            const combinedStr = `${vMake} ${vModel} ${vName}`.toLowerCase();
+            const isCarOrSuv =
+              combinedStr.includes('car') ||
+              combinedStr.includes('benz') ||
+              combinedStr.includes('wagon') ||
+              combinedStr.includes('suv') ||
+              combinedStr.includes('sedan') ||
+              combinedStr.includes('cab') ||
+              combinedStr.includes('audi') ||
+              combinedStr.includes('bmw') ||
+              combinedStr.includes('thar') ||
+              combinedStr.includes('swift') ||
+              combinedStr.includes('dzire') ||
+              combinedStr.includes('etios') ||
+              combinedStr.includes('toyota') ||
+              combinedStr.includes('hyundai');
+            const isAutoRick =
+              combinedStr.includes('auto') ||
+              combinedStr.includes('rick') ||
+              combinedStr.includes('tuk');
+            const vType =
+              v.vehicle_type ||
+              d.vehicle_type ||
+              (isCarOrSuv ? 'CAR' : isAutoRick ? 'AUTO' : 'BIKE');
 
             state.driverDetails = {
               id: d.id || d.driver_id || 1,
@@ -254,8 +281,17 @@ export const riderSlice = createSlice({
               vehicle_make: vMake,
               vehicle_model: vModel,
               vehicle_plate: vPlate,
+              vehicle_color: vColor,
               vehicle: vName,
               photo: d.photo || d.avatar || null,
+              vehicle_image: d.vehicle_image || d.vehicle_photo || d.car_image || v.image || null,
+              car: {
+                make: vMake,
+                model: vName || `${vMake} ${vModel}`.trim() || 'Vehicle',
+                color: vColor,
+                plateNumber: vPlate,
+                category: vType,
+              },
             };
 
             const driverLat = d.location?.lat ?? d.lat ?? msg.lat;
@@ -286,6 +322,7 @@ export const riderSlice = createSlice({
             }
 
             state.activeRideData = ride;
+            state.cancellationNotice = null;
           } else if (msg.has_active_ride === false) {
             state.activeRideId = null;
             state.tripStatus = 'idle';
@@ -303,6 +340,7 @@ export const riderSlice = createSlice({
           const d = msg.driver || msg.data || msg;
           const assignedRideId = msg.ride_id || msg.id || d.ride_id || d.id;
           state.tripStatus = 'driver_assigned';
+          state.cancellationNotice = null;
           if (assignedRideId) {
             state.activeRideId = assignedRideId;
           }
@@ -341,20 +379,37 @@ export const riderSlice = createSlice({
 
           const vMake = d.vehicle_make || d.vehicle?.make || '';
           const vModel = d.vehicle_model || d.vehicle?.model || '';
-          const vPlate = d.vehicle_plate || d.vehicle?.plate || d.vehicle_number || '';
+          const vPlate = d.vehicle_plate || d.vehicle?.plate || d.vehicle_number || d.plate_number || '';
+          const vColor = d.vehicle_color || d.color || d.vehicle?.color || '';
           const vName =
             d.vehicle_name ||
             `${vMake} ${vModel}`.trim() ||
             d.vehicle?.name ||
-            'Motorcycle';
+            'Vehicle';
+          const combinedStr = `${vMake} ${vModel} ${vName}`.toLowerCase();
+          const isCarOrSuv =
+            combinedStr.includes('car') ||
+            combinedStr.includes('benz') ||
+            combinedStr.includes('wagon') ||
+            combinedStr.includes('suv') ||
+            combinedStr.includes('sedan') ||
+            combinedStr.includes('cab') ||
+            combinedStr.includes('audi') ||
+            combinedStr.includes('bmw') ||
+            combinedStr.includes('thar') ||
+            combinedStr.includes('swift') ||
+            combinedStr.includes('dzire') ||
+            combinedStr.includes('etios') ||
+            combinedStr.includes('toyota') ||
+            combinedStr.includes('hyundai');
+          const isAutoRick =
+            combinedStr.includes('auto') ||
+            combinedStr.includes('rick') ||
+            combinedStr.includes('tuk');
           const vType =
             d.vehicle_type ||
             msg.vehicle_type ||
-            (vName.toLowerCase().includes('car')
-              ? 'CAR'
-              : vName.toLowerCase().includes('auto')
-              ? 'AUTO'
-              : 'BIKE');
+            (isCarOrSuv ? 'CAR' : isAutoRick ? 'AUTO' : 'BIKE');
 
           state.driverDetails = {
             id: d.driver_id || d.id || 1,
@@ -369,8 +424,17 @@ export const riderSlice = createSlice({
             vehicle_make: vMake,
             vehicle_model: vModel,
             vehicle_plate: vPlate,
+            vehicle_color: vColor,
             vehicle: vName,
             photo: d.driver_photo || d.photo || d.avatar || null,
+            vehicle_image: d.vehicle_image || d.vehicle_photo || d.car_image || null,
+            car: {
+              make: vMake,
+              model: vName || `${vMake} ${vModel}`.trim() || 'Vehicle',
+              color: vColor,
+              plateNumber: vPlate,
+              category: vType,
+            },
           };
 
           const initialDist = msg.distance_remaining_km ?? msg.distance_km ?? d.distance_remaining_km ?? d.distance_km;
@@ -476,22 +540,30 @@ export const riderSlice = createSlice({
           state.target = null;
           break;
 
-        case 'ride_cancelled':
+        case 'ride_cancelled': {
           // {"type": "ride_cancelled", "ride_id": .., "cancelled_by": "DRIVER"}
-          state.tripStatus = 'cancelled';
-          state.cancellationNotice = {
-            ride_id: msg.ride_id,
-            cancelled_by: msg.cancelled_by || 'DRIVER',
-          };
-          state.activeRideId = null;
-          state.activeRideData = null;
-          state.rideOtp = null;
-          state.driverDetails = null;
-          state.driverLocation = null;
-          state.distanceRemainingKm = null;
-          state.etaMin = null;
-          state.target = null;
+          const cancelledRideId = msg.ride_id || msg.id;
+          if (!state.activeRideId || !cancelledRideId || String(cancelledRideId) === String(state.activeRideId)) {
+            state.tripStatus = 'cancelled';
+            state.cancellationNotice = {
+              ride_id: cancelledRideId,
+              cancelled_by: msg.cancelled_by || 'DRIVER',
+            };
+            state.activeRideId = null;
+            state.activeRideData = null;
+            state.rideOtp = null;
+            state.driverDetails = null;
+            state.driverLocation = null;
+            state.distanceRemainingKm = null;
+            state.etaMin = null;
+            state.target = null;
+          } else {
+            console.warn(
+              `[RiderSlice] ⚠️ Ignored ride_cancelled for ride #${cancelledRideId} because active ride is #${state.activeRideId}`
+            );
+          }
           break;
+        }
 
         case 'cancel_ride_success':
           // {"type": "cancel_ride_success", "ride_id": .., "detail": ".."}
@@ -512,6 +584,26 @@ export const riderSlice = createSlice({
           state.tripStatus = 'no_driver_found';
           state.actionError = msg.detail || 'No drivers available nearby.';
           break;
+
+        case 'ride_expired':
+        case 'expired': {
+          console.log('[RiderSlice] ⌛ Ride expired:', msg);
+          state.tripStatus = 'expired';
+          state.rideExpiredNotice = {
+            ride_id: msg.ride_id || msg.id,
+            detail: msg.detail || 'No driver found. Please try again.',
+          };
+          state.actionError = msg.detail || 'No driver found. Please try again.';
+          state.activeRideId = null;
+          state.activeRideData = null;
+          state.rideOtp = null;
+          state.driverDetails = null;
+          state.driverLocation = null;
+          state.distanceRemainingKm = null;
+          state.etaMin = null;
+          state.target = null;
+          break;
+        }
 
         case 'error':
           // {"type": "error", "detail": ".."}

@@ -31,6 +31,10 @@ import {
   watchLocation,
   clearLocationWatch,
 } from '../../utils/locationService';
+import {
+  resolveDropCoordinates,
+  resolvePickupCoordinates,
+} from '../../utils/coordinateResolver';
 
 export const DriverAcceptedRideScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -54,22 +58,50 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
     route.params?.tripId ||
     activeRide?.ride_id ||
     1;
-  const pickup =
-    route.params?.pickup ||
-    activeRide?.pickup_address ||
-    activeRide?.pickup ||
-    'Pickup Location';
-  const destination =
-    route.params?.destination ||
-    activeRide?.drop_address ||
-    activeRide?.destination_address ||
-    activeRide?.destination ||
-    'Destination';
-  const passengerName =
-    route.params?.passengerName ||
-    activeRide?.rider_name ||
-    activeRide?.passengerName ||
-    'Rider';
+  const extractString = (val, fallback = '') => {
+    if (typeof val === 'string' && val.trim()) return val;
+    if (val && typeof val === 'object') {
+      return val.address || val.display_name || val.name || val.shortAddress || fallback;
+    }
+    return fallback;
+  };
+
+  const pickup = useMemo(() => {
+    return extractString(
+      route.params?.pickup || activeRide?.pickup_address || activeRide?.pickup,
+      'Pickup Location'
+    );
+  }, [route.params?.pickup, activeRide?.pickup_address, activeRide?.pickup]);
+
+  const destination = useMemo(() => {
+    return extractString(
+      route.params?.destination ||
+        activeRide?.drop_address ||
+        activeRide?.destination_address ||
+        activeRide?.drop ||
+        activeRide?.destination,
+      'Destination'
+    );
+  }, [
+    route.params?.destination,
+    activeRide?.drop_address,
+    activeRide?.destination_address,
+    activeRide?.drop,
+    activeRide?.destination,
+  ]);
+
+  const passengerName = useMemo(() => {
+    const raw =
+      route.params?.passengerName ||
+      activeRide?.rider_name ||
+      activeRide?.passengerName ||
+      activeRide?.rider;
+    if (typeof raw === 'string' && raw.trim()) return raw;
+    if (raw && typeof raw === 'object') {
+      return raw.name || raw.full_name || 'Rider';
+    }
+    return 'Rider';
+  }, [route.params?.passengerName, activeRide?.rider_name, activeRide?.passengerName, activeRide?.rider]);
   const passengerRating =
     route.params?.passengerRating ||
     (activeRide?.rider_rating ? String(activeRide.rider_rating) : '4.95');
@@ -89,32 +121,18 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
       : '16.4 mi');
   const vehicleType =
     route.params?.vehicleType ||
+    route.params?.vehicle_type ||
     activeRide?.vehicle_type ||
+    activeRide?.vehicleType ||
     'CAR';
 
   const pickupCoords = useMemo(() => {
-    if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
-      return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
-    }
-    const pLon = route.params?.pickup_lon ?? activeRide?.pickup_lon;
-    const pLat = route.params?.pickup_lat ?? activeRide?.pickup_lat;
-    if (pLon && pLat) {
-      return [Number(pLon), Number(pLat)];
-    }
-    return [76.7835809, 30.6948328];
-  }, [route.params, activeRide]);
+    return resolvePickupCoordinates(route.params, activeRide, pickup);
+  }, [route.params, activeRide, pickup]);
 
   const dropCoords = useMemo(() => {
-    if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
-      return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
-    }
-    const dLon = route.params?.drop_lon ?? activeRide?.drop_lon;
-    const dLat = route.params?.drop_lat ?? activeRide?.drop_lat;
-    if (dLon && dLat) {
-      return [Number(dLon), Number(dLat)];
-    }
-    return [75.8573, 30.9005];
-  }, [route.params, activeRide]);
+    return resolveDropCoordinates(route.params, activeRide, destination);
+  }, [route.params, activeRide, destination]);
 
   const numDistanceKm = useMemo(() => {
     const raw = route.params?.distance_km ?? activeRide?.distance_km;
@@ -247,15 +265,21 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
   // Listen for rider cancelling ride
   useEffect(() => {
     if (rideCancelledNotice) {
-      Alert.alert('Ride Cancelled', 'The rider has cancelled this ride.');
-      dispatch(clearActionNotices());
-      if (navigation.canGoBack()) {
-        navigation.popToTop();
+      const noticeRideId = rideCancelledNotice.ride_id || rideCancelledNotice.id;
+      if (!noticeRideId || String(noticeRideId) === String(rideId)) {
+        Alert.alert('Ride Cancelled', 'The rider has cancelled this ride.');
+        dispatch(clearActionNotices());
+        if (navigation.canGoBack()) {
+          navigation.popToTop();
+        } else {
+          navigation.navigate('DriverTabs', { screen: 'DriverHome' });
+        }
       } else {
-        navigation.navigate('DriverTabs', { screen: 'DriverHome' });
+        // Stale notice from a different ride - silently clear without popping!
+        dispatch(clearActionNotices());
       }
     }
-  }, [rideCancelledNotice, dispatch, navigation]);
+  }, [rideCancelledNotice, rideId, dispatch, navigation]);
 
   const initialDriverPosRef = useRef(driverPos);
   const hasNavigatedToArrivedRef = useRef(false);
@@ -275,6 +299,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
       currency,
       tripDistance,
       vehicleType,
+      vehicle_type: vehicleType,
       driverCoordinates: driverPosRef.current || driverPos,
       pickupCoordinates: pickupCoords,
       dropCoordinates: dropCoords,
@@ -337,6 +362,7 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
       currency,
       tripDistance,
       vehicleType,
+      vehicle_type: vehicleType,
       driverCoordinates: driverPosRef.current || driverPos,
       pickupCoordinates: pickupCoords,
       dropCoordinates: dropCoords,
@@ -439,15 +465,6 @@ export const DriverAcceptedRideScreen = ({ navigation, route }) => {
             <Text style={styles.ratingText}>{passengerRating}</Text>
             <Text style={styles.paymentTag}>• In-App Paid</Text>
           </View>
-        </View>
-
-        <View style={styles.contactActions}>
-          <TouchableOpacity style={styles.contactBtn}>
-            <Icon name="phone" size={18} color={COLORS.secondPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.contactBtn}>
-            <Icon name="chat" size={18} color={COLORS.secondPrimary} />
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -654,11 +671,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.xl,
     shadowColor: COLORS.text,
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
-    borderTopWidth: 1,
     borderColor: COLORS.border,
   },
   sideCard: {

@@ -14,6 +14,8 @@ import DriverTripsScreen from '../screens/driver/DriverTripsScreen';
 import DriverEarningsScreen from '../screens/driver/DriverEarningsScreen';
 import DriverProfileScreen from '../screens/driver/DriverProfileScreen';
 import RideRequestScreen from '../screens/driver/RideRequestScreen';
+import DriverRequestListScreen from '../screens/driver/DriverRequestListScreen';
+import DriverRequestDetailsScreen from '../screens/driver/DriverRequestDetailsScreen';
 import DriverAcceptedRideScreen from '../screens/driver/DriverAcceptedRideScreen';
 import DriverArrivedScreen from '../screens/driver/DriverArrivedScreen';
 import DriverTripScreen from '../screens/driver/DriverTripScreen';
@@ -103,6 +105,8 @@ export const DriverNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="DriverTabs" component={DriverTabs} />
       <Stack.Screen name="DriverHome" component={DriverTabs} />
+      <Stack.Screen name="DriverRequestList" component={DriverRequestListScreen} />
+      <Stack.Screen name="DriverRequestDetails" component={DriverRequestDetailsScreen} />
       <Stack.Screen name="RideRequest" component={RideRequestScreen} />
       <Stack.Screen name="DriverAcceptedRide" component={DriverAcceptedRideScreen} />
       <Stack.Screen name="DriverArrived" component={DriverArrivedScreen} />

@@ -33,6 +33,7 @@ import {
 } from '../../redux/features/location/locationSlice';
 import {
   fetchRiderProfile,
+  fetchUserProfile,
   updateRiderProfile,
   setRiderProfile,
 } from '../../redux/features/auth/authSlice';
@@ -70,7 +71,15 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
   const [isGuestStored, setIsGuestStored] = useState(false);
   useEffect(() => {
     isGuestMode().then((val) => {
-      if (val) setIsGuestStored(true);
+      if (val) {
+        setIsGuestStored(true);
+        setHomeAddress('');
+        setHomeLat(null);
+        setHomeLng(null);
+        setWorkAddress('');
+        setWorkLat(null);
+        setWorkLng(null);
+      }
     });
   }, []);
   const isGuest = !authUser || !authUser?.id || isGuestStored;
@@ -98,39 +107,46 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
 
   // 1. Fetch initial rider profile on mount
   useEffect(() => {
-    dispatch(fetchRiderProfile());
+    if (!isGuest) {
+      dispatch(fetchRiderProfile());
+      dispatch(fetchUserProfile());
+    }
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
       dispatch(clearSearchResults());
     };
-  }, [dispatch]);
+  }, [dispatch, isGuest]);
+
+  const effectiveProfile = isGuest ? null : (riderProfile || authUser?.rider_profile);
 
   // 2. Synchronize profile data with local form state
   useEffect(() => {
-    if (riderProfile) {
-      if (riderProfile.home_address !== undefined && riderProfile.home_address !== null) {
-        setHomeAddress(riderProfile.home_address || '');
+    if (effectiveProfile) {
+      if (effectiveProfile.home_address !== undefined && effectiveProfile.home_address !== null) {
+        setHomeAddress(effectiveProfile.home_address || '');
       }
-      if (riderProfile.home_lat !== undefined && riderProfile.home_lat !== null) {
-        setHomeLat(riderProfile.home_lat);
+      if (effectiveProfile.home_lat !== undefined && effectiveProfile.home_lat !== null) {
+        setHomeLat(effectiveProfile.home_lat);
       }
-      if (riderProfile.home_lng !== undefined && riderProfile.home_lng !== null) {
-        setHomeLng(riderProfile.home_lng);
+      const hLng = effectiveProfile.home_lng ?? effectiveProfile.home_lon;
+      if (hLng !== undefined && hLng !== null) {
+        setHomeLng(hLng);
       }
 
-      if (riderProfile.work_address !== undefined && riderProfile.work_address !== null) {
-        setWorkAddress(riderProfile.work_address || '');
+      if (effectiveProfile.work_address !== undefined && effectiveProfile.work_address !== null) {
+        setWorkAddress(effectiveProfile.work_address || '');
       }
-      if (riderProfile.work_lat !== undefined && riderProfile.work_lat !== null) {
-        setWorkLat(riderProfile.work_lat);
+      if (effectiveProfile.work_lat !== undefined && effectiveProfile.work_lat !== null) {
+        setWorkLat(effectiveProfile.work_lat);
       }
-      if (riderProfile.work_lng !== undefined && riderProfile.work_lng !== null) {
-        setWorkLng(riderProfile.work_lng);
+      const wLng = effectiveProfile.work_lng ?? effectiveProfile.work_lon;
+      if (wLng !== undefined && wLng !== null) {
+        setWorkLng(wLng);
       }
     }
-  }, [riderProfile]);
+  }, [effectiveProfile]);
 
   // 3. Auto-focus field if specified
   useEffect(() => {
@@ -257,6 +273,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
       await dispatch(updateRiderProfile(payload)).unwrap();
       // Update local slice state directly to ensure immediate UI freshness
       dispatch(setRiderProfile(payload));
+      dispatch(fetchUserProfile());
       setSaveSuccess(true);
 
       // Return to home screen after brief confirmation

@@ -14,6 +14,7 @@ import Icon from '../Icon';
 import DriverMarker from './DriverMarker';
 import RouteLayer from './RouteLayer';
 import MapPlaceholder from '../MapPlaceholder';
+import { getPremappedCoordinates } from '../../utils/coordinateResolver';
 
 // High-resolution, full-detail street map style from OpenStreetMap
 export const STREET_MAP_STYLE = JSON.stringify({
@@ -81,18 +82,35 @@ export const DriverLiveMap = ({
 
   const effectiveStatus = statusLabel || driverStatus || (isOnline ? 'Online' : 'Offline');
 
+  const effectiveDropCoordinate = useMemo(() => {
+    if (destinationLabel && typeof destinationLabel === 'string') {
+      const lower = destinationLabel.toLowerCase();
+      const isLudhianaDefault =
+        dropCoordinate &&
+        Math.abs(dropCoordinate[0] - 75.85) < 0.1 &&
+        Math.abs(dropCoordinate[1] - 30.90) < 0.1 &&
+        !lower.includes('ludhiana');
+
+      if (isLudhianaDefault) {
+        const premapped = getPremappedCoordinates(destinationLabel);
+        if (premapped) return premapped;
+      }
+    }
+    return dropCoordinate;
+  }, [dropCoordinate, destinationLabel]);
+
   // Active destination based on target:
   // If target === 'drop' (ON_TRIP): route driver directly to dropCoordinate
   // If target === 'pickup': route driver to pickupCoordinate
   const activeDestination = useMemo(() => {
     if (target === 'drop') {
-      return dropCoordinate || pickupCoordinate;
+      return effectiveDropCoordinate || pickupCoordinate;
     }
     if (target === 'pickup') {
       return pickupCoordinate;
     }
-    return dropCoordinate || pickupCoordinate;
-  }, [target, dropCoordinate, pickupCoordinate]);
+    return effectiveDropCoordinate || pickupCoordinate;
+  }, [target, effectiveDropCoordinate, pickupCoordinate]);
 
   // Generates an immediate curved route line so a path is always visible
   const generateFallbackRoute = useCallback((start, end) => {
@@ -339,11 +357,11 @@ export const DriverLiveMap = ({
         )}
 
         {/* Dropoff Pin if active request */}
-        {dropCoordinate && dropCoordinate.length === 2 && (
+        {effectiveDropCoordinate && effectiveDropCoordinate.length === 2 && (
           <Marker
             id="driverLiveDropMarker"
-            lngLat={dropCoordinate}
-            coordinate={dropCoordinate}
+            lngLat={effectiveDropCoordinate}
+            coordinate={effectiveDropCoordinate}
             anchor="bottom"
           >
             <View style={styles.pinWrapper}>
@@ -391,14 +409,6 @@ export const DriverLiveMap = ({
           style={styles.mapControlBtn}
         >
           <Icon name="my-location" size={20} color="#334155" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={handleRecenter}
-          style={styles.mapControlBtn}
-        >
-          <Icon name="navigation" size={20} color="#059669" />
         </TouchableOpacity>
       </View>
     </View>

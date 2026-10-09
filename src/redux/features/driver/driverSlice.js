@@ -42,6 +42,11 @@ const initialState = {
   rideTakenNotice: null, // {"type": "ride_taken", "ride_id": ..}
   rideCancelledNotice: null, // {"type": "ride_cancelled", "ride_id": .., "cancelled_by": "RIDER"}
 
+  // Available Ride Requests (Manual List)
+  availableRideRequests: [],
+  requestsLoading: false,
+  requestsError: null,
+
   // Driver Wallet & Earnings
   wallet: null, // { balance, currency, available_balance, pending_balance, total_earnings, ... }
   walletTransactions: [], // [ { id, amount, type, description, created_at, status, ... } ]
@@ -282,6 +287,49 @@ export const fetchDriverDocuments = createAsyncThunk(
         error?.message ||
         'Failed to fetch driver documents';
       console.warn('[DriverAPI] Documents fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
+/**
+ * Call API: GET /api/v1/rides/driver-requests/ (fallback to rides/available/)
+ */
+export const fetchAvailableRideRequests = createAsyncThunk(
+  'driver/fetchAvailableRideRequests',
+  async (_, { rejectWithValue }) => {
+    try {
+      console.log('[DriverAPI] Fetching available ride requests from driver-requests/...');
+      let response;
+      try {
+        response = await apiGet(ApiConstant.DriverRequests || 'rides/driver-requests/');
+      } catch (err) {
+        if (err?.status === 404) {
+          console.log('[DriverAPI] driver-requests 404, attempting fallback to rides/available/...');
+          response = await apiGet('rides/available/');
+        } else {
+          throw err;
+        }
+      }
+
+      console.log('[DriverAPI] Available ride requests response:', response);
+      const list = Array.isArray(response?.requests)
+        ? response.requests
+        : Array.isArray(response?.results)
+        ? response.results
+        : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+      return list;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch available ride requests';
+      console.warn('[DriverAPI] Available requests error:', errorMsg);
       return rejectWithValue(errorMsg);
     }
   }
@@ -535,6 +583,46 @@ export const driverSlice = createSlice({
       state.rideTakenNotice = null;
       state.rideCancelledNotice = null;
     },
+    setAvailableRideRequests: (state, action) => {
+      state.availableRideRequests = Array.isArray(action.payload) ? action.payload : [];
+    },
+    addAvailableRideRequest: (state, action) => {
+      const newReq = action.payload;
+      if (!newReq || !newReq.ride_id) return;
+      const rideId = newReq.ride_id;
+      if (['accepted', 'arrived', 'in_progress'].includes(state.rideStatus)) {
+        return;
+      }
+      const existingIndex = state.availableRideRequests.findIndex(
+        (r) => String(r.ride_id) === String(rideId)
+      );
+      if (existingIndex >= 0) {
+        state.availableRideRequests[existingIndex] = {
+          ...state.availableRideRequests[existingIndex],
+          ...newReq,
+        };
+      } else {
+        state.availableRideRequests = [newReq, ...state.availableRideRequests];
+      }
+    },
+    removeAvailableRideRequest: (state, action) => {
+      const rideId = action.payload?.ride_id || action.payload?.id || action.payload;
+      if (!rideId) return;
+      state.availableRideRequests = state.availableRideRequests.filter(
+        (r) => String(r.ride_id) !== String(rideId)
+      );
+      if (
+        state.incomingRideRequest &&
+        String(state.incomingRideRequest.ride_id) === String(rideId)
+      ) {
+        state.incomingRideRequest = null;
+      }
+    },
+    clearAvailableRideRequests: (state) => {
+      state.availableRideRequests = [];
+      state.requestsLoading = false;
+      state.requestsError = null;
+    },
 
     // ----------------------------------------------------
     // SERVER -> DRIVER Message Router
@@ -575,6 +663,8 @@ export const driverSlice = createSlice({
             } else {
               state.rideStatus = 'accepted';
             }
+
+            state.rideCancelledNotice = null;
 
             state.activeRide = {
               ...(state.activeRide || {}),
@@ -711,7 +801,23 @@ export const driverSlice = createSlice({
             break;
           }
           state.incomingRideRequest = msg;
-          state.rideStatus = 'requested';
+          state.rideCancelledNotice = null;
+
+          // Add to availableRideRequests list without duplicates
+          const reqRideId = msg.ride_id || msg.id;
+          if (reqRideId) {
+            const existingIdx = state.availableRideRequests.findIndex(
+              (r) => String(r.ride_id) === String(reqRideId)
+            );
+            if (existingIdx >= 0) {
+              state.availableRideRequests[existingIdx] = {
+                ...state.availableRideRequests[existingIdx],
+                ...msg,
+              };
+            } else {
+              state.availableRideRequests = [msg, ...state.availableRideRequests];
+            }
+          }
           break;
         }
 
@@ -722,7 +828,14 @@ export const driverSlice = createSlice({
           // {"type": "ride_taken", "ride_id": ..}
           console.log(`[DriverSlice] ⚠️ Offer unavailable [${msg.type}]:`, msg);
           const takenRideId = msg.ride_id || msg.id || msg.data?.ride_id;
-          state.incomingRideRequest = null;
+          if (takenRideId) {
+            state.availableRideRequests = state.availableRideRequests.filter(
+              (r) => String(r.ride_id) !== String(takenRideId)
+            );
+          }
+          if (state.incomingRideRequest && String(state.incomingRideRequest.ride_id) === String(takenRideId)) {
+            state.incomingRideRequest = null;
+          }
           state.rideTakenNotice = {
             ...msg,
             ride_id: takenRideId,
@@ -734,34 +847,44 @@ export const driverSlice = createSlice({
           break;
         }
 
-        case 'accept_success':
+        case 'accept_success': {
           // {"type": "accept_success", "ride_id": .., "detail": ".."}
           state.rideStatus = 'accepted';
+          state.rideCancelledNotice = null;
+          const acceptedRideId = msg.ride_id || state.incomingRideRequest?.ride_id;
+          if (acceptedRideId) {
+            state.availableRideRequests = state.availableRideRequests.filter(
+              (r) => String(r.ride_id) !== String(acceptedRideId)
+            );
+          }
+          const matchedRequest =
+            state.availableRideRequests.find((r) => String(r.ride_id) === String(acceptedRideId)) ||
+            state.incomingRideRequest ||
+            {};
           state.activeRide = {
+            ...matchedRequest,
             ...(state.activeRide || {}),
-            ...(state.incomingRideRequest || {}),
-            ride_id: msg.ride_id || state.incomingRideRequest?.ride_id,
+            ride_id: acceptedRideId,
           };
           state.incomingRideRequest = null;
           state.actionSuccessNotice = msg.detail || 'Ride accepted';
           state.actionError = null;
           break;
+        }
 
         case 'accept_failed': {
           // {"type": "accept_failed", "ride_id": .., "detail": ".."}
           console.warn('[DriverSlice] ❌ Accept failed:', msg);
-          state.actionError = msg.detail || 'Failed to accept ride';
-          const detailLower = String(msg.detail || '').toLowerCase();
-          if (
-            detailLower.includes('expired') ||
-            detailLower.includes('already') ||
-            detailLower.includes('not found') ||
-            detailLower.includes('taken')
-          ) {
-            state.incomingRideRequest = null;
-            if (state.rideStatus === 'requested') {
-              state.rideStatus = 'idle';
-            }
+          const failedRideId = msg.ride_id || msg.id;
+          if (failedRideId) {
+            state.availableRideRequests = state.availableRideRequests.filter(
+              (r) => String(r.ride_id) !== String(failedRideId)
+            );
+          }
+          state.actionError = msg.detail || 'This ride is no longer available.';
+          state.incomingRideRequest = null;
+          if (state.rideStatus === 'requested') {
+            state.rideStatus = 'idle';
           }
           break;
         }
@@ -839,13 +962,22 @@ export const driverSlice = createSlice({
           state.actionError = msg.detail || 'Failed to cancel ride';
           break;
 
-        case 'ride_cancelled':
+        case 'ride_cancelled': {
           // {"type": "ride_cancelled", "ride_id": .., "cancelled_by": "RIDER"}
-          state.rideStatus = 'idle';
-          state.rideCancelledNotice = msg;
-          state.activeRide = null;
-          state.incomingRideRequest = null;
+          const cancelledRideId = msg.ride_id || msg.id;
+          const activeRideId = state.activeRide?.ride_id || state.incomingRideRequest?.ride_id;
+          if (!activeRideId || !cancelledRideId || String(cancelledRideId) === String(activeRideId)) {
+            state.rideStatus = 'idle';
+            state.rideCancelledNotice = msg;
+            state.activeRide = null;
+            state.incomingRideRequest = null;
+          } else {
+            console.warn(
+              `[DriverSlice] ⚠️ Ignored ride_cancelled for ride #${cancelledRideId} because active ride is #${activeRideId}`
+            );
+          }
           break;
+        }
 
         case 'error': {
           // {"type": "error", "detail": ".."}
@@ -944,13 +1076,19 @@ export const driverSlice = createSlice({
       .addCase(driverAcceptRide.pending, (state) => {
         state.actionLoading = true;
         state.actionError = null;
+        state.rideCancelledNotice = null;
       })
       .addCase(driverAcceptRide.fulfilled, (state, action) => {
         state.actionLoading = false;
-        if (state.incomingRideRequest) {
+        state.rideCancelledNotice = null;
+        const targetRideId = action.meta?.arg?.rideId || action.payload?.rideId;
+        const matched =
+          state.availableRideRequests.find((r) => String(r.ride_id) === String(targetRideId)) ||
+          state.incomingRideRequest;
+        if (matched) {
           state.activeRide = {
-            ...state.incomingRideRequest,
-            ride_id: action.meta?.arg?.rideId || action.payload?.rideId || state.incomingRideRequest.ride_id,
+            ...matched,
+            ride_id: targetRideId,
           };
         }
       })
@@ -1093,6 +1231,20 @@ export const driverSlice = createSlice({
       .addCase(fetchDriverDocuments.rejected, (state, action) => {
         state.isDocumentsLoading = false;
         state.documentsError = action.payload;
+      })
+
+      // fetchAvailableRideRequests
+      .addCase(fetchAvailableRideRequests.pending, (state) => {
+        state.requestsLoading = true;
+        state.requestsError = null;
+      })
+      .addCase(fetchAvailableRideRequests.fulfilled, (state, action) => {
+        state.requestsLoading = false;
+        state.availableRideRequests = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchAvailableRideRequests.rejected, (state, action) => {
+        state.requestsLoading = false;
+        state.requestsError = action.payload;
       });
   },
 });
@@ -1109,6 +1261,10 @@ export const {
   resetActiveRideState,
   handleIncomingSocketMessage,
   clearDriverRides,
+  setAvailableRideRequests,
+  addAvailableRideRequest,
+  removeAvailableRideRequest,
+  clearAvailableRideRequests,
 } = driverSlice.actions;
 
 // Export as driverSocketSlice alias for developer flexibility

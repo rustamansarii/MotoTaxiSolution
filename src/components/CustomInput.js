@@ -25,6 +25,7 @@ export const CustomInput = ({
   onRightIconPress,
   error,
   helperText,
+  hideErrorText = false,
   keyboardType = 'default',
   autoCapitalize = 'none',
   editable = true,
@@ -36,6 +37,7 @@ export const CustomInput = ({
   onBlur,
   maxLength,
   customKeyboardEnabled = true,
+  required = false, // NEW: show red asterisk when true
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(!secureTextEntry);
@@ -58,7 +60,12 @@ export const CustomInput = ({
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
-      {label ? <Text style={styles.label}>{label}</Text> : null}
+      {label ? (
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          {required ? <Text style={styles.requiredAsterisk}>*</Text> : null}
+        </View>
+      ) : null}
 
       <View
         style={[
@@ -137,7 +144,7 @@ export const CustomInput = ({
         ) : null}
       </View>
 
-      {error ? (
+      {error && !hideErrorText ? (
         <Text style={styles.errorText}>{error}</Text>
       ) : helperText ? (
         <Text style={styles.helperText}>{helperText}</Text>
@@ -150,11 +157,21 @@ const styles = StyleSheet.create({
   wrapper: {
     marginBottom: SPACING.lg,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
   label: {
     ...TYPOGRAPHY.bodySmall,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.xs,
+  },
+  requiredAsterisk: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '700',
+    color: COLORS.danger, // red *
+    marginLeft: 2,
   },
   inputContainer: {
     height: 54,

@@ -175,11 +175,7 @@ export const RideOptionsScreen = ({ navigation, route }) => {
           <Icon name="arrow-left" size={20} color="#0F172A" />
         </TouchableOpacity>
 
-        <View style={styles.floatingTitlePill}>
-          <Text numberOfLines={1} style={styles.floatingTitleText}>
-            {t('rider.availableRides', 'Available Rides')}
-          </Text>
-        </View>
+       
 
         <View style={styles.placeholderRight} />
       </View>
@@ -195,8 +191,7 @@ export const RideOptionsScreen = ({ navigation, route }) => {
         { paddingBottom: Math.max(insets.bottom + 8, 16) },
       ]}
     >
-      {/* Drag Handle */}
-      {!isSplitLayout && <View style={styles.sheetHandle} />}
+     
 
       {/* Compact Horizontal Trip Stats Row */}
       <View style={styles.tripMetaRow}>

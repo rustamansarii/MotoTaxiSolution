@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSelector, useDispatch } from 'react-redux';
@@ -24,13 +25,17 @@ import {
   clearActionNotices,
   clearRiderTripState,
 } from '../../redux/features/rider/riderSlice';
+import {
+  getVehicleDisplayName,
+  getVehiclePlateNumber,
+  getVehicleImageSource,
+} from '../../utils/vehicleAssets';
+import { resolveDropCoordinates } from '../../utils/coordinateResolver';
 
 export const RideInProgressScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { isSplitLayout, isFoldableOrTablet, insets, width, height } = useResponsive();
-  const driver = route.params?.driver || ACTIVE_MOCK_DRIVER;
-  const totalFare = route.params?.totalFare || 18.5;
 
   const {
     tripStatus,
@@ -38,9 +43,13 @@ export const RideInProgressScreen = ({ navigation, route }) => {
     activeRideId,
     cancellationNotice,
     driverLocation,
+    driverDetails: wsDriverDetails,
     distanceRemainingKm,
     etaMin,
   } = useSelector((state) => state.rider);
+
+  const driver = wsDriverDetails || route.params?.driver || ACTIVE_MOCK_DRIVER;
+  const totalFare = route.params?.totalFare || 18.5;
 
   const pickupCoords = useMemo(() => {
     const p = route.params?.pickup;
@@ -53,6 +62,12 @@ export const RideInProgressScreen = ({ navigation, route }) => {
     return [76.7835809, 30.6948328];
   }, [route.params]);
 
+  const destinationLabel = useMemo(() => {
+    const d = route.params?.destination;
+    if (typeof d === 'string') return d;
+    return d?.shortAddress || d?.name || d?.address || 'Destination';
+  }, [route.params?.destination]);
+
   const dropCoords = useMemo(() => {
     const d = route.params?.destination;
     if (d?.coordinates && d.coordinates.length === 2) {
@@ -61,14 +76,8 @@ export const RideInProgressScreen = ({ navigation, route }) => {
     if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
       return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
     }
-    return [75.8573, 30.9005];
-  }, [route.params]);
-
-  const destinationLabel = useMemo(() => {
-    const d = route.params?.destination;
-    if (typeof d === 'string') return d;
-    return d?.shortAddress || d?.name || d?.address || 'Destination';
-  }, [route.params?.destination]);
+    return resolveDropCoordinates(route.params, {}, destinationLabel);
+  }, [route.params, destinationLabel]);
 
   const pickupLabel = useMemo(() => {
     const p = route.params?.pickup;
@@ -79,19 +88,25 @@ export const RideInProgressScreen = ({ navigation, route }) => {
   // Listen for driver cancelling the ride
   useEffect(() => {
     if (cancellationNotice) {
-      Alert.alert(
-        'Ride Cancelled',
-        `This ride was cancelled by the ${cancellationNotice.cancelled_by?.toLowerCase() || 'driver'}.`
-      );
-      dispatch(clearActionNotices());
-      dispatch(clearRiderTripState());
-      if (navigation.canGoBack()) {
-        navigation.popToTop();
+      const noticeRideId = cancellationNotice.ride_id || cancellationNotice.id;
+      const currentRideId = activeRideId || route.params?.ride_id;
+      if (!noticeRideId || !currentRideId || String(noticeRideId) === String(currentRideId)) {
+        Alert.alert(
+          'Ride Cancelled',
+          `This ride was cancelled by the ${cancellationNotice.cancelled_by?.toLowerCase() || 'driver'}.`
+        );
+        dispatch(clearActionNotices());
+        dispatch(clearRiderTripState());
+        if (navigation.canGoBack()) {
+          navigation.popToTop();
+        } else {
+          navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+        }
       } else {
-        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+        dispatch(clearActionNotices());
       }
     }
-  }, [cancellationNotice, dispatch, navigation]);
+  }, [cancellationNotice, activeRideId, route.params?.ride_id, dispatch, navigation]);
 
   // Listen for trip completed from server
   useEffect(() => {
@@ -209,6 +224,7 @@ export const RideInProgressScreen = ({ navigation, route }) => {
             : (route.params?.distance_km ? Number(route.params.distance_km) : 5.2)
         }
         isDriverEnRoute={true}
+        isOnTrip={true}
         vehicleType={vehicleType}
         focusOnStart={true}
         style={{ flex: 1, width: '100%', height: '100%' }}
@@ -228,9 +244,6 @@ export const RideInProgressScreen = ({ navigation, route }) => {
   // ---------- Reusable inner content (no wrapper) ----------
   const statusInner = (
     <>
-      {/* Drag Handle */}
-      {!isSplitLayout && <View style={styles.sheetHandle} />}
-
       {/* Live Status Chip + Trip Stage */}
       <View style={styles.statusHeaderRow}>
         <View style={styles.liveStatusChip}>
@@ -290,16 +303,24 @@ export const RideInProgressScreen = ({ navigation, route }) => {
       <View style={styles.driverCard}>
         <View style={styles.driverTopRow}>
           <View style={styles.driverAvatar}>
-            <Text style={styles.avatarInitials}>
-              {driver.name?.charAt(0) || 'D'}
-            </Text>
+            {driver.photo || driver.avatar || driver.avatarUrl ? (
+              <Image
+                source={{ uri: driver.photo || driver.avatar || driver.avatarUrl }}
+                style={styles.avatarImg}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.avatarInitials}>
+                {driver.name?.charAt(0)?.toUpperCase() || 'D'}
+              </Text>
+            )}
           </View>
           <View style={styles.driverMiniInfo}>
             <Text style={styles.driverName} numberOfLines={1}>
               {driver.name}
             </Text>
             <Text style={styles.carName} numberOfLines={1}>
-              {driver.car?.model} • {driver.car?.plateNumber}
+              {getVehicleDisplayName(driver)} • {getVehiclePlateNumber(driver)}
             </Text>
             <View style={styles.ratingRow}>
               <Icon name="star" size={12} color="#F59E0B" />
@@ -308,36 +329,13 @@ export const RideInProgressScreen = ({ navigation, route }) => {
               </Text>
             </View>
           </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.driverActionRow}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.actionBtn}
-            onPress={() => {/* handle call */}}
-          >
-            <Icon name="phone" size={16} color={COLORS.primaryDark} />
-            <Text style={styles.actionBtnText}>Call</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.actionBtn}
-            onPress={() => {/* handle message */}}
-          >
-            <Icon name="message" size={16} color={COLORS.primaryDark} />
-            <Text style={styles.actionBtnText}>Message</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[styles.actionBtn, styles.actionBtnDanger]}
-            onPress={() => {/* handle sos */}}
-          >
-            <Icon name="shield" size={16} color={COLORS.danger} />
-            <Text style={[styles.actionBtnText, { color: COLORS.danger }]}>SOS</Text>
-          </TouchableOpacity>
+          <View style={styles.driverVehicleThumbContainer}>
+            <Image
+              source={getVehicleImageSource(driver)}
+              style={styles.driverVehicleThumb}
+              resizeMode="contain"
+            />
+          </View>
         </View>
       </View>
     </>
@@ -747,6 +745,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: SPACING.sm,
+    overflow: 'hidden',
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: RADIUS.round,
+  },
+  driverVehicleThumbContainer: {
+    width: 50,
+    height: 36,
+    borderRadius: RADIUS.small,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: SPACING.xs,
+    overflow: 'hidden',
+  },
+  driverVehicleThumb: {
+    width: 44,
+    height: 30,
   },
   avatarInitials: {
     ...TYPOGRAPHY.bodySmall,

@@ -44,7 +44,7 @@ export const Header = ({
         style,
       ]}
     >
-      {/* <View
+      <View
         style={[
           styles.leftSlot,
           !hasLeft && (!hasRight || !centerTitle) && styles.slotHidden,
@@ -65,11 +65,13 @@ export const Header = ({
             />
           </TouchableOpacity>
         ) : null}
-      </View> */}
+      </View>
 
       <View
         style={[
           styles.titleSlot,
+          // Apply the negative left margin ONLY when there is a back button
+          hasLeft && styles.titleSlotWithLeft,
           !centerTitle && { alignItems: 'flex-start' },
         ]}
       >
@@ -171,6 +173,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
+    // NOTE: marginLeft removed here — it's conditionally applied below
+  },
+  // Applied only when hasLeft === true
+  titleSlotWithLeft: {
+    marginLeft: -20,
   },
   rightSlot: {
     minWidth: 44,

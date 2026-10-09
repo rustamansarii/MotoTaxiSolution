@@ -178,6 +178,7 @@ export const DriverLicenseCheckScreen = ({ navigation, route }) => {
               id="driver-license-number"
               label={t('driver.licenseNumberLabel', 'Driving License Number')}
               value={licenseNumber}
+              required
               onChangeText={text => {
                 setLicenseNumber(text.toUpperCase());
                 if (errorMessage) setErrorMessage('');

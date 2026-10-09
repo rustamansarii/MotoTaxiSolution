@@ -4,7 +4,6 @@ import { KeyboardKeyConfig } from './layouts';
 import { colors } from '../../theme/colors';
 import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
-import { useKeyboardSafe } from './KeyboardContext';
 
 interface KeyboardKeyProps {
   config: KeyboardKeyConfig;
@@ -12,6 +11,7 @@ interface KeyboardKeyProps {
   theme: 'light' | 'dark';
   isShiftActive: boolean;
   isCapsLock: boolean;
+  registerRepeatCanceler?: (canceler: (() => void) | null) => void;
 }
 
 export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
@@ -20,12 +20,12 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
   theme,
   isShiftActive,
   isCapsLock,
+  registerRepeatCanceler,
 }) => {
   const isDark = theme === 'dark';
   const repeatIntervalRef = useRef<any>(null);
   const repeatTimeoutRef = useRef<any>(null);
   const isPressedRef = useRef(false);
-  const keyboard = useKeyboardSafe();
 
   // Determine if this is a special function key
   const isSpecial = config.action !== 'char' && config.action !== 'space';
@@ -51,10 +51,10 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
       clearInterval(repeatIntervalRef.current);
       repeatIntervalRef.current = null;
     }
-    if (isBackspaceKey && keyboard?.registerRepeatCanceler) {
-      keyboard.registerRepeatCanceler(null);
+    if (isBackspaceKey && registerRepeatCanceler) {
+      registerRepeatCanceler(null);
     }
-  }, [isBackspaceKey, keyboard]);
+  }, [isBackspaceKey, registerRepeatCanceler]);
 
   // Cleanup on unmount or re-render
   useEffect(() => {
@@ -80,8 +80,8 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
       }
 
       // Register canceler with global keyboard context so any other key tap can cancel it
-      if (keyboard?.registerRepeatCanceler) {
-        keyboard.registerRepeatCanceler(stopRepeat);
+      if (registerRepeatCanceler) {
+        registerRepeatCanceler(stopRepeat);
       }
 
       // Auto-repeat backspace if held down
@@ -103,8 +103,8 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
           if (repeatResult === false) {
             stopRepeat();
           }
-        }, 70); // 70ms rapid deletion
-      }, 380); // 380ms hold delay
+        }, 50); // 50ms rapid deletion
+      }, 280); // 280ms snappy hold delay
     }
   };
 

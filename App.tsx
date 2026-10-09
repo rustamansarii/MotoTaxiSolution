@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { StatusBar, Animated, View, Platform } from 'react-native';
+import { StatusBar, Animated, View, Platform, Keyboard, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { navigationRef } from './src/navigation/navigationService';
@@ -11,7 +11,10 @@ import { AppProvider } from './src/context/AppContext';
 import { PopupProvider } from './src/context/PopupContext';
 import { KeyboardProvider, CustomKeyboard, useKeyboard } from './src/components/keyboard';
 import SpInAppUpdates, { IAUUpdateKind } from 'sp-react-native-in-app-updates';
-import { connectRiderWebSocket } from './src/redux/features/rider/riderSlice';
+import {
+  connectRiderWebSocket,
+  disconnectRiderWebSocket,
+} from './src/redux/features/rider/riderSlice';
 import { setCurrentCoords } from './src/redux/features/location/locationSlice';
 import {
   getCurrentLocation,
@@ -25,13 +28,15 @@ const inAppUpdates = new SpInAppUpdates(__DEV__);
 function AppNavigationContent(): React.JSX.Element {
   const dispatch = useDispatch();
   const authRole = useSelector((state: any) => state.auth?.role);
-  const { keyboardVisible, keyboardHeight } = useKeyboard();
+  const { keyboardVisible, keyboardHeight, hideKeyboard } = useKeyboard();
   const bottomOffsetAnim = useRef(new Animated.Value(0)).current;
 
-  // Connect Rider WebSocket on app open only if not driver
+  // Connect Rider WebSocket on app open only if role is confirmed as RIDER
   useEffect(() => {
-    if (authRole !== 'DRIVER') {
+    if (authRole === 'RIDER') {
       dispatch(connectRiderWebSocket() as any);
+    } else if (authRole === 'DRIVER') {
+      dispatch(disconnectRiderWebSocket() as any);
     }
   }, [dispatch, authRole]);
 
@@ -78,11 +83,35 @@ function AppNavigationContent(): React.JSX.Element {
 
   return (
     <View style={{ flex: 1 }}>
-      <Animated.View style={{ flex: 1, marginBottom: bottomOffsetAnim }}>
+      <Animated.View
+        style={{ flex: 1, marginBottom: bottomOffsetAnim }}
+      >
         <NavigationContainer ref={navigationRef}>
           <RootNavigator />
         </NavigationContainer>
       </Animated.View>
+
+      {/* Tap outside keyboard to close it immediately */}
+      {keyboardVisible && (
+        <TouchableWithoutFeedback
+          onPress={() => {
+            Keyboard.dismiss();
+            hideKeyboard();
+          }}
+          accessible={false}
+        >
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                bottom: keyboardHeight,
+                zIndex: 9998,
+              },
+            ]}
+          />
+        </TouchableWithoutFeedback>
+      )}
+
       <CustomKeyboard />
     </View>
   );

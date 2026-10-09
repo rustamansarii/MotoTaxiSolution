@@ -26,6 +26,11 @@ import {
   clearIncomingRideRequest,
   clearActionNotices,
 } from '../../redux/features/driver/driverSlice';
+import {
+  resolveDropCoordinates,
+  resolvePickupCoordinates,
+  geocodeAddress,
+} from '../../utils/coordinateResolver';
 
 export const RideRequestScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -50,25 +55,53 @@ export const RideRequestScreen = ({ navigation, route }) => {
     incomingReq?.trip_id ||
     activeRide?.ride_id ||
     1;
-  const pickup =
-    route.params?.pickup ||
-    incomingReq?.pickup_address ||
-    incomingReq?.pickup ||
-    activeRide?.pickup_address ||
-    'Pickup Location';
-  const destination =
-    route.params?.destination ||
-    incomingReq?.drop_address ||
-    incomingReq?.destination_address ||
-    incomingReq?.destination ||
-    activeRide?.drop_address ||
-    'Destination';
-  const passengerName =
-    route.params?.passengerName ||
-    incomingReq?.rider_name ||
-    incomingReq?.passengerName ||
-    activeRide?.rider_name ||
-    'Rider';
+  const extractString = (val, fallback = '') => {
+    if (typeof val === 'string' && val.trim()) return val;
+    if (val && typeof val === 'object') {
+      return val.address || val.display_name || val.name || val.shortAddress || fallback;
+    }
+    return fallback;
+  };
+
+  const pickup = useMemo(() => {
+    return extractString(
+      route.params?.pickup ||
+        incomingReq?.pickup_address ||
+        incomingReq?.pickup ||
+        activeRide?.pickup_address,
+      'Pickup Location'
+    );
+  }, [route.params?.pickup, incomingReq?.pickup_address, incomingReq?.pickup, activeRide?.pickup_address]);
+
+  const destination = useMemo(() => {
+    return extractString(
+      route.params?.destination ||
+        incomingReq?.drop_address ||
+        incomingReq?.destination_address ||
+        incomingReq?.destination ||
+        activeRide?.drop_address,
+      'Destination'
+    );
+  }, [
+    route.params?.destination,
+    incomingReq?.drop_address,
+    incomingReq?.destination_address,
+    incomingReq?.destination,
+    activeRide?.drop_address,
+  ]);
+
+  const passengerName = useMemo(() => {
+    const raw =
+      route.params?.passengerName ||
+      incomingReq?.rider_name ||
+      incomingReq?.passengerName ||
+      activeRide?.rider_name;
+    if (typeof raw === 'string' && raw.trim()) return raw;
+    if (raw && typeof raw === 'object') {
+      return raw.name || raw.full_name || 'Rider';
+    }
+    return 'Rider';
+  }, [route.params?.passengerName, incomingReq?.rider_name, incomingReq?.passengerName, activeRide?.rider_name]);
   const passengerRating =
     route.params?.passengerRating ||
     (incomingReq?.rider_rating ? String(incomingReq.rider_rating) : '4.95');
@@ -94,34 +127,39 @@ export const RideRequestScreen = ({ navigation, route }) => {
       : incomingReq?.trip_distance || '16.4 mi');
   const vehicleType =
     route.params?.vehicleType ||
+    route.params?.vehicle_type ||
     incomingReq?.vehicle_type ||
     activeRide?.vehicle_type ||
     'CAR';
 
   const pickupCoords = useMemo(() => {
-    if (route.params?.pickupCoordinates && route.params.pickupCoordinates.length === 2) {
-      return [Number(route.params.pickupCoordinates[0]), Number(route.params.pickupCoordinates[1])];
-    }
-    const pLon = route.params?.pickup_lon ?? incomingReq?.pickup_lon;
-    const pLat = route.params?.pickup_lat ?? incomingReq?.pickup_lat;
-    if (pLon && pLat) {
-      return [Number(pLon), Number(pLat)];
-    }
-    return [76.7835809, 30.6948328];
-  }, [route.params, incomingReq]);
+    return resolvePickupCoordinates(route.params, incomingReq, pickup);
+  }, [route.params, incomingReq, pickup]);
 
-  const dropCoords = useMemo(() => {
-    if (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) {
-      return [Number(route.params.dropCoordinates[0]), Number(route.params.dropCoordinates[1])];
+  const [dropCoords, setDropCoords] = useState(() => {
+    return resolveDropCoordinates(route.params, incomingReq, destination);
+  });
+
+  // Sync drop coordinates when params/incomingReq update
+  useEffect(() => {
+    setDropCoords(resolveDropCoordinates(route.params, incomingReq, destination));
+  }, [route.params, incomingReq, destination]);
+
+  // Geocode dynamically if explicit coordinates were missing from server
+  useEffect(() => {
+    const hasExplicitCoords =
+      (route.params?.dropCoordinates && route.params.dropCoordinates.length === 2) ||
+      ((route.params?.drop_lon || incomingReq?.drop_lon) &&
+        (route.params?.drop_lat || incomingReq?.drop_lat));
+
+    if (!hasExplicitCoords && destination) {
+      geocodeAddress(destination).then((resolved) => {
+        if (resolved && Array.isArray(resolved) && resolved.length === 2) {
+          setDropCoords(resolved);
+        }
+      });
     }
-    const dLon = route.params?.drop_lon ?? incomingReq?.drop_lon;
-    const dLat = route.params?.drop_lat ?? incomingReq?.drop_lat;
-    if (dLon && dLat) {
-      return [Number(dLon), Number(dLat)];
-    }
-    // Default coordinates for Ludhiana / Punjab
-    return [75.8573, 30.9005];
-  }, [route.params, incomingReq]);
+  }, [destination, route.params, incomingReq]);
 
   const numDistanceKm = useMemo(() => {
     const raw = route.params?.distance_km ?? incomingReq?.distance_km;
@@ -146,6 +184,7 @@ export const RideRequestScreen = ({ navigation, route }) => {
       currency,
       tripDistance,
       vehicleType,
+      vehicle_type: vehicleType,
       distanceToPickup,
       timeToPickup,
       pickupCoordinates: pickupCoords,
@@ -174,6 +213,10 @@ export const RideRequestScreen = ({ navigation, route }) => {
   ]);
 
   const dismissToHome = useCallback((alertMsg = null) => {
+    // If the driver is already on an active or accepted ride, NEVER dismiss or exit!
+    if (rideStatus === 'accepted' || rideStatus === 'arrived' || rideStatus === 'in_progress') {
+      return;
+    }
     dispatch(clearActionNotices());
     dispatch(clearIncomingRideRequest());
     if (alertMsg) {
@@ -189,9 +232,13 @@ export const RideRequestScreen = ({ navigation, route }) => {
         navigation.navigate('DriverTabs', { screen: 'DriverHome' });
       }
     }
-  }, [dispatch, navigation]);
+  }, [dispatch, navigation, rideStatus]);
 
   useEffect(() => {
+    // Stop countdown immediately if ride is accepted, in progress, or no longer requested
+    if (rideStatus !== 'requested') {
+      return;
+    }
     if (countdown <= 0) {
       console.log('[RideRequest] Request countdown expired for ride:', rideId);
       dismissToHome();
@@ -201,14 +248,21 @@ export const RideRequestScreen = ({ navigation, route }) => {
       setCountdown((prev) => prev - 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, [countdown, rideId, dismissToHome]);
+  }, [countdown, rideId, rideStatus, dismissToHome]);
 
   // Listen for ride taken by another driver or offer expired
   useEffect(() => {
     if (rideTakenNotice) {
       const takenId = rideTakenNotice.ride_id || rideTakenNotice.id;
       if (!takenId || String(takenId) === String(rideId)) {
-        dismissToHome('This ride has already been accepted by another driver.');
+        const isExpired =
+          rideTakenNotice.type === 'ride_expired' ||
+          rideTakenNotice.type === 'offer_expired';
+        dismissToHome(
+          isExpired
+            ? 'This ride request has expired.'
+            : 'This ride has already been accepted by another driver.'
+        );
       }
     }
   }, [rideTakenNotice, rideId, dismissToHome]);

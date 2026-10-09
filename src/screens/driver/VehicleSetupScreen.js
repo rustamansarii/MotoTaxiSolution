@@ -6,6 +6,7 @@ import {
   StatusBar,
   ScrollView,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,9 +28,9 @@ import { getAccessToken } from '../../utils/storage';
 const GREEN = '#17baa1';
 
 const VEHICLE_TYPES = [
-  { id: 'CAR', label: 'Car', icon: 'navigation' },
+  { id: 'CAR', label: 'Car', icon: 'car' },
   { id: 'BIKE', label: 'Bike', icon: 'bike' },
-  { id: 'AUTO', label: 'Auto', icon: 'navigation' },
+  { id: 'AUTO', label: 'Auto', icon: 'auto' },
 ];
 
 export const VehicleSetupScreen = ({ navigation, route }) => {
@@ -42,29 +43,22 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [plateNumber, setPlateNumber] = useState('');
-  const [color, setColor] = useState('White');
+  const [color, setColor] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [generalError, setGeneralError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const validate = () => {
-    if (!make.trim()) return 'Please enter vehicle make (e.g. Maruti Suzuki)';
-    if (!model.trim()) return 'Please enter vehicle model (e.g. Swift Dzire)';
-    if (!plateNumber.trim()) return 'Please enter license plate number (e.g. DL08 CA 1521)';
-    if (!color.trim()) return 'Please enter vehicle color (e.g. White)';
-    return null;
-  };
 
   const handleRegisterVehicle = async () => {
     keyboard?.hideKeyboard?.();
     Keyboard.dismiss();
 
-    const err = validate();
-    if (err) {
-      showError(err, 'Validation Error');
-      return;
-    }
-
+    setFieldErrors({});
+    setGeneralError('');
     setLoading(true);
-    showLoading('Registering Vehicle...', 'Saving vehicle information to server');
+    showLoading(
+      t('common.loading', 'Registering Vehicle...'),
+      t('driver.savingVehicle', 'Saving vehicle information to server')
+    );
 
     try {
       const token = await getAccessToken();
@@ -86,6 +80,8 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      console.log('[VehicleSetup] Calling POST vehicles/ with payload:', payload);
+
       const response = await fetch(`${API_URL}${ApiConstant.Vehicles}`, {
         method: 'POST',
         headers,
@@ -96,10 +92,12 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
       hideLoading();
       setLoading(false);
 
+      console.log('[VehicleSetup] Response status:', response.status, 'data:', data);
+
       if (response.ok && (data.id || data.pk)) {
         const createdId = data.id || data.pk;
         showSuccess(
-          `Vehicle (${data.make} ${data.model}) registered successfully! ID: #${createdId}\nNext, upload your vehicle documents.`,
+          `Vehicle (${data.make || make} ${data.model || model}) registered successfully! ID: #${createdId}\nNext, upload your vehicle documents.`,
           'Vehicle Registered!',
           () => {
             navigation.navigate('VehicleDocumentBulkUpload', {
@@ -111,29 +109,39 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
           }
         );
       } else {
-        let errorMsg =
-          data.message ||
-          data.detail ||
-          data.error ||
-          (data.plate_number && Array.isArray(data.plate_number) ? data.plate_number[0] : null) ||
-          (data.non_field_errors && data.non_field_errors[0]);
+        const parsedFieldErrors = {};
+        let nonFieldErrMsg = '';
 
-        if (!errorMsg) {
-          const fieldErrors = Object.entries(data)
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-            .join('\n');
-          errorMsg = fieldErrors || 'Failed to register vehicle. Please check inputs.';
+        if (typeof data === 'object' && data !== null) {
+          Object.entries(data).forEach(([key, val]) => {
+            const msg = Array.isArray(val) ? val.join(' ') : String(val);
+            if (['make', 'model', 'plate_number', 'color', 'vehicle_type'].includes(key)) {
+              parsedFieldErrors[key] = msg;
+            } else if (key === 'non_field_errors' || key === 'detail' || key === 'message' || key === 'error') {
+              nonFieldErrMsg = msg;
+            } else {
+              parsedFieldErrors[key] = msg;
+            }
+          });
         }
 
-        showError(errorMsg, 'Registration Failed');
+        if (Object.keys(parsedFieldErrors).length > 0) {
+          setFieldErrors(parsedFieldErrors);
+          if (nonFieldErrMsg) {
+            setGeneralError(nonFieldErrMsg);
+          }
+        } else {
+          const fallbackMsg = nonFieldErrMsg || 'Failed to register vehicle. Please check inputs.';
+          setGeneralError(fallbackMsg);
+          showError(fallbackMsg, 'Registration Failed');
+        }
       }
     } catch (err) {
       hideLoading();
       setLoading(false);
-      showError(
-        err.message || 'Unable to connect to vehicle registration server',
-        'Connection Error'
-      );
+      const connErrMsg = err.message || 'Unable to connect to vehicle registration server';
+      setGeneralError(connErrMsg);
+      showError(connErrMsg, 'Connection Error');
     }
   };
 
@@ -168,101 +176,154 @@ export const VehicleSetupScreen = ({ navigation, route }) => {
             </View>
           </View>
 
+          {/* General Error Banner */}
+          {generalError ? (
+            <View style={styles.errorBanner}>
+              <Icon name="alert-circle" size={16} color="#D32F2F" style={{ marginRight: 6 }} />
+              <Text style={styles.errorBannerText}>{generalError}</Text>
+            </View>
+          ) : null}
+
           {/* Form Card */}
-          <View style={styles.formCard}>
-            {/* Vehicle Type Selector */}
-            <Text style={styles.inputSectionLabel}>Select Vehicle Type</Text>
-            <View style={styles.typeSelectorRow}>
-              {VEHICLE_TYPES.map(vt => {
-                const isSelected = vehicleType === vt.id;
-                return (
-                  <TouchableOpacity
-                    key={vt.id}
-                    activeOpacity={0.8}
-                    onPress={() => setVehicleType(vt.id)}
-                    style={[
-                      styles.typeChip,
-                      isSelected && styles.typeChipActive,
-                    ]}
-                  >
-                    <Icon
-                      name={vt.icon}
-                      size={18}
-                      color={isSelected ? GREEN : '#64748B'}
-                    />
-                    <Text
+          <TouchableWithoutFeedback
+            onPress={() => {
+              keyboard?.hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
+            accessible={false}
+          >
+            <View style={styles.formCard}>
+              {/* Vehicle Type Selector */}
+              <Text style={styles.inputSectionLabel}>Select Vehicle Type</Text>
+              <View style={styles.typeSelectorRow}>
+                {VEHICLE_TYPES.map(vt => {
+                  const isSelected = vehicleType === vt.id;
+                  return (
+                    <TouchableOpacity
+                      key={vt.id}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        setVehicleType(vt.id);
+                        if (fieldErrors.vehicle_type) {
+                          setFieldErrors(prev => ({ ...prev, vehicle_type: '' }));
+                        }
+                        if (generalError) setGeneralError('');
+                      }}
                       style={[
-                        styles.typeChipText,
-                        isSelected && styles.typeChipTextActive,
+                        styles.typeChip,
+                        isSelected && styles.typeChipActive,
                       ]}
                     >
-                      {vt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Make & Model */}
-            <View style={styles.rowInputs}>
-              <View style={styles.halfInput}>
-                <CustomInput
-                  id="vehicle-make"
-                  label="Vehicle Make"
-                  value={make}
-                  onChangeText={setMake}
-                  placeholder="e.g. Maruti Suzuki"
-                  leftIcon="document"
-                  containerStyle={styles.inputGap}
-                />
+                      <Icon
+                        name={vt.icon}
+                        size={18}
+                        color={isSelected ? GREEN : '#64748B'}
+                      />
+                      <Text
+                        style={[
+                          styles.typeChipText,
+                          isSelected && styles.typeChipTextActive,
+                        ]}
+                      >
+                        {vt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-              <View style={styles.halfInput}>
-                <CustomInput
-                  id="vehicle-model"
-                  label="Vehicle Model"
-                  value={model}
-                  onChangeText={setModel}
-                  placeholder="e.g. Swift Dzire"
-                  leftIcon="document"
-                  containerStyle={styles.inputGap}
-                />
+              {fieldErrors.vehicle_type ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.vehicle_type}</Text>
+              ) : null}
+
+              {/* Make & Model */}
+              <View style={styles.rowInputs}>
+                <View style={styles.halfInput}>
+                  <CustomInput
+                    id="vehicle-make"
+                    label="Vehicle Make"
+                    value={make}
+                    onChangeText={text => {
+                      setMake(text);
+                      if (fieldErrors.make) {
+                        setFieldErrors(prev => ({ ...prev, make: '' }));
+                      }
+                      if (generalError) setGeneralError('');
+                    }}
+                    error={fieldErrors.make}
+                    placeholder="e.g. Maruti"
+                    leftIcon="document"
+                    containerStyle={styles.inputGap}
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <CustomInput
+                    id="vehicle-model"
+                    label="Vehicle Model"
+                    value={model}
+                    onChangeText={text => {
+                      setModel(text);
+                      if (fieldErrors.model) {
+                        setFieldErrors(prev => ({ ...prev, model: '' }));
+                      }
+                      if (generalError) setGeneralError('');
+                    }}
+                    error={fieldErrors.model}
+                    placeholder="e.g. Swift"
+                    leftIcon="document"
+                    containerStyle={styles.inputGap}
+                  />
+                </View>
               </View>
+
+              {/* License Plate Number */}
+              <CustomInput
+                id="vehicle-plate"
+                label="License Plate Number"
+                value={plateNumber}
+                onChangeText={text => {
+                  setPlateNumber(text.toUpperCase());
+                  if (fieldErrors.plate_number) {
+                    setFieldErrors(prev => ({ ...prev, plate_number: '' }));
+                  }
+                  if (generalError) setGeneralError('');
+                }}
+                error={fieldErrors.plate_number}
+                placeholder="e.g. DL08 CA 1521"
+                autoCapitalize="characters"
+                leftIcon="document"
+                containerStyle={styles.inputGap}
+              />
+
+              {/* Vehicle Color */}
+              <CustomInput
+                id="vehicle-color"
+                label="Vehicle Color"
+                value={color}
+                onChangeText={text => {
+                  setColor(text);
+                  if (fieldErrors.color) {
+                    setFieldErrors(prev => ({ ...prev, color: '' }));
+                  }
+                  if (generalError) setGeneralError('');
+                }}
+                error={fieldErrors.color}
+                placeholder="e.g. White"
+                leftIcon="document"
+                containerStyle={styles.inputGap}
+              />
+
+              {/* Submit Button */}
+              <CustomButton
+                title="Save Vehicle & Upload Documents"
+                onPress={handleRegisterVehicle}
+                loading={loading}
+                variant="primary"
+                icon="arrow-right"
+                iconPosition="right"
+                style={styles.submitBtn}
+              />
             </View>
-
-            {/* License Plate Number */}
-            <CustomInput
-              id="vehicle-plate"
-              label="License Plate Number"
-              value={plateNumber}
-              onChangeText={text => setPlateNumber(text.toUpperCase())}
-              placeholder="e.g. DL08 CA 1521"
-              autoCapitalize="characters"
-              leftIcon="document"
-              containerStyle={styles.inputGap}
-            />
-
-            {/* Vehicle Color */}
-            <CustomInput
-              id="vehicle-color"
-              label="Vehicle Color"
-              value={color}
-              onChangeText={setColor}
-              placeholder="e.g. White"
-              leftIcon="document"
-              containerStyle={styles.inputGap}
-            />
-
-            {/* Submit Button */}
-            <CustomButton
-              title="Save Vehicle & Upload Documents"
-              onPress={handleRegisterVehicle}
-              loading={loading}
-              variant="primary"
-              icon="arrow-right"
-              iconPosition="right"
-              style={styles.submitBtn}
-            />
-          </View>
+          </TouchableWithoutFeedback>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -379,6 +440,31 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: SPACING.sm,
+  },
+  fieldErrorText: {
+    color: '#D32F2F',
+    fontSize: responsiveFont(12),
+    marginTop: -8,
+    marginBottom: 10,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    borderRadius: RADIUS.medium,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: responsiveFont(13),
+    color: '#C62828',
+    fontWeight: '500',
   },
 });
 

@@ -1,18 +1,19 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { KeyboardKeyConfig } from './layouts';
+import { BackHandler, Keyboard } from 'react-native';
 import { useApp } from '../../context/AppContext';
-import { BackHandler } from 'react-native';
 
 export type KeyboardLanguage = 'english' | 'french';
 export type KeyboardActiveLayout = 'english' | 'french' | 'numbers' | 'symbols';
 
 export interface KeyboardInputMetadata {
   id: string;
-  value: string;
-  selection: { start: number; end: number };
+  value?: string;
+  selection?: { start: number; end: number };
   keyboardType: 'default' | 'numeric' | 'number-pad' | 'decimal-pad' | string;
   placeholder?: string;
   onChangeText: (text: string) => void;
+  onImmediateUpdate?: (text: string, selection: { start: number; end: number }) => void;
   onSubmitEditing?: () => void;
   onBlur?: () => void;
   blur?: () => void;
@@ -55,8 +56,6 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { language } = useApp();
   const [keyboardLanguage, setKeyboardLanguage] = useState<KeyboardLanguage>('english');
   const [activeInputId, setActiveInputId] = useState<string | null>(null);
-  const [value, setValue] = useState('');
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(355);
   const [activeLayout, setActiveLayout] = useState<KeyboardActiveLayout>('english');
@@ -68,6 +67,8 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const inputsRef = useRef<Record<string, Omit<KeyboardInputMetadata, 'value' | 'selection'>>>({});
   const lastShiftTapRef = useRef<number>(0);
   const lastKeyPressTimeRef = useRef<number>(0);
+  const valueRef = useRef('');
+  const selectionRef = useRef({ start: 0, end: 0 });
 
   // Sync keyboard language when app language changes (supports only 'en' and 'fr')
   useEffect(() => {
@@ -96,16 +97,12 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Refs for tracking state to avoid rebuilding callbacks
   const activeInputIdRef = useRef(activeInputId);
-  const valueRef = useRef(value);
-  const selectionRef = useRef(selection);
   const isShiftActiveRef = useRef(isShiftActive);
   const isCapsLockRef = useRef(isCapsLock);
   const keyboardLanguageRef = useRef(keyboardLanguage);
   const activeLayoutRef = useRef(activeLayout);
 
   useEffect(() => { activeInputIdRef.current = activeInputId; }, [activeInputId]);
-  useEffect(() => { valueRef.current = value; }, [value]);
-  useEffect(() => { selectionRef.current = selection; }, [selection]);
   useEffect(() => { isShiftActiveRef.current = isShiftActive; }, [isShiftActive]);
   useEffect(() => { isCapsLockRef.current = isCapsLock; }, [isCapsLock]);
   useEffect(() => { keyboardLanguageRef.current = keyboardLanguage; }, [keyboardLanguage]);
@@ -176,8 +173,6 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     selectionRef.current = safeSel;
 
     setActiveInputId(id);
-    setValue(safeVal);
-    setSelection(safeSel);
     setKeyboardVisible(true);
 
     const input = inputsRef.current[id];
@@ -193,6 +188,9 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const onBlur = useCallback((id: string) => {
     cancelActiveRepeat();
     if (activeInputIdRef.current === id) {
+      setKeyboardVisible(false);
+      setActiveInputId(null);
+      activeInputIdRef.current = null;
       // Trigger target input blur callback
       inputsRef.current[id]?.onBlur?.();
     }
@@ -200,16 +198,13 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const onSelectionChange = useCallback((id: string, newSelection: { start: number; end: number }, isUserTap?: boolean) => {
     if (activeInputIdRef.current === id) {
-      // If this is an echo from typing (not an explicit manual touch on the input)
-      // and a key was typed recently (< 300ms), ignore the echo to prevent jumbled letters!
-      if (!isUserTap && Date.now() - lastKeyPressTimeRef.current < 300) {
+      // ONLY accept selection change if user explicitly tapped the text input!
+      // During keyboard typing, native onSelectionChange is just an echo and must NOT overwrite the cursor position!
+      if (!isUserTap) {
         return;
       }
 
-      // If user explicitly touched the text input, accept the selection and clear lastKeyPressTime
-      if (isUserTap) {
-        lastKeyPressTimeRef.current = 0;
-      }
+      lastKeyPressTimeRef.current = 0;
 
       const valLen = valueRef.current ? valueRef.current.length : 0;
       const safeSel = {
@@ -217,7 +212,7 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         end: Math.max(0, Math.min(newSelection.end, valLen)),
       };
       selectionRef.current = safeSel;
-      setSelection(safeSel);
+      inputsRef.current[id]?.onImmediateUpdate?.(valueRef.current, safeSel);
     }
   }, []);
 
@@ -231,20 +226,24 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const safeEnd = Math.max(0, Math.min(curSel?.end ?? valLen, valLen));
       const safeSel = { start: safeStart, end: safeEnd };
       selectionRef.current = safeSel;
-      setValue(safeVal);
-      setSelection(safeSel);
+      inputsRef.current[id]?.onImmediateUpdate?.(safeVal, safeSel);
     }
   }, []);
 
   const hideKeyboard = useCallback(() => {
     cancelActiveRepeat();
+    const activeId = activeInputIdRef.current;
     setKeyboardVisible(false);
     setActiveInputId(null);
-    const activeId = activeInputIdRef.current;
+    activeInputIdRef.current = null;
+    try {
+      BackHandler.removeEventListener?.('hardwareBackPress' as any, () => false);
+    } catch (e) {}
     if (activeId) {
       const input = inputsRef.current[activeId];
-      if (input && input.blur) {
-        input.blur();
+      if (input) {
+        input.blur?.();
+        input.onBlur?.();
       }
     }
   }, [cancelActiveRepeat]);
@@ -274,10 +273,10 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const newSelection = { start: newPos, end: newPos };
     selectionRef.current = newSelection;
-    setSelection(newSelection);
 
     const activeId = activeInputIdRef.current;
     if (activeId) {
+      inputsRef.current[activeId]?.onImmediateUpdate?.(val, newSelection);
       inputsRef.current[activeId]?.focus?.();
     }
   }, []);
@@ -296,8 +295,10 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const input = inputsRef.current[activeId];
     if (!input) return false;
 
-    // Keep native input focused on each keypress so blinking cursor stays visible
-    input.focus?.();
+    // Keep native input focused on each keypress so blinking cursor stays visible (except on enter/hide)
+    if (key.action !== 'enter' && key.action !== 'hide') {
+      input.focus?.();
+    }
 
     const rawVal = valueRef.current;
     const val = typeof rawVal === 'string' ? rawVal : '';
@@ -329,8 +330,7 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         valueRef.current = newValue;
         selectionRef.current = newSelection;
 
-        setValue(newValue);
-        setSelection(newSelection);
+        input.onImmediateUpdate?.(newValue, newSelection);
         input.onChangeText(newValue);
 
         // Turn off shift if it was active and not caps locked
@@ -356,8 +356,7 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         valueRef.current = newValue;
         selectionRef.current = newSelection;
 
-        setValue(newValue);
-        setSelection(newSelection);
+        input.onImmediateUpdate?.(newValue, newSelection);
         input.onChangeText(newValue);
         return true;
       }
@@ -388,8 +387,7 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         valueRef.current = newValue;
         selectionRef.current = newSelection;
 
-        setValue(newValue);
-        setSelection(newSelection);
+        input.onImmediateUpdate?.(newValue, newSelection);
         input.onChangeText(newValue);
 
         // If the resulting text is now empty, cancel any repeat immediately
@@ -468,37 +466,61 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   }, []);
 
+  const contextValue = useMemo<KeyboardContextType>(() => ({
+    activeInputId,
+    value: valueRef.current,
+    selection: selectionRef.current,
+    keyboardVisible,
+    keyboardHeight,
+    setKeyboardHeight,
+    activeLayout,
+    isShiftActive,
+    isCapsLock,
+    symbolsPage,
+    theme,
+    registerInput,
+    unregisterInput,
+    onFocus,
+    onBlur,
+    onSelectionChange,
+    onValueChange,
+    handleKeyPress,
+    moveCursor,
+    hideKeyboard,
+    showKeyboard,
+    toggleTheme,
+    isNumericOnly,
+    getLastKeyPressTime: () => lastKeyPressTimeRef.current,
+    registerRepeatCanceler,
+    cancelActiveRepeat,
+  }), [
+    activeInputId,
+    keyboardVisible,
+    keyboardHeight,
+    setKeyboardHeight,
+    activeLayout,
+    isShiftActive,
+    isCapsLock,
+    symbolsPage,
+    theme,
+    registerInput,
+    unregisterInput,
+    onFocus,
+    onBlur,
+    onSelectionChange,
+    onValueChange,
+    handleKeyPress,
+    moveCursor,
+    hideKeyboard,
+    showKeyboard,
+    toggleTheme,
+    isNumericOnly,
+    registerRepeatCanceler,
+    cancelActiveRepeat,
+  ]);
+
   return (
-    <KeyboardContext.Provider
-      value={{
-        activeInputId,
-        value,
-        selection,
-        keyboardVisible,
-        keyboardHeight,
-        setKeyboardHeight,
-        activeLayout,
-        isShiftActive,
-        isCapsLock,
-        symbolsPage,
-        theme,
-        registerInput,
-        unregisterInput,
-        onFocus,
-        onBlur,
-        onSelectionChange,
-        onValueChange,
-        handleKeyPress,
-        moveCursor,
-        hideKeyboard,
-        showKeyboard,
-        toggleTheme,
-        isNumericOnly,
-        getLastKeyPressTime: () => lastKeyPressTimeRef.current,
-        registerRepeatCanceler,
-        cancelActiveRepeat,
-      }}
-    >
+    <KeyboardContext.Provider value={contextValue}>
       {children}
     </KeyboardContext.Provider>
   );

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
 } from 'react-native';
 import { COLORS } from '../../theme/colors';
@@ -11,6 +10,7 @@ import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
+import { KeyboardTextInput } from '../keyboard/KeyboardTextInput';
 import {
   detectCardBrand,
   formatCardNumber,
@@ -103,7 +103,8 @@ export const CardPaymentForm = ({
             ]}
           >
             <Icon name="card" size={20} color={COLORS.icon} style={styles.inputLeftIcon} />
-            <TextInput
+            <KeyboardTextInput
+              id="payment_card_number"
               style={styles.textInput}
               value={cardData.cardNumber}
               onChangeText={handleCardNumberChange}
@@ -135,12 +136,14 @@ export const CardPaymentForm = ({
             ]}
           >
             <Icon name="user" size={18} color={COLORS.icon} style={styles.inputLeftIcon} />
-            <TextInput
+            <KeyboardTextInput
+              id="payment_card_holder"
               style={styles.textInput}
               value={cardData.cardHolder}
               onChangeText={handleHolderChange}
               placeholder="e.g. JOHN DOE"
               placeholderTextColor={COLORS.textLight}
+              keyboardType="default"
               autoCapitalize="characters"
               editable={!disabled}
               autoCorrect={false}
@@ -162,7 +165,8 @@ export const CardPaymentForm = ({
                 errors.expiry && styles.inputWrapperError,
               ]}
             >
-              <TextInput
+              <KeyboardTextInput
+                id="payment_card_expiry"
                 style={styles.textInput}
                 value={cardData.expiry}
                 onChangeText={handleExpiryChange}
@@ -200,7 +204,8 @@ export const CardPaymentForm = ({
                 errors.cvv && styles.inputWrapperError,
               ]}
             >
-              <TextInput
+              <KeyboardTextInput
+                id="payment_card_cvv"
                 style={styles.textInput}
                 value={cardData.cvv}
                 onChangeText={handleCVVChange}

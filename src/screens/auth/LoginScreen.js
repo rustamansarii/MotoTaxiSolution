@@ -5,6 +5,7 @@ import {
   StyleSheet,
   StatusBar,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   ScrollView,
   Dimensions,
   Keyboard,
@@ -15,7 +16,7 @@ import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { useDispatch, useSelector } from 'react-redux';
-import { loginUser, clearError, fetchCountryCodes } from '../../redux/features/auth/authSlice';
+import { loginUser, clearError, fetchCountryCodes, logout } from '../../redux/features/auth/authSlice';
 import Icon from '../../components/Icon';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
@@ -58,10 +59,10 @@ export const LoginScreen = ({ navigation, route }) => {
   const [email, setEmail] = useState(route.params?.email || '');
   const [password, setPassword] = useState('');
   const [selectedCountry, setSelectedCountry] = useState({
-    name: 'India',
-    iso2: 'IN',
-    dial_code: '+91',
-    flag: '🇮🇳',
+    name: 'Cameroon',
+    iso2: 'CM',
+    dial_code: '+237',
+    flag: '🇨🇲',
   });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -188,7 +189,7 @@ export const LoginScreen = ({ navigation, route }) => {
 
         showSuccess(
           successMessage,
-          t('auth.welcomeBack', 'Welcome Back'),
+          t('auth.welcomeBack', 'Welcome'),
           () => {
             navigation.replace(targetNav);
           }
@@ -233,6 +234,7 @@ export const LoginScreen = ({ navigation, route }) => {
   const handleGuestMode = async () => {
     keyboard?.hideKeyboard?.();
     Keyboard.dismiss();
+    dispatch(logout());
     try {
       await setGuestMode(true);
     } catch (e) {}
@@ -258,10 +260,11 @@ export const LoginScreen = ({ navigation, route }) => {
             GREEN HEADER
         ========================================= */}
 
-        <View
-          onStartShouldSetResponder={() => {
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => {
             keyboard?.hideKeyboard?.();
-            return false;
+            Keyboard.dismiss();
           }}
           style={[styles.hero, { height: isLandscape ? 170 : isCompact ? 220 : 280 }]}
         >
@@ -306,13 +309,20 @@ export const LoginScreen = ({ navigation, route }) => {
             <Building height={52} width={20} />
             <Building height={70} width={24} />
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* =========================================
             AUTH CARD
         ========================================= */}
 
-        <View style={styles.card}>
+        <TouchableWithoutFeedback
+          onPress={() => {
+            keyboard?.hideKeyboard?.();
+            Keyboard.dismiss();
+          }}
+          accessible={false}
+        >
+          <View style={styles.card}>
 
           {/* Tabs */}
           <View style={styles.tabs}>
@@ -338,7 +348,7 @@ export const LoginScreen = ({ navigation, route }) => {
             <Text style={styles.formTitle}>
               {isDriver
                 ? t('auth.driverLogin', 'Driver Login')
-                : t('auth.welcomeBack', 'Welcome Back')}
+                : t('auth.welcomeBack', 'Welcome')}
             </Text>
 
             <Text style={styles.formSubtitle}>
@@ -526,6 +536,7 @@ export const LoginScreen = ({ navigation, route }) => {
 
           </View>
         </View>
+        </TouchableWithoutFeedback>
 
         {/* Bottom safe space */}
         <View style={styles.bottomSpace} />

@@ -13,6 +13,8 @@ import Icon from '../Icon';
 import RouteLayer from './RouteLayer';
 import MapPlaceholder from '../MapPlaceholder';
 import { STREET_MAP_STYLE } from './RiderLiveMap';
+import { getPremappedCoordinates } from '../../utils/coordinateResolver';
+import { getVehicleIconName } from '../../utils/vehicleAssets';
 
 /**
  * Calculates optimal camera zoom based on route distance in km
@@ -72,12 +74,17 @@ const RidesRouteMapComponent = ({
   distanceKm = 92.1,
   style,
   isDriverEnRoute = false,
+  isOnTrip = false,
   vehicleType = 'CAR',
   focusOnStart = false,
 }) => {
   const cameraRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [hasMapError, setHasMapError] = useState(false);
+
+  const vehicleIconName = useMemo(() => {
+    return getVehicleIconName(vehicleType);
+  }, [vehicleType]);
 
   // Live driver vehicle coordinates: moves smoothly across the screen on top of the map
   const liveVehicleCoords = useMemo(() => {
@@ -90,10 +97,30 @@ const RidesRouteMapComponent = ({
     return [76.7834, 30.6948];
   }, [driverCoords, pickupCoords]);
 
+  // Protect against false Ludhiana default when destinationLabel is another city (e.g. Shimla)
+  const effectiveDropCoords = useMemo(() => {
+    if (destinationLabel && typeof destinationLabel === 'string') {
+      const lower = destinationLabel.toLowerCase();
+      const isLudhianaDefault =
+        dropCoords &&
+        Math.abs(dropCoords[0] - 75.85) < 0.1 &&
+        Math.abs(dropCoords[1] - 30.90) < 0.1 &&
+        !lower.includes('ludhiana');
+
+      if (isLudhianaDefault) {
+        const premapped = getPremappedCoordinates(destinationLabel);
+        if (premapped) {
+          return premapped;
+        }
+      }
+    }
+    return dropCoords;
+  }, [dropCoords, destinationLabel]);
+
   // Synchronously initialize route immediately on mount so road path is NEVER null!
   const [routeShape, setRouteShape] = useState(() => {
-    if (pickupCoords && dropCoords && pickupCoords.length === 2 && dropCoords.length === 2) {
-      return generateFallbackRoute(pickupCoords, dropCoords);
+    if (pickupCoords && effectiveDropCoords && pickupCoords.length === 2 && effectiveDropCoords.length === 2) {
+      return generateFallbackRoute(pickupCoords, effectiveDropCoords);
     }
     return null;
   });
@@ -102,10 +129,10 @@ const RidesRouteMapComponent = ({
   // Center coordinate between pickup & dropoff
   const routeCenterCoord = useMemo(() => {
     return [
-      (pickupCoords[0] + dropCoords[0]) / 2,
-      (pickupCoords[1] + dropCoords[1]) / 2,
+      (pickupCoords[0] + effectiveDropCoords[0]) / 2,
+      (pickupCoords[1] + effectiveDropCoords[1]) / 2,
     ];
-  }, [pickupCoords, dropCoords]);
+  }, [pickupCoords, effectiveDropCoords]);
 
   const initialZoom = useMemo(() => {
     return getZoomForDistance(distanceKm);
@@ -129,15 +156,15 @@ const RidesRouteMapComponent = ({
   }, []);
 
   const routeOriginRef = useRef(pickupCoords);
-  const routeDestRef = useRef(dropCoords);
+  const routeDestRef = useRef(effectiveDropCoords);
   const hasFetchedOsrmRef = useRef(false);
 
   // Fetch turn-by-turn road route from OSRM ONCE in background.
-  // Note: Only triggers if destination dropCoords changes. Driver movement alone does NOT re-trigger!
+  // Note: Only triggers if destination effectiveDropCoords changes. Driver movement alone does NOT re-trigger!
   useEffect(() => {
-    if (!dropCoords || dropCoords.length < 2) return;
+    if (!effectiveDropCoords || effectiveDropCoords.length < 2) return;
 
-    const [dLng, dLat] = dropCoords;
+    const [dLng, dLat] = effectiveDropCoords;
     const prevDest = routeDestRef.current;
     const destChanged =
       !prevDest ||
@@ -149,9 +176,12 @@ const RidesRouteMapComponent = ({
     }
 
     hasFetchedOsrmRef.current = true;
-    routeDestRef.current = dropCoords;
+    routeDestRef.current = effectiveDropCoords;
 
     const [origLng, origLat] = routeOriginRef.current || pickupCoords;
+
+    // Immediately paint fallback curve while OSRM is fetching for the new destination
+    setRouteShape(generateFallbackRoute([origLng, origLat], [dLng, dLat]));
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 6000);
@@ -183,14 +213,14 @@ const RidesRouteMapComponent = ({
     return () => {
       clearTimeout(timer);
     };
-  }, [dropCoords]);
+  }, [effectiveDropCoords, pickupCoords]);
 
   // Fit camera bounds to show entire route
   const handleFitRoute = useCallback(() => {
     if (!cameraRef.current) return;
 
-    const lngDiff = Math.abs(pickupCoords[0] - dropCoords[0]);
-    const latDiff = Math.abs(pickupCoords[1] - dropCoords[1]);
+    const lngDiff = Math.abs(pickupCoords[0] - effectiveDropCoords[0]);
+    const latDiff = Math.abs(pickupCoords[1] - effectiveDropCoords[1]);
 
     if (lngDiff < 0.002 && latDiff < 0.002) {
       try {
@@ -205,10 +235,10 @@ const RidesRouteMapComponent = ({
       } catch (_) {}
     }
 
-    const minLng = Math.min(pickupCoords[0], dropCoords[0]);
-    const maxLng = Math.max(pickupCoords[0], dropCoords[0]);
-    const minLat = Math.min(pickupCoords[1], dropCoords[1]);
-    const maxLat = Math.max(pickupCoords[1], dropCoords[1]);
+    const minLng = Math.min(pickupCoords[0], effectiveDropCoords[0]);
+    const maxLng = Math.max(pickupCoords[0], effectiveDropCoords[0]);
+    const minLat = Math.min(pickupCoords[1], effectiveDropCoords[1]);
+    const maxLat = Math.max(pickupCoords[1], effectiveDropCoords[1]);
 
     try {
       if (cameraRef.current.fitBounds) {
@@ -226,7 +256,7 @@ const RidesRouteMapComponent = ({
         });
       }
     } catch (_) {}
-  }, [pickupCoords, dropCoords, routeCenterCoord, initialZoom]);
+  }, [pickupCoords, effectiveDropCoords, routeCenterCoord, initialZoom]);
 
   // Recenter camera directly on live vehicle / starting location
   const handleRecenterVehicle = useCallback(() => {
@@ -268,15 +298,17 @@ const RidesRouteMapComponent = ({
 
   // Clean, short label extraction
   const cleanPickup = useMemo(() => {
-    if (!pickupLabel) return isDriverEnRoute ? 'Driver' : 'Pick-up';
-    const first = pickupLabel.split(',')[0].trim();
+    const raw = typeof pickupLabel === 'string' ? pickupLabel : (pickupLabel?.address || pickupLabel?.name || '');
+    if (!raw) return isDriverEnRoute ? 'Driver' : 'Pick-up';
+    const first = raw.split(',')[0].trim();
     return first.length > 18 ? `${first.substring(0, 16)}...` : first;
   }, [pickupLabel, isDriverEnRoute]);
 
   const cleanDrop = useMemo(() => {
-    if (!destinationLabel) return isDriverEnRoute ? 'Rider (Pickup)' : 'Drop-off';
-    const hasPickupSuffix = destinationLabel.toLowerCase().includes('(pickup)');
-    const base = destinationLabel.replace(/\s*\(pickup\)/gi, '').split(',')[0].trim();
+    const raw = typeof destinationLabel === 'string' ? destinationLabel : (destinationLabel?.address || destinationLabel?.name || '');
+    if (!raw) return isDriverEnRoute ? 'Rider (Pickup)' : 'Drop-off';
+    const hasPickupSuffix = raw.toLowerCase().includes('(pickup)');
+    const base = raw.replace(/\s*\(pickup\)/gi, '').split(',')[0].trim();
     if (hasPickupSuffix || isDriverEnRoute) {
       if (!base || base.toLowerCase() === 'rider') return 'Rider (Pickup)';
       if (base.toLowerCase() === 'pickup' || base.toLowerCase() === 'pick-up') return 'Pickup';
@@ -332,79 +364,77 @@ const RidesRouteMapComponent = ({
           />
         )}
 
-        {/* Driver / Pickup Marker: Smooth real-time coordinate tracking */}
-        {isDriverEnRoute ? (
-          liveVehicleCoords && liveVehicleCoords.length === 2 && (
-            <Marker
-              id="driverLiveVehiclePin"
-              lngLat={liveVehicleCoords}
-              coordinate={liveVehicleCoords}
-              anchor="center"
-            >
-              <View style={styles.markerContainer}>
-                <View style={styles.pickupPill}>
-                  <View style={[styles.pickupPillDot, { backgroundColor: COLORS.secondPrimary }]} />
-                  <Text numberOfLines={1} style={styles.pickupPillText}>
-                    {cleanPickup}
-                  </Text>
-                </View>
-                <View style={styles.driverPinCircle}>
-                  <Icon
-                    name={
-                      vehicleType === 'BIKE'
-                        ? 'car'
-                        : vehicleType === 'AUTO'
-                        ? 'navigation'
-                        : 'car'
-                    }
-                    size={13}
-                    color={COLORS.white}
-                  />
-                </View>
-                <View style={styles.driverPinTip} />
+        {/* Pickup Marker: visible if static route or if trip is in progress */}
+        {(!isDriverEnRoute || isOnTrip) && pickupCoords && pickupCoords.length === 2 && (
+          <Marker
+            id="pickupLocationPin"
+            lngLat={pickupCoords}
+            coordinate={pickupCoords}
+            anchor="bottom"
+          >
+            <View style={styles.markerContainer}>
+              <View style={styles.pickupPill}>
+                <View style={styles.pickupPillDot} />
+                <Text numberOfLines={1} style={styles.pickupPillText}>
+                  {cleanPickup}
+                </Text>
               </View>
-            </Marker>
-          )
-        ) : (
-          pickupCoords && pickupCoords.length === 2 && (
-            <Marker
-              id="pickupLocationPin"
-              lngLat={pickupCoords}
-              coordinate={pickupCoords}
-              anchor="bottom"
-            >
-              <View style={styles.markerContainer}>
-                <View style={styles.pickupPill}>
-                  <View style={styles.pickupPillDot} />
-                  <Text numberOfLines={1} style={styles.pickupPillText}>
-                    {cleanPickup}
-                  </Text>
-                </View>
-                <View style={styles.pickupPinCircle}>
-                  <View style={styles.pickupPinInnerDot} />
-                </View>
-                <View style={styles.pickupPinTip} />
+              <View style={styles.pickupPinCircle}>
+                <View style={styles.pickupPinInnerDot} />
               </View>
-            </Marker>
-          )
+              <View style={styles.pickupPinTip} />
+            </View>
+          </Marker>
         )}
 
-        {/* Destination / Rider Pickup Pin Marker */}
-        {dropCoords && dropCoords.length === 2 && (
+        {/* Live Vehicle Marker: Smooth real-time coordinate tracking with dynamic vehicle icon */}
+        {(isDriverEnRoute || isOnTrip) && liveVehicleCoords && liveVehicleCoords.length === 2 && (
+          <Marker
+            id="driverLiveVehiclePin"
+            lngLat={liveVehicleCoords}
+            coordinate={liveVehicleCoords}
+            anchor="center"
+          >
+            <View style={styles.markerContainer}>
+              <View style={styles.pickupPill}>
+                <Icon
+                  name={vehicleIconName}
+                  size={12}
+                  color={COLORS.primary || '#00A86B'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text numberOfLines={1} style={styles.pickupPillText}>
+                  {isOnTrip ? (vehicleType ? String(vehicleType).toUpperCase() : 'DRIVER') : cleanPickup}
+                </Text>
+              </View>
+              <View style={styles.driverPinCircle}>
+                <Icon
+                  name={vehicleIconName}
+                  size={15}
+                  color={COLORS.white}
+                />
+              </View>
+              <View style={styles.driverPinTip} />
+            </View>
+          </Marker>
+        )}
+
+        {/* Destination / Dropoff Pin Marker */}
+        {effectiveDropCoords && effectiveDropCoords.length === 2 && (
           <Marker
             id="dropLocationPin"
-            lngLat={dropCoords}
-            coordinate={dropCoords}
+            lngLat={effectiveDropCoords}
+            coordinate={effectiveDropCoords}
             anchor="bottom"
           >
             <View style={styles.markerContainer}>
               <View style={styles.dropPill}>
-                {isDriverEnRoute && <View style={styles.pickupPillDot} />}
+                {isDriverEnRoute && !isOnTrip && <View style={styles.pickupPillDot} />}
                 <Text numberOfLines={1} style={styles.dropPillText}>
                   {cleanDrop}
                 </Text>
               </View>
-              {isDriverEnRoute ? (
+              {isDriverEnRoute && !isOnTrip ? (
                 <>
                   <View style={styles.pickupPinCircle}>
                     <View style={styles.pickupPinInnerDot} />
@@ -576,9 +606,9 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   driverPinCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#0F172A',
     alignItems: 'center',
     justifyContent: 'center',
@@ -593,9 +623,9 @@ const styles = StyleSheet.create({
   driverPinTip: {
     width: 0,
     height: 0,
-    borderLeftWidth: 3,
-    borderRightWidth: 3,
-    borderTopWidth: 5,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 6,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderTopColor: '#0F172A',
@@ -678,6 +708,7 @@ export const RidesRouteMap = React.memo(
       prevProps.destinationLabel !== nextProps.destinationLabel ||
       prevProps.vehicleType !== nextProps.vehicleType ||
       prevProps.isDriverEnRoute !== nextProps.isDriverEnRoute ||
+      prevProps.isOnTrip !== nextProps.isOnTrip ||
       prevProps.focusOnStart !== nextProps.focusOnStart
     ) {
       return false; // re-render

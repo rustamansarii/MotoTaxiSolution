@@ -27,10 +27,11 @@ import LanguageModal from '../../components/LanguageModal';
 import { useApp } from '../../context/AppContext';
 import { useTranslation } from 'react-i18next';
 import { clearTokens, isGuestMode } from '../../utils/storage';
-import { fetchUserProfile } from '../../redux/features/auth/authSlice';
+import { fetchUserProfile, logout } from '../../redux/features/auth/authSlice';
 import { fetchDriverDocuments } from '../../redux/features/driver/driverSlice';
 import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 import { useResponsive, responsiveFont } from '../../utils/responsive';
+import { useFocusEffect } from '@react-navigation/native';
 
 /**
  * Format document date string
@@ -168,16 +169,31 @@ export const DriverProfileScreen = ({ navigation }) => {
     });
   };
 
-  useEffect(() => {
-    dispatch(fetchUserProfile());
-  }, [dispatch]);
+  useFocusEffect(
+    React.useCallback(() => {
+      isGuestMode().then((val) => {
+        setIsGuestStored(Boolean(val));
+        if (!val) {
+          dispatch(fetchUserProfile());
+        }
+      });
+    }, [dispatch])
+  );
 
   const handleCheckDocuments = () => {
+    if (isGuest) {
+      promptGuestLogin(
+        'auth.loginRequiredGeneralMsg',
+        'Please log in first to view documents.'
+      );
+      return;
+    }
     dispatch(fetchDriverDocuments());
     setShowDocsModal(true);
   };
 
   const displayName = useMemo(() => {
+    if (isGuest) return t('auth.guestDriver', 'Guest Driver');
     const raw =
       authUser?.full_name ||
       (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
@@ -189,29 +205,32 @@ export const DriverProfileScreen = ({ navigation }) => {
         .join(' ');
     }
     return t('auth.guestDriver', 'Guest Driver');
-  }, [authUser, t]);
+  }, [authUser, t, isGuest]);
 
-  const displayPhone = authUser?.phone_number || authUser?.phone || '';
-  const displayEmail = authUser?.email || '';
-  const displayRating =
-    driverProfile?.rating_avg ||
-    authUser?.rider_profile?.rating_avg ||
-    authUser?.rating ||
-    '5.00';
-  const displayTrips =
-    driverProfile?.total_trips !== undefined
-      ? t('driver.tripsCount', {
-        count: driverProfile.total_trips,
-        defaultValue: `${driverProfile.total_trips} Trips`,
-      })
-      : authUser?.total_rides !== undefined
+  const displayPhone = isGuest ? '' : (authUser?.phone_number || authUser?.phone || '');
+  const displayEmail = isGuest ? '' : (authUser?.email || '');
+  const displayRating = isGuest
+    ? '—'
+    : (driverProfile?.rating_avg ||
+       authUser?.rider_profile?.rating_avg ||
+       authUser?.rating ||
+       '5.00');
+  const displayTrips = isGuest
+    ? t('driver.tripsCount', { count: 0, defaultValue: '0 Trips' })
+    : (driverProfile?.total_trips !== undefined
         ? t('driver.tripsCount', {
-          count: authUser.total_rides,
-          defaultValue: `${authUser.total_rides} Trips`,
-        })
-        : t('driver.tripsCount', { count: 0, defaultValue: '0 Trips' });
+            count: driverProfile.total_trips,
+            defaultValue: `${driverProfile.total_trips} Trips`,
+          })
+        : authUser?.total_rides !== undefined
+          ? t('driver.tripsCount', {
+              count: authUser.total_rides,
+              defaultValue: `${authUser.total_rides} Trips`,
+            })
+          : t('driver.tripsCount', { count: 0, defaultValue: '0 Trips' }));
 
   const memberSince = useMemo(() => {
+    if (isGuest) return null;
     const raw = authUser?.date_joined || authUser?.created_at;
     if (!raw) return null;
     try {
@@ -224,7 +243,7 @@ export const DriverProfileScreen = ({ navigation }) => {
     } catch {
       return null;
     }
-  }, [authUser, currentLanguage]);
+  }, [authUser, currentLanguage, isGuest]);
 
   // Driver verification status from GET /api/v1/auth/profile/
   const driverVerification =
@@ -270,6 +289,7 @@ export const DriverProfileScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     setShowLogoutModal(false);
+    dispatch(logout());
     await clearTokens();
     navigation.replace('Login');
   };
@@ -280,12 +300,9 @@ export const DriverProfileScreen = ({ navigation }) => {
     <>
       {/* Driver Hero Card */}
       <View style={styles.driverHeroCard}>
-        <View style={styles.heroTopBar}>
-          <LanguageButton variant="light" />
-        </View>
 
         <ProfileAvatar
-          imageUri={authUser?.profile_photo}
+          imageUri={isGuest ? null : authUser?.profile_photo}
           name={displayName}
           size={84}
           isOnline={true}
@@ -305,7 +322,7 @@ export const DriverProfileScreen = ({ navigation }) => {
 
         <Text style={styles.driverName}>{displayName}</Text>
 
-        {!authUser ? (
+        {isGuest ? (
           <View style={styles.guestBadgePill}>
             <Icon name="user" size={12} color={COLORS.primary} />
             <Text style={styles.guestBadgeText}>
@@ -573,15 +590,15 @@ export const DriverProfileScreen = ({ navigation }) => {
       {/* Logout / Exit Guest */}
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => {
+        onPress={async () => {
           if (isGuest) {
-            promptGuestLogin(
-              'auth.loginRequiredGeneralMsg',
-              'Please log in first to access this feature.'
-            );
+            dispatch(logout());
+            await clearTokens();
+            navigation.replace('Login');
             return;
           }
           if (!authUser) {
+            dispatch(logout());
             navigation.replace('Login');
           } else {
             setShowLogoutModal(true);
@@ -590,12 +607,12 @@ export const DriverProfileScreen = ({ navigation }) => {
         style={styles.logoutBtn}
       >
         <Icon
-          name={isGuest ? 'log-out' : 'log-out'}
+          name="log-out"
           size={16}
           color={isGuest ? COLORS.primary : COLORS.danger}
         />
         <Text style={[styles.logoutText, isGuest && { color: COLORS.primary }]}>
-          {isGuest ? t('auth.login', 'Log In / Sign In') : t('rider.logout', 'Log Out')}
+          {isGuest ? t('auth.exit', 'Exit') : t('rider.logout', 'Log Out')}
         </Text>
       </TouchableOpacity>
     </>
@@ -607,7 +624,7 @@ export const DriverProfileScreen = ({ navigation }) => {
       <ResponsiveContainer maxWidth={920} style={{ flex: 1 }}>
         <Header
           title={t('driver.driverProfile')}
-          showBack={false}
+          showBack={true}
           variant="light"
         />
 

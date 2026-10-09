@@ -26,7 +26,7 @@ import LanguageButton from '../../components/LanguageButton';
 import { useApp } from '../../context/AppContext';
 import { useResponsive, responsiveFont } from '../../utils/responsive';
 import { clearTokens, isGuestMode } from '../../utils/storage';
-import { fetchUserProfile } from '../../redux/features/auth/authSlice';
+import { fetchUserProfile, logout } from '../../redux/features/auth/authSlice';
 import { useFocusEffect } from '@react-navigation/native';
 
 /* ------------------------------------------------------------------ */
@@ -187,10 +187,15 @@ export const RiderProfileScreen = ({ navigation }) => {
     [t]
   );
 
-  // Re-fetch latest user profile on focus
+  // Re-fetch latest user profile on focus if not guest
   useFocusEffect(
     useCallback(() => {
-      dispatch(fetchUserProfile());
+      isGuestMode().then((val) => {
+        setIsGuestStored(Boolean(val));
+        if (!val) {
+          dispatch(fetchUserProfile());
+        }
+      });
     }, [dispatch])
   );
 
@@ -202,6 +207,7 @@ export const RiderProfileScreen = ({ navigation }) => {
   }, [language]);
 
   const displayName = useMemo(() => {
+    if (isGuest) return t('auth.guestUser', 'Guest');
     const raw =
       authUser?.full_name ||
       (authUser?.first_name
@@ -214,22 +220,24 @@ export const RiderProfileScreen = ({ navigation }) => {
       .filter(Boolean)
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(' ');
-  }, [authUser, t]);
+  }, [authUser, t, isGuest]);
 
-  const displayEmail = authUser?.email || '';
-  const displayPhone =
-    authUser?.phone_number ||
-    authUser?.phone ||
-    authUser?.emergency_contact_phone ||
-    '';
-  const displayEmergencyPhone = authUser?.emergency_contact_phone || '';
+  const displayEmail = isGuest ? '' : (authUser?.email || '');
+  const displayPhone = isGuest
+    ? ''
+    : (authUser?.phone_number ||
+       authUser?.phone ||
+       authUser?.emergency_contact_phone ||
+       '');
+  const displayEmergencyPhone = isGuest ? '' : (authUser?.emergency_contact_phone || '');
 
-  const ratingValue = riderProfile?.rating_avg ?? authUser?.rating ?? null;
+  const ratingValue = isGuest ? null : (riderProfile?.rating_avg ?? authUser?.rating ?? null);
   const displayRating =
     ratingValue != null ? Number(ratingValue).toFixed(2) : null;
-  const tripsCount = riderProfile?.total_rides ?? 0;
+  const tripsCount = isGuest ? 0 : (riderProfile?.total_rides ?? 0);
 
   const memberSince = useMemo(() => {
+    if (isGuest) return null;
     const raw = authUser?.created_at || authUser?.date_joined;
     if (!raw) return null;
     try {
@@ -242,16 +250,17 @@ export const RiderProfileScreen = ({ navigation }) => {
     } catch {
       return null;
     }
-  }, [authUser, language]);
+  }, [authUser, language, isGuest]);
 
-  const avatarPhoto = authUser?.profile_photo;
+  const avatarPhoto = isGuest ? null : authUser?.profile_photo;
 
   /* ----------------------------- Handlers ------------------------- */
   const handleLogout = useCallback(async () => {
     setShowLogoutModal(false);
+    dispatch(logout());
     await clearTokens();
     navigation.replace('Login');
-  }, [navigation]);
+  }, [navigation, dispatch]);
 
   const handleMenuPress = useCallback(
     (item) => {
@@ -313,18 +322,15 @@ export const RiderProfileScreen = ({ navigation }) => {
     [navigation, isGuest, requireLogin, t]
   );
 
-  const handleLogoutPress = useCallback(() => {
+  const handleLogoutPress = useCallback(async () => {
     if (isGuest) {
-      requireLogin(
-        t(
-          'auth.guestLogoutPrompt',
-          'You are browsing as a guest. Please log in to manage your account.'
-        )
-      );
+      dispatch(logout());
+      await clearTokens();
+      navigation.replace('Login');
       return;
     }
     setShowLogoutModal(true);
-  }, [isGuest, requireLogin, t]);
+  }, [isGuest, navigation, dispatch]);
 
   const handleEditProfilePress = useCallback(() => {
     if (isGuest) {
@@ -396,30 +402,6 @@ export const RiderProfileScreen = ({ navigation }) => {
           <Icon name="arrow-right" size={13} color={COLORS.primary} />
         </Pressable>
       ) : null}
-
-      {/* Stats */}
-      <View style={styles.statsRow}>
-        <Stat
-          icon="star"
-          iconColor="#F59E0B"
-          value={displayRating ?? t('rider.newRider', 'New')}
-          label={t('rider.rating', 'Rating')}
-        />
-        <View style={styles.statDivider} />
-        <Stat
-          icon="navigation"
-          iconColor={COLORS.primary}
-          value={String(tripsCount)}
-          label={t('rider.trips', 'Trips')}
-        />
-        <View style={styles.statDivider} />
-        <Stat
-          icon="calendar"
-          iconColor="#7C3AED"
-          value={memberSince ?? '—'}
-          label={t('rider.memberSince', 'Member')}
-        />
-      </View>
     </View>
   );
 
@@ -504,14 +486,24 @@ export const RiderProfileScreen = ({ navigation }) => {
       <Pressable
         onPress={handleLogoutPress}
         accessibilityRole="button"
-        accessibilityLabel={t('rider.logout', 'Log Out')}
+        accessibilityLabel={
+          isGuest ? t('auth.exit', 'Exit') : t('rider.logout', 'Log Out')
+        }
         style={({ pressed }) => [
           styles.logoutBtn,
           pressed && styles.logoutBtnPressed,
         ]}
       >
-        <Icon name="log-out" size={18} color={COLORS.danger} />
-        <Text style={styles.logoutText}>{t('rider.logout', 'Log Out')}</Text>
+        <Icon
+          name="log-out"
+          size={18}
+          color={isGuest ? COLORS.primary : COLORS.danger}
+        />
+        <Text
+          style={[styles.logoutText, isGuest && { color: COLORS.primary }]}
+        >
+          {isGuest ? t('auth.exit', 'Exit') : t('rider.logout', 'Log Out')}
+        </Text>
       </Pressable>
 
       <Text style={styles.appVersion}>

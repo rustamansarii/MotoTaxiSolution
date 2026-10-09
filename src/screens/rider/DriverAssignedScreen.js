@@ -29,6 +29,7 @@ import {
   clearRiderTripState,
   setRideOtp,
 } from '../../redux/features/rider/riderSlice';
+import { resolveDropCoordinates } from '../../utils/coordinateResolver';
 
 export const DriverAssignedScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -160,8 +161,8 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
         Number(reduxLocation.dropoffLocation.latitude),
       ];
     }
-    return [75.8573, 30.9005];
-  }, [route.params, reduxLocation]);
+    return resolveDropCoordinates(route.params, {}, destinationLabel);
+  }, [route.params, reduxLocation, destinationLabel]);
 
   const driverCoords = useMemo(() => {
     if (driverLocation?.lng && driverLocation?.lat) {
@@ -174,19 +175,24 @@ export const DriverAssignedScreen = ({ navigation, route }) => {
   // Listen for driver cancelling the ride
   useEffect(() => {
     if (cancellationNotice) {
-      Alert.alert(
-        'Ride Cancelled',
-        `This ride was cancelled by the ${cancellationNotice.cancelled_by?.toLowerCase() || 'driver'}.`
-      );
-      dispatch(clearActionNotices());
-      dispatch(clearRiderTripState());
-      if (navigation.canGoBack()) {
-        navigation.popToTop();
+      const noticeRideId = cancellationNotice.ride_id || cancellationNotice.id;
+      if (!noticeRideId || String(noticeRideId) === String(rideId)) {
+        Alert.alert(
+          'Ride Cancelled',
+          `This ride was cancelled by the ${cancellationNotice.cancelled_by?.toLowerCase() || 'driver'}.`
+        );
+        dispatch(clearActionNotices());
+        dispatch(clearRiderTripState());
+        if (navigation.canGoBack()) {
+          navigation.popToTop();
+        } else {
+          navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+        }
       } else {
-        navigation.navigate('RiderTabs', { screen: 'RiderHome' });
+        dispatch(clearActionNotices());
       }
     }
-  }, [cancellationNotice, dispatch, navigation]);
+  }, [cancellationNotice, rideId, dispatch, navigation]);
 
   // Listen for trip started by driver
   useEffect(() => {

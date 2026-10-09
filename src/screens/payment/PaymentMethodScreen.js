@@ -8,7 +8,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
+import { useKeyboardSafe } from '../../components/keyboard/KeyboardContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
@@ -42,6 +45,7 @@ import { driverCompleteTrip } from '../../redux/features/driver/driverSlice';
 export const PaymentMethodScreen = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { isSplitLayout, insets, width } = useResponsive();
+  const keyboard = useKeyboardSafe ? useKeyboardSafe() : null;
 
   // Extract trip parameters passed from DriverTripScreen or Rider stack
   const rideId =
@@ -459,8 +463,22 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => {
+            Keyboard.dismiss();
+            keyboard?.hideKeyboard?.();
+          }}
         >
-          {formContent}
+          <TouchableWithoutFeedback
+            onPress={() => {
+              Keyboard.dismiss();
+              keyboard?.hideKeyboard?.();
+            }}
+            accessible={false}
+          >
+            <View style={{ flex: 1 }}>
+              {formContent}
+            </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
 

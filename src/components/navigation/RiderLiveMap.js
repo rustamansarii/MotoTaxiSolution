@@ -284,6 +284,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     borderWidth: 1,
     borderColor: COLORS.border,
+    marginBottom:20,
   },
   driverCenterMarker: {
     alignItems: 'center',

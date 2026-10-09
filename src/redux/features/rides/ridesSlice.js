@@ -168,6 +168,44 @@ export const fetchMyRides = createAsyncThunk(
   }
 );
 
+/**
+ * 4. Fetch Recent Drops API
+ * GET /rides/recent-drops/
+ */
+export const fetchRecentDrops = createAsyncThunk(
+  'rides/fetchRecentDrops',
+  async (_, { rejectWithValue }) => {
+    try {
+      const isGuest = await isGuestMode();
+      const token = await getAccessToken();
+      if (isGuest || !token) {
+        console.log('[RidesAPI] Skipping fetchRecentDrops: user is in guest mode or unauthenticated');
+        return [];
+      }
+
+      console.log('[RidesAPI] Fetching recent drops from rides/recent-drops/...');
+      const response = await apiGet(ApiConstant.RecentDrops);
+      console.log('[RidesAPI] Recent drops response:', response);
+      const list = Array.isArray(response?.results)
+        ? response.results
+        : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+        ? response
+        : [];
+      return list;
+    } catch (error) {
+      const errorMsg =
+        error?.data?.message ||
+        error?.data?.detail ||
+        error?.message ||
+        'Failed to fetch recent drops';
+      console.warn('[RidesAPI] Recent drops fetch error:', errorMsg);
+      return rejectWithValue(errorMsg);
+    }
+  }
+);
+
 const initialState = {
   estimate: null, // { distance_km, duration_min, currency, fares: [] }
   availableRides: [],
@@ -189,6 +227,11 @@ const initialState = {
   isLoadingMyRides: false,
   isLoadingMoreMyRides: false,
   myRidesError: null,
+
+  // Recent Drops state
+  recentDrops: [],
+  isLoadingRecentDrops: false,
+  recentDropsError: null,
 };
 
 const ridesSlice = createSlice({
@@ -219,6 +262,11 @@ const ridesSlice = createSlice({
       state.isLoadingMyRides = false;
       state.isLoadingMoreMyRides = false;
       state.myRidesError = null;
+    },
+    clearRecentDrops: (state) => {
+      state.recentDrops = [];
+      state.isLoadingRecentDrops = false;
+      state.recentDropsError = null;
     },
   },
 
@@ -297,6 +345,20 @@ const ridesSlice = createSlice({
         } else {
           state.myRidesError = action.payload;
         }
+      })
+
+      // fetchRecentDrops
+      .addCase(fetchRecentDrops.pending, (state) => {
+        state.isLoadingRecentDrops = true;
+        state.recentDropsError = null;
+      })
+      .addCase(fetchRecentDrops.fulfilled, (state, action) => {
+        state.isLoadingRecentDrops = false;
+        state.recentDrops = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchRecentDrops.rejected, (state, action) => {
+        state.isLoadingRecentDrops = false;
+        state.recentDropsError = action.payload;
       });
   },
 });
@@ -306,6 +368,7 @@ export const {
   clearFareEstimate,
   clearBookingState,
   clearMyRides,
+  clearRecentDrops,
 } = ridesSlice.actions;
 
 export default ridesSlice.reducer;

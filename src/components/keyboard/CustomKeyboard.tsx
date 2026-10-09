@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { StyleSheet, Animated, View, Platform, Pressable, TouchableOpacity, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboard } from './KeyboardContext';
@@ -33,6 +33,7 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
     hideKeyboard,
     setKeyboardHeight,
     moveCursor,
+    registerRepeatCanceler,
   } = useKeyboard();
 
   const totalHeight = KEYBOARD_HEIGHT + ACCESSORY_HEIGHT + (insets.bottom || 8);
@@ -51,7 +52,7 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
   }, [keyboardVisible, totalHeight]);
 
   // Determine which layout to render (English or French)
-  const getLayout = () => {
+  const layout = useMemo(() => {
     if (isNumericOnly) {
       return numericOnlyLayout;
     }
@@ -67,9 +68,26 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
       default:
         return isShiftActive || isCapsLock ? englishShiftLayout : englishNormalLayout;
     }
-  };
+  }, [isNumericOnly, activeLayout, isShiftActive, isCapsLock, symbolsPage]);
 
-  const layout = getLayout();
+  const renderedRows = useMemo(() => {
+    return layout.map((row, rowIndex) => (
+      <KeyboardRow key={`row-${rowIndex}`}>
+        {row.map((keyConfig, keyIndex) => (
+          <KeyboardKey
+            key={`key-${rowIndex}-${keyIndex}`}
+            config={keyConfig}
+            theme={theme}
+            isShiftActive={isShiftActive}
+            isCapsLock={isCapsLock}
+            onPress={handleKeyPress}
+            registerRepeatCanceler={registerRepeatCanceler}
+          />
+        ))}
+      </KeyboardRow>
+    ));
+  }, [layout, theme, isShiftActive, isCapsLock, handleKeyPress, registerRepeatCanceler]);
+
   const isDark = theme === 'dark';
   const containerBackgroundColor = isDark ? '#18181B' : '#D1D5DB';
   const borderTopColor = isDark ? '#27272A' : '#94A3B8';
@@ -153,10 +171,12 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
 
         {/* Hide / Done Button with vector icon */}
         <TouchableOpacity
-          onPress={hideKeyboard}
-          activeOpacity={0.7}
+          onPress={() => {
+            hideKeyboard();
+          }}
+          activeOpacity={0.6}
           style={styles.doneButton}
-          hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
+          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
         >
           <Text style={styles.doneButtonText}>Done</Text>
           <Icon name="keyboard-hide" size={16} color={COLORS.primary} />
@@ -165,20 +185,7 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
 
       <Pressable style={{ flex: 1, paddingTop: 4, paddingBottom: insets.bottom || 8 }}>
         <View style={styles.keyboardInner}>
-          {layout.map((row, rowIndex) => (
-            <KeyboardRow key={`row-${rowIndex}`}>
-              {row.map((keyConfig, keyIndex) => (
-                <KeyboardKey
-                  key={`key-${rowIndex}-${keyIndex}`}
-                  config={keyConfig}
-                  theme={theme}
-                  isShiftActive={isShiftActive}
-                  isCapsLock={isCapsLock}
-                  onPress={handleKeyPress}
-                />
-              ))}
-            </KeyboardRow>
-          ))}
+          {renderedRows}
         </View>
       </Pressable>
     </Animated.View>

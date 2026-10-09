@@ -164,13 +164,18 @@ export const registerUser = createAsyncThunk(
       };
     } catch (error) {
       const errorData = error.data || {};
+      const rawErrors =
+        errorData.errors ||
+        errorData.fieldErrors ||
+        (typeof errorData === 'object' ? errorData : null);
+
       let errorMsg =
         errorData.message ||
         errorData.detail ||
         (errorData.non_field_errors && errorData.non_field_errors[0]);
 
-      if (!errorMsg && typeof errorData === 'object' && Object.keys(errorData).length > 0) {
-        const fieldErrors = Object.entries(errorData)
+      if (!errorMsg && rawErrors && typeof rawErrors === 'object' && Object.keys(rawErrors).length > 0) {
+        const fieldErrors = Object.entries(rawErrors)
           .map(([field, msgs]) => {
             const msg = Array.isArray(msgs) ? msgs.join(', ') : msgs;
             return `${field}: ${msg}`;
@@ -179,9 +184,13 @@ export const registerUser = createAsyncThunk(
         errorMsg = fieldErrors;
       }
 
-      return rejectWithValue(
-        errorMsg || error.message || 'Registration failed. Please try again.'
-      );
+      const finalErrorMsg =
+        errorMsg || error.message || 'Registration failed. Please try again.';
+
+      return rejectWithValue({
+        message: finalErrorMsg,
+        errors: rawErrors && typeof rawErrors === 'object' && Object.keys(rawErrors).length > 0 ? rawErrors : null,
+      });
     }
   }
 );
@@ -417,6 +426,13 @@ const authSlice = createSlice({
       state.error = null;
       state.riderProfile = null;
       state.driverVerification = null;
+      state.isProfileLoading = false;
+      state.profileError = null;
+      state.isProfileUpdating = false;
+      state.profileUpdateError = null;
+      state.isRiderProfileLoading = false;
+      state.isRiderProfileUpdating = false;
+      state.riderProfileError = null;
       clearTokens();
     },
     clearError: state => {
@@ -428,6 +444,12 @@ const authSlice = createSlice({
         ...(state.riderProfile || {}),
         ...action.payload,
       };
+      if (state.user) {
+        state.user.rider_profile = {
+          ...(state.user.rider_profile || {}),
+          ...action.payload,
+        };
+      }
     },
     setAuthUser: (state, action) => {
       const u = action.payload || {};
@@ -522,7 +544,10 @@ const authSlice = createSlice({
 
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload || 'Registration failed';
+        state.error =
+          (action.payload && typeof action.payload === 'object'
+            ? action.payload.message
+            : action.payload) || 'Registration failed';
       })
 
       // fetchCountryCodes
@@ -548,7 +573,18 @@ const authSlice = createSlice({
       })
       .addCase(fetchRiderProfile.fulfilled, (state, action) => {
         state.isRiderProfileLoading = false;
-        state.riderProfile = action.payload;
+        if (action.payload && typeof action.payload === 'object') {
+          state.riderProfile = {
+            ...(state.riderProfile || {}),
+            ...action.payload,
+          };
+          if (state.user) {
+            state.user.rider_profile = {
+              ...(state.user.rider_profile || {}),
+              ...action.payload,
+            };
+          }
+        }
       })
       .addCase(fetchRiderProfile.rejected, (state, action) => {
         state.isRiderProfileLoading = false;

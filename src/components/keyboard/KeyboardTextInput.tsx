@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef, useImperativeHandle } from 'react';
+import React, { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { TextInput, TextInputProps, NativeSyntheticEvent, Platform, Keyboard } from 'react-native';
 import { useKeyboard } from './KeyboardContext';
 import { colors } from '../../theme/colors';
@@ -28,7 +28,6 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
 
   const {
     activeInputId,
-    selection,
     onFocus: contextOnFocus,
     onBlur: contextOnBlur,
     onSelectionChange: contextOnSelectionChange,
@@ -39,6 +38,14 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
   } = useKeyboard();
 
   const inputRef = useRef<any>(null);
+  const isActive = activeInputId === id;
+
+  // Local state for instant visual feedback on typing without app-wide context re-renders
+  const [localText, setLocalText] = useState(value);
+  const [localSelection, setLocalSelection] = useState<{ start: number; end: number } | undefined>(undefined);
+  const lastSentValueRef = useRef(value);
+  const userTappedRef = useRef(false);
+  const touchTimeoutRef = useRef<any>(null);
 
   // Expose the native text input methods to parent refs
   useImperativeHandle(ref, () => ({
@@ -48,6 +55,7 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       if (customKeyboardEnabled) {
         Keyboard.dismiss();
         const valLen = value ? value.length : 0;
+        setLocalText(value);
         contextOnFocus(id, value, { start: valLen, end: valLen });
       }
     },
@@ -60,23 +68,20 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     isFocused: () => inputRef.current?.isFocused?.() || isActive,
     clear: () => {
       inputRef.current?.clear?.();
+      setLocalText('');
+      setLocalSelection({ start: 0, end: 0 });
       if (customKeyboardEnabled && isActive) {
         contextOnValueChange(id, '');
       }
     },
   }));
 
-  const isActive = activeInputId === id;
-  const lastSentValueRef = useRef(value);
-  const pendingSentValuesRef = useRef<Set<string>>(new Set());
-  const userTappedRef = useRef(false);
-  const touchTimeoutRef = useRef<any>(null);
-
   // Auto focus into global custom keyboard on mount if requested
   useEffect(() => {
     if (props.autoFocus && customKeyboardEnabled) {
       const timer = setTimeout(() => {
         const valLen = value ? value.length : 0;
+        setLocalText(value);
         contextOnFocus(id, value, { start: valLen, end: valLen });
       }, 150);
       return () => clearTimeout(timer);
@@ -91,10 +96,14 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       maxLength,
       onChangeText: (text) => {
         lastSentValueRef.current = text;
-        pendingSentValuesRef.current.add(text);
         if (onChangeText) {
           onChangeText(text);
         }
+      },
+      onImmediateUpdate: (newText, newSelection) => {
+        lastSentValueRef.current = newText;
+        setLocalText(newText);
+        setLocalSelection(newSelection);
       },
       onSubmitEditing: () => {
         if (onSubmitEditing) {
@@ -108,6 +117,9 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       },
       blur: () => {
         inputRef.current?.blur();
+        if (onBlur) {
+          onBlur(null as any);
+        }
       },
       focus: () => {
         inputRef.current?.focus();
@@ -125,37 +137,15 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     };
   }, [id, unregisterInput]);
 
-  // Sync ref if value changes externally while inactive
+  // Sync localText when incoming prop value changes externally
   useEffect(() => {
-    if (!isActive) {
+    if (value !== localText) {
+      setLocalText(value);
       lastSentValueRef.current = value;
-      pendingSentValuesRef.current.clear();
-    }
-  }, [value, isActive]);
-
-  // Keep value synced in context when it changes externally
-  useEffect(() => {
-    if (!isActive) return;
-
-    if (value === lastSentValueRef.current) {
-      // Parent is in sync with latest sent value; clear pending queue
-      pendingSentValuesRef.current.clear();
-      return;
-    }
-
-    // If the incoming prop matches a pending keystroke from our keyboard, consume it
-    if (pendingSentValuesRef.current.has(value)) {
-      pendingSentValuesRef.current.delete(value);
-      if (pendingSentValuesRef.current.size === 0) {
-        lastSentValueRef.current = value;
+      if (isActive) {
+        contextOnValueChange(id, value);
       }
-      return;
     }
-
-    // External change (e.g. user selected an address suggestion or pressed the clear button)
-    lastSentValueRef.current = value;
-    pendingSentValuesRef.current.clear();
-    contextOnValueChange(id, value);
   }, [value, isActive, id, contextOnValueChange]);
 
   const handleFocus = (e: any) => {
@@ -163,10 +153,11 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       Keyboard.dismiss();
       if (!isActive) {
         const valLen = value ? value.length : 0;
-        const currentSelection = selection || {
+        const currentSelection = localSelection || {
           start: valLen,
           end: valLen,
         };
+        setLocalText(value);
         contextOnFocus(id, value, currentSelection);
       } else {
         showKeyboard();
@@ -186,11 +177,13 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
 
   const handleSelectionChange = (e: NativeSyntheticEvent<any>) => {
     const newSelection = e.nativeEvent?.selection;
-    if (customKeyboardEnabled && newSelection) {
-      const isManualUserTap = userTappedRef.current;
-      // Reset the flag immediately after passing it to context
-      userTappedRef.current = false;
-      contextOnSelectionChange(id, newSelection, isManualUserTap);
+    if (newSelection) {
+      setLocalSelection(newSelection);
+      if (customKeyboardEnabled) {
+        const isManualUserTap = userTappedRef.current;
+        userTappedRef.current = false;
+        contextOnSelectionChange(id, newSelection, isManualUserTap);
+      }
     }
     if (onSelectionChange) {
       onSelectionChange(e);
@@ -199,7 +192,7 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
 
   const handleNativeChangeText = (text: string) => {
     lastSentValueRef.current = text;
-    pendingSentValuesRef.current.add(text);
+    setLocalText(text);
     if (customKeyboardEnabled && isActive) {
       contextOnValueChange(id, text);
     }
@@ -221,10 +214,11 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
       Keyboard.dismiss();
       if (!isActive) {
         const valLen = value ? value.length : 0;
-        const currentSelection = selection || {
+        const currentSelection = localSelection || {
           start: valLen,
           end: valLen,
         };
+        setLocalText(value);
         contextOnFocus(id, value, currentSelection);
       } else {
         showKeyboard();
@@ -232,19 +226,20 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     }
   };
 
-  const valLen = typeof value === 'string' ? value.length : 0;
+  const displayValue = customKeyboardEnabled && isActive ? localText : value;
+  const valLen = typeof displayValue === 'string' ? displayValue.length : 0;
   const safeSelection =
-    customKeyboardEnabled && isActive && selection
+    customKeyboardEnabled && isActive && localSelection
       ? {
-          start: Math.max(0, Math.min(selection.start, valLen)),
-          end: Math.max(0, Math.min(selection.end, valLen)),
+          start: Math.max(0, Math.min(localSelection.start, valLen)),
+          end: Math.max(0, Math.min(localSelection.end, valLen)),
         }
       : undefined;
 
   return (
     <TextInput
       ref={inputRef}
-      value={value}
+      value={displayValue}
       onChangeText={handleNativeChangeText}
       onFocus={handleFocus}
       onBlur={handleBlur}

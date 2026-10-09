@@ -9,6 +9,8 @@ import {
   ScrollView,
 } from 'react-native';
 
+import { useDispatch } from 'react-redux';
+import { logout } from '../../redux/features/auth/authSlice';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -23,6 +25,7 @@ const GREEN = '#17baa1';
 
 export const RoleSelectionScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
   const { isFoldableOrTablet, isLandscape, isCompact, insets } = useResponsive();
   const isGuest = Boolean(route?.params?.isGuest);
   const [selectedRole, setSelectedRole] = useState('rider');
@@ -30,6 +33,7 @@ export const RoleSelectionScreen = ({ navigation, route }) => {
   const handleProceed = async (roleOverride) => {
     const roleToUse = roleOverride || selectedRole || 'rider';
     if (isGuest) {
+      dispatch(logout());
       try {
         await setGuestMode(true);
       } catch (e) {}
@@ -57,9 +61,7 @@ export const RoleSelectionScreen = ({ navigation, route }) => {
   const handleRoleCardPress = (role) => {
     setSelectedRole(role);
     if (isGuest) {
-      setTimeout(() => {
-        handleProceed(role);
-      }, 200);
+      setSelectedRole(role);
     }
   };
 
@@ -322,8 +324,8 @@ export const RoleSelectionScreen = ({ navigation, route }) => {
                     ? `${t('auth.continueAsRider', 'Explore as Rider')}`
                     : `${t('auth.continueAsDriver', 'Explore as Driver')}`
                   : selectedRole === 'rider'
-                    ? `${t('common.continue', 'Continue')} (${t('auth.riderRoleTitle', 'Rider')})`
-                    : `${t('common.continue', 'Continue')} (${t('auth.driverRoleTitle', 'Driver')})`
+                     ? `${t('auth.continueAsRider', 'Explore as Rider')}`
+                    : `${t('auth.continueAsDriver', 'Explore as Driver')}`
               }
               onPress={() => handleProceed()}
               variant="primary"
