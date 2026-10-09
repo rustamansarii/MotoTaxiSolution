@@ -53,10 +53,11 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     focus: () => {
       inputRef.current?.focus();
       if (customKeyboardEnabled) {
-        Keyboard.dismiss();
-        const valLen = value ? value.length : 0;
-        setLocalText(value);
-        contextOnFocus(id, value, { start: valLen, end: valLen });
+        const val = typeof value === 'string' ? value : '';
+        const valLen = val.length;
+        setLocalText(val);
+        lastSentValueRef.current = val;
+        contextOnFocus(id, val, { start: valLen, end: valLen });
       }
     },
     blur: () => {
@@ -137,28 +138,34 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     };
   }, [id, unregisterInput]);
 
-  // Sync localText when incoming prop value changes externally
+  // Only sync localText when incoming prop value changes externally (e.g. form prefill or reset)
   useEffect(() => {
-    if (value !== localText) {
-      setLocalText(value);
+    if (value !== lastSentValueRef.current) {
       lastSentValueRef.current = value;
+      setLocalText(value);
       if (isActive) {
         contextOnValueChange(id, value);
       }
     }
   }, [value, isActive, id, contextOnValueChange]);
 
+  const activateInput = (userSelection?: { start: number; end: number }) => {
+    const val = typeof value === 'string' ? value : '';
+    const valLen = val.length;
+    const currentSelection = userSelection || localSelection || {
+      start: valLen,
+      end: valLen,
+    };
+    setLocalText(val);
+    lastSentValueRef.current = val;
+    setLocalSelection(currentSelection);
+    contextOnFocus(id, val, currentSelection);
+  };
+
   const handleFocus = (e: any) => {
     if (customKeyboardEnabled) {
-      Keyboard.dismiss();
       if (!isActive) {
-        const valLen = value ? value.length : 0;
-        const currentSelection = localSelection || {
-          start: valLen,
-          end: valLen,
-        };
-        setLocalText(value);
-        contextOnFocus(id, value, currentSelection);
+        activateInput();
       } else {
         showKeyboard();
       }
@@ -211,15 +218,8 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     }, 250);
 
     if (customKeyboardEnabled) {
-      Keyboard.dismiss();
       if (!isActive) {
-        const valLen = value ? value.length : 0;
-        const currentSelection = localSelection || {
-          start: valLen,
-          end: valLen,
-        };
-        setLocalText(value);
-        contextOnFocus(id, value, currentSelection);
+        activateInput();
       } else {
         showKeyboard();
       }

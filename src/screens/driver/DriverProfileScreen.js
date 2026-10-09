@@ -123,6 +123,7 @@ export const DriverProfileScreen = ({ navigation }) => {
   const { isFoldableOrTablet, isSplitLayout, insets } = useResponsive();
 
   const authUser = useSelector((state) => state.auth?.user);
+  const authDriverVerification = useSelector((state) => state.auth?.driverVerification);
   const driverState = useSelector((state) => state.driver);
   const driverProfile = driverState?.driverProfile || authUser?.driver_profile;
 
@@ -247,8 +248,7 @@ export const DriverProfileScreen = ({ navigation }) => {
 
   // Driver verification status from GET /api/v1/auth/profile/
   const driverVerification =
-    authUser?.driver_verification ||
-    useSelector((state) => state.auth?.driverVerification);
+    authUser?.driver_verification || authDriverVerification;
   const verificationStatus = (
     driverVerification?.status || 'APPROVED'
   ).toUpperCase();

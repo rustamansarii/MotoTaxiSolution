@@ -5,13 +5,14 @@ import {
   StyleSheet,
   StatusBar,
   ScrollView,
-  TextInput,
+  Keyboard,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { KeyboardTextInput, useKeyboardSafe } from '../../components/keyboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
 import { COLORS } from '../../theme/colors';
@@ -101,9 +102,32 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
     });
   };
 
+  const keyboard = useKeyboardSafe ? useKeyboardSafe() : null;
   const searchTimeoutRef = useRef(null);
   const homeInputRef = useRef(null);
   const workInputRef = useRef(null);
+  const scrollViewRef = useRef(null);
+
+  // Block native keyboard completely on native side
+  useEffect(() => {
+    Keyboard.dismiss();
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(showEvent, () => {
+      Keyboard.dismiss();
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Auto-scroll input into view when custom keyboard opens
+  useEffect(() => {
+    if (keyboard?.keyboardVisible) {
+      const scrollY = activeField === 'work' ? 220 : 80;
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: scrollY, animated: true });
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [keyboard?.keyboardVisible, activeField]);
 
   // 1. Fetch initial rider profile on mount
   useEffect(() => {
@@ -184,6 +208,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
 
   // Handle picking a search suggestion
   const handleSelectSuggestion = (item) => {
+    keyboard?.hideKeyboard?.();
     if (activeField === 'home') {
       setHomeAddress(item.address);
       setHomeLat(item.latitude);
@@ -198,6 +223,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
 
   // Handle "Use Current Location" for Home or Work
   const handleUseCurrentLocation = async (field) => {
+    keyboard?.hideKeyboard?.();
     setLoadingGpsFor(field);
     try {
       const loc = await getCurrentLocation();
@@ -244,6 +270,8 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
 
   // Save the form to the backend
   const handleSave = async () => {
+    keyboard?.hideKeyboard?.();
+    Keyboard.dismiss();
     if (isGuest) {
       promptGuestLogin();
       return;
@@ -297,7 +325,10 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
       <Header
         title={t('savedPlaces.title', t('rider.savedPlaces', 'Saved Places'))}
         subtitle={t('savedPlaces.subtitle', t('rider.manageAddresses', 'Home & Work Addresses'))}
-        onBack={() => navigation.goBack()}
+        onBack={() => {
+          keyboard?.hideKeyboard?.();
+          navigation.goBack();
+        }}
       />
 
       <KeyboardAvoidingView
@@ -305,11 +336,15 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: Math.max(insets.bottom, 20) + 90 },
           ]}
           keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={() => {
+            keyboard?.hideKeyboard?.();
+          }}
           showsVerticalScrollIndicator={false}
         >
           <ResponsiveContainer maxWidth={650}>
@@ -391,14 +426,26 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
               {/* Address Input */}
               <View style={styles.inputWrapper}>
                 <Icon name="search" size={16} color={COLORS.textLight} style={styles.inputLeadingIcon} />
-                <TextInput
+                <KeyboardTextInput
                   ref={homeInputRef}
+                  id="saved_places_home_input"
                   style={styles.textInput}
                   placeholder={t('savedPlaces.homePlaceholder', 'Enter house, street, or landmark')}
                   placeholderTextColor={COLORS.textLight}
                   value={homeAddress}
                   onChangeText={(text) => handleAddressChange(text, 'home')}
-                  onFocus={() => setActiveField('home')}
+                  onFocus={() => {
+                    Keyboard.dismiss();
+                    setActiveField('home');
+                  }}
+                  onTouchStart={() => {
+                    Keyboard.dismiss();
+                    setActiveField('home');
+                  }}
+                  showSoftInputOnFocus={false}
+                  contextMenuHidden={true}
+                  returnKeyType="search"
+                  onSubmitEditing={() => keyboard?.hideKeyboard?.()}
                 />
                 {homeAddress ? (
                   <TouchableOpacity
@@ -406,6 +453,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                       setHomeAddress('');
                       setHomeLat(null);
                       setHomeLng(null);
+                      homeInputRef.current?.clear?.();
                       dispatch(clearSearchResults());
                     }}
                     style={styles.clearBtn}
@@ -479,14 +527,26 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
               {/* Address Input */}
               <View style={styles.inputWrapper}>
                 <Icon name="search" size={16} color={COLORS.textLight} style={styles.inputLeadingIcon} />
-                <TextInput
+                <KeyboardTextInput
                   ref={workInputRef}
+                  id="saved_places_work_input"
                   style={styles.textInput}
                   placeholder={t('savedPlaces.workPlaceholder', 'Enter office, building, or tech park')}
                   placeholderTextColor={COLORS.textLight}
                   value={workAddress}
                   onChangeText={(text) => handleAddressChange(text, 'work')}
-                  onFocus={() => setActiveField('work')}
+                  onFocus={() => {
+                    Keyboard.dismiss();
+                    setActiveField('work');
+                  }}
+                  onTouchStart={() => {
+                    Keyboard.dismiss();
+                    setActiveField('work');
+                  }}
+                  showSoftInputOnFocus={false}
+                  contextMenuHidden={true}
+                  returnKeyType="search"
+                  onSubmitEditing={() => keyboard?.hideKeyboard?.()}
                 />
                 {workAddress ? (
                   <TouchableOpacity
@@ -494,6 +554,7 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                       setWorkAddress('');
                       setWorkLat(null);
                       setWorkLng(null);
+                      workInputRef.current?.clear?.();
                       dispatch(clearSearchResults());
                     }}
                     style={styles.clearBtn}
@@ -554,7 +615,12 @@ export const SavedPlacesScreen = ({ navigation, route }) => {
                       defaultValue: `SUGGESTIONS FOR ${(activeField || 'ADDRESS').toUpperCase()}`,
                     })}
                   </Text>
-                  <TouchableOpacity onPress={() => dispatch(clearSearchResults())}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      keyboard?.hideKeyboard?.();
+                      dispatch(clearSearchResults());
+                    }}
+                  >
                     <Text style={styles.dismissText}>
                       {t('savedPlaces.dismiss', t('common.dismiss', 'Dismiss'))}
                     </Text>

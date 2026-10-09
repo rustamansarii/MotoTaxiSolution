@@ -253,6 +253,11 @@ export const LoginScreen = ({ navigation, route }) => {
         showsVerticalScrollIndicator={false}
         bounces={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onScrollBeginDrag={() => {
+          keyboard?.hideKeyboard?.();
+          Keyboard.dismiss();
+        }}
         contentContainerStyle={styles.scrollContent}
       >
 
@@ -309,20 +314,14 @@ export const LoginScreen = ({ navigation, route }) => {
             <Building height={52} width={20} />
             <Building height={70} width={24} />
           </View>
+
         </TouchableOpacity>
 
         {/* =========================================
             AUTH CARD
         ========================================= */}
 
-        <TouchableWithoutFeedback
-          onPress={() => {
-            keyboard?.hideKeyboard?.();
-            Keyboard.dismiss();
-          }}
-          accessible={false}
-        >
-          <View style={styles.card}>
+        <View style={styles.card}>
 
           {/* Tabs */}
           <View style={styles.tabs}>
@@ -455,18 +454,7 @@ export const LoginScreen = ({ navigation, route }) => {
               </View>
             ) : null}
 
-            {/* =====================================
-                TERMS
-            ===================================== */}
-
-            <Text style={styles.terms}>
-              {t('auth.termsPrefix', 'By clicking continue, you agree to our')}{' '}
-              <Text style={styles.termsLink}>
-                {t('auth.termsAndConditions', 'Terms & Conditions')}
-              </Text>
-              .
-            </Text>
-
+            
             {/* =====================================
                 MAIN BUTTON
             ===================================== */}
@@ -536,10 +524,16 @@ export const LoginScreen = ({ navigation, route }) => {
 
           </View>
         </View>
-        </TouchableWithoutFeedback>
 
-        {/* Bottom safe space */}
-        <View style={styles.bottomSpace} />
+        {/* Bottom safe space - dismisses keyboard when clicked */}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => {
+            keyboard?.hideKeyboard?.();
+            Keyboard.dismiss();
+          }}
+          style={styles.bottomSpace}
+        />
 
       </ScrollView>
 

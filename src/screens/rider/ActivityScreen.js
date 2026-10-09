@@ -371,39 +371,6 @@ export const ActivityScreen = ({ navigation }) => {
           showBack={false}
         />
 
-        {/* Tabs - only show when user is logged in */}
-        {!isGuest && (
-          <View style={styles.tabBar}>
-            <TouchableOpacity
-              onPress={() => setActiveTab('past')}
-              style={[styles.tabItem, activeTab === 'past' && styles.activeTabItem]}
-            >
-              <Text
-                style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}
-              >
-                {t('rider.allTrips', 'All Trips')}
-                {myRidesCount > 0 ? ` (${myRidesCount})` : ''}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setActiveTab('upcoming')}
-              style={[
-                styles.tabItem,
-                activeTab === 'upcoming' && styles.activeTabItem,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === 'upcoming' && styles.activeTabText,
-                ]}
-              >
-                {t('rider.upcomingTrips', 'Upcoming')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Error Banner - only show when authenticated and error occurs */}
         {!isGuest && myRidesError && myRides.length === 0 ? (

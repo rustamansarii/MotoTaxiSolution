@@ -58,6 +58,8 @@ export const CustomInput = ({
     if (onBlur) onBlur(e);
   };
 
+  const textInputRef = useRef(null);
+
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {label ? (
@@ -88,6 +90,7 @@ export const CustomInput = ({
         )}
 
         <KeyboardTextInput
+          ref={textInputRef}
           id={effectiveId}
           customKeyboardEnabled={customKeyboardEnabled}
           value={value}

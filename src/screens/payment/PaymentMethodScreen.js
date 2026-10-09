@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   Keyboard,
 } from 'react-native';
 import { useKeyboardSafe } from '../../components/keyboard/KeyboardContext';
@@ -321,7 +322,14 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
   const formContent = (
     <View style={styles.formContentContainer}>
       {/* Fare Summary Card */}
-      <View style={styles.summaryCard}>
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={() => {
+          Keyboard.dismiss();
+          keyboard?.hideKeyboard?.();
+        }}
+        style={styles.summaryCard}
+      >
         <View style={styles.summaryTopRow}>
           <View style={styles.passengerCol}>
             <Text style={styles.summaryLabel}>TRIP FARE</Text>
@@ -365,7 +373,7 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
             <Text style={styles.metaText}>{vehicleType}</Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {/* 4 Selectable Payment Methods */}
       <PaymentMethodSelector
@@ -463,22 +471,15 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           onScrollBeginDrag={() => {
             Keyboard.dismiss();
             keyboard?.hideKeyboard?.();
           }}
         >
-          <TouchableWithoutFeedback
-            onPress={() => {
-              Keyboard.dismiss();
-              keyboard?.hideKeyboard?.();
-            }}
-            accessible={false}
-          >
-            <View style={{ flex: 1 }}>
-              {formContent}
-            </View>
-          </TouchableWithoutFeedback>
+          <View style={{ flex: 1 }}>
+            {formContent}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 

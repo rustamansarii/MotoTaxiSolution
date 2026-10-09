@@ -76,7 +76,7 @@ function AppNavigationContent(): React.JSX.Element {
   useEffect(() => {
     Animated.timing(bottomOffsetAnim, {
       toValue: keyboardVisible ? keyboardHeight : 0,
-      duration: 250,
+      duration: 140,
       useNativeDriver: false,
     }).start();
   }, [keyboardVisible, keyboardHeight, bottomOffsetAnim]);
@@ -90,27 +90,6 @@ function AppNavigationContent(): React.JSX.Element {
           <RootNavigator />
         </NavigationContainer>
       </Animated.View>
-
-      {/* Tap outside keyboard to close it immediately */}
-      {keyboardVisible && (
-        <TouchableWithoutFeedback
-          onPress={() => {
-            Keyboard.dismiss();
-            hideKeyboard();
-          }}
-          accessible={false}
-        >
-          <View
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                bottom: keyboardHeight,
-                zIndex: 9998,
-              },
-            ]}
-          />
-        </TouchableWithoutFeedback>
-      )}
 
       <CustomKeyboard />
     </View>

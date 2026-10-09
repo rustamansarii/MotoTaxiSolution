@@ -179,6 +179,18 @@ export const KeyboardKey: React.FC<KeyboardKeyProps> = React.memo(({
     }
 
     if (isEnterKey) {
+      if (config.label && config.label !== '⏎') {
+        return (
+          <View style={styles.doneKeyInner}>
+            <Text style={styles.doneKeyText}>Done</Text>
+            <Icon
+              name="check"
+              size={13}
+              color="#FFFFFF"
+            />
+          </View>
+        );
+      }
       return (
         <Icon
           name="enter-key"
@@ -268,6 +280,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+  },
+  doneKeyInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneKeyText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: responsiveFont(13),
+    marginRight: 4,
   },
 });
 

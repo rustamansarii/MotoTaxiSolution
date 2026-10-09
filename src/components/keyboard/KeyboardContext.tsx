@@ -162,6 +162,12 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const onFocus = useCallback((id: string, initialValue: string, initialSelection: { start: number; end: number }) => {
     cancelActiveRepeat();
+    const prevId = activeInputIdRef.current;
+    if (prevId && prevId !== id) {
+      try {
+        inputsRef.current[prevId]?.onBlur?.();
+      } catch (e) {}
+    }
     activeInputIdRef.current = id;
     const safeVal = typeof initialValue === 'string' ? initialValue : '';
     valueRef.current = safeVal;
@@ -219,11 +225,15 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const onValueChange = useCallback((id: string, newValue: string) => {
     if (activeInputIdRef.current === id) {
       const safeVal = typeof newValue === 'string' ? newValue : '';
+      const prevVal = valueRef.current;
       valueRef.current = safeVal;
       const valLen = safeVal.length;
       const curSel = selectionRef.current;
-      const safeStart = Math.max(0, Math.min(curSel?.start ?? valLen, valLen));
-      const safeEnd = Math.max(0, Math.min(curSel?.end ?? valLen, valLen));
+      const prevLen = prevVal ? prevVal.length : 0;
+      // If user was at the end of input or formatting added text, keep cursor at end
+      const wasAtEnd = !curSel || curSel.start >= prevLen - 1;
+      const safeStart = wasAtEnd ? valLen : Math.max(0, Math.min(curSel.start, valLen));
+      const safeEnd = wasAtEnd ? valLen : Math.max(0, Math.min(curSel.end, valLen));
       const safeSel = { start: safeStart, end: safeEnd };
       selectionRef.current = safeSel;
       inputsRef.current[id]?.onImmediateUpdate?.(safeVal, safeSel);
@@ -294,11 +304,6 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     const input = inputsRef.current[activeId];
     if (!input) return false;
-
-    // Keep native input focused on each keypress so blinking cursor stays visible (except on enter/hide)
-    if (key.action !== 'enter' && key.action !== 'hide') {
-      input.focus?.();
-    }
 
     const rawVal = valueRef.current;
     const val = typeof rawVal === 'string' ? rawVal : '';

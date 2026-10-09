@@ -65,8 +65,9 @@ export const numericOnlyLayout: KeyboardLayout = [
     { label: '9', action: 'char' },
   ],
   [
-    { label: '.', action: 'char' },
-    { label: '0', action: 'char' },
-    { label: '⌫', action: 'backspace' },
+    { label: '.', action: 'char', flex: 1 },
+    { label: '0', action: 'char', flex: 1 },
+    { label: '⌫', action: 'backspace', flex: 1 },
+    { label: 'Done', action: 'enter', flex: 1.2 },
   ],
 ];

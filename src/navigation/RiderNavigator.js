@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../theme/colors';
@@ -36,26 +36,38 @@ const RiderTabs = () => {
 
   const tabBarStyle = {
     backgroundColor: COLORS.white,
-    borderTopColor: COLORS.border,
-    borderTopWidth: 1,
-    height: (isFoldableOrTablet ? 66 : 56) + Math.max(insets.bottom, 6),
-    paddingBottom: Math.max(insets.bottom, isFoldableOrTablet ? 8 : 6),
-    paddingTop: isFoldableOrTablet ? 8 : 6,
-    paddingHorizontal: isLandscape ? Math.max(insets.left, insets.right, 16) : 0,
-    justifyContent: isFoldableOrTablet ? 'center' : 'space-around',
+    borderTopColor: '#E2E8F0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: (isFoldableOrTablet ? 60 : 54) + Math.max(insets.bottom, 6),
+    paddingBottom: Math.max(insets.bottom, 6),
+    paddingTop: 5,
+    paddingHorizontal: 0,
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   };
 
-  const iconSize = isFoldableOrTablet ? 26 : 22;
+  const iconSize = isFoldableOrTablet ? 22 : 21;
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.iconLight,
+        tabBarInactiveTintColor: '#64748B',
+        tabBarLabelPosition: 'below-icon',
         tabBarStyle: tabBarStyle,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: isFoldableOrTablet ? { maxWidth: 220, alignSelf: 'center' } : undefined,
+        tabBarItemStyle: styles.tabBarItem,
       }}
     >
       <Tab.Screen
@@ -63,8 +75,10 @@ const RiderTabs = () => {
         component={RiderHomeScreen}
         options={{
           tabBarLabel: t('tabs.home', 'Home'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="bike" size={iconSize} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="bike" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -73,8 +87,10 @@ const RiderTabs = () => {
         component={ActivityScreen}
         options={{
           tabBarLabel: t('tabs.live', 'Live'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="live" size={iconSize} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="live" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -84,8 +100,10 @@ const RiderTabs = () => {
         component={RiderProfileScreen}
         options={{
           tabBarLabel: t('tabs.profile', 'Profile'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="user" size={iconSize} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="user" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -124,11 +142,28 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingTop: 6,
   },
+  tabBarItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  iconPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 3,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPillActive: {
+    backgroundColor: 'rgba(23, 186, 161, 0.12)',
+  },
   tabLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     fontSize: responsiveFont(11),
     lineHeight: Math.round(responsiveFont(11) * 1.3),
+    marginTop: 2,
   },
 });
 

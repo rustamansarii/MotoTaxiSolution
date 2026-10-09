@@ -228,6 +228,11 @@ export const DriverSignupScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         bounces={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onScrollBeginDrag={() => {
+          keyboard?.hideKeyboard?.();
+          Keyboard.dismiss();
+        }}
         contentContainerStyle={styles.scrollContent}
       >
         {/* =========================================
@@ -272,14 +277,7 @@ export const DriverSignupScreen = ({ navigation }) => {
         {/* =========================================
             FORM CARD
         ========================================= */}
-        <TouchableWithoutFeedback
-          onPress={() => {
-            keyboard?.hideKeyboard?.();
-            Keyboard.dismiss();
-          }}
-          accessible={false}
-        >
-          <View style={styles.card}>
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.formTitle}>
               {t('driver.createDriverAccount', 'Register as Driver')}
@@ -439,13 +437,6 @@ export const DriverSignupScreen = ({ navigation }) => {
               </View>
             ) : null}
 
-            {/* Driver Terms Disclaimer */}
-            <Text style={styles.terms}>
-              By registering as a driver partner, you agree to Moto Taxi's{' '}
-              <Text style={styles.termsLink}>Driver Partner Terms</Text> and{' '}
-              <Text style={styles.termsLink}>Safety Policy</Text>.
-            </Text>
-
             {/* REGISTER BUTTON */}
             <CustomButton
               title={t('driver.registerAndVerify', 'Register & Verify License')}
@@ -494,7 +485,6 @@ export const DriverSignupScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-        </TouchableWithoutFeedback>
       </ScrollView>
 
       {/* Country Picker Modal */}

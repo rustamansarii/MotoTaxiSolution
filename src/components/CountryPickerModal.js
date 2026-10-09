@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -6,28 +6,68 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  TextInput,
   ActivityIndicator,
   Platform,
+  Keyboard,
+  Animated,
+  Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../theme/colors';
 import { RADIUS, SPACING } from '../theme/spacing';
 import { TYPOGRAPHY } from '../theme/typography';
 import { responsiveFont } from '../utils/responsive';
 import Icon from './Icon';
 import { useTranslation } from 'react-i18next';
+import { KeyboardTextInput, CustomKeyboard, KeyboardProvider, useKeyboard } from './keyboard';
 
-export const CountryPickerModal = ({
+const CountryPickerModalInner = ({
   visible,
   onClose,
   countries = [],
   selectedCountry,
   onSelectCountry,
   loading = false,
+  bottomOffset = 0,
 }) => {
   const { t } = useTranslation();
+  const { keyboardVisible, keyboardHeight, hideKeyboard, theme } = useKeyboard();
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+  const paddingAnim = useRef(new Animated.Value(0)).current;
+
+  const isDark = theme === 'dark';
+  const keyboardBg = isDark ? '#18181B' : '#D1D5DB';
+
+  // Block native keyboard completely whenever modal is open
+  useEffect(() => {
+    if (visible) {
+      Keyboard.dismiss();
+      const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+      const sub = Keyboard.addListener(showEvent, () => {
+        Keyboard.dismiss();
+      });
+      return () => sub.remove();
+    }
+  }, [visible]);
+
+  // Reset search query and hide keyboard whenever modal closes
+  useEffect(() => {
+    if (!visible) {
+      setSearchQuery('');
+      hideKeyboard();
+    }
+  }, [visible, hideKeyboard]);
+
+  // Animate content padding to ensure list items are not obscured by the custom keyboard
+  const targetPadding = keyboardVisible ? (keyboardHeight || 303) + bottomOffset : 0;
+  useEffect(() => {
+    Animated.timing(paddingAnim, {
+      toValue: targetPadding,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
+  }, [targetPadding, paddingAnim]);
 
   // Filter countries by name, iso2, or dial_code
   const filteredCountries = useMemo(() => {
@@ -43,15 +83,23 @@ export const CountryPickerModal = ({
     });
   }, [countries, searchQuery]);
 
+  // Single tap: closes keyboard AND selects the item
   const handleSelect = (country) => {
+    hideKeyboard();
     onSelectCountry(country);
     setSearchQuery('');
     onClose();
   };
 
   const handleClose = () => {
+    hideKeyboard();
     setSearchQuery('');
     onClose();
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    searchInputRef.current?.clear?.();
   };
 
   const renderItem = ({ item }) => {
@@ -92,13 +140,8 @@ export const CountryPickerModal = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={handleClose}
-    >
-      <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <Animated.View style={{ flex: 1, paddingBottom: paddingAnim }}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -119,7 +162,9 @@ export const CountryPickerModal = ({
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Icon name="search" size={18} color={COLORS.textLight} style={styles.searchIcon} />
-          <TextInput
+          <KeyboardTextInput
+            ref={searchInputRef}
+            id="country_picker_search_input"
             style={styles.searchInput}
             placeholder={t('auth.searchCountryPlaceholder', 'Search country name or code (+91, India)...')}
             placeholderTextColor={COLORS.textLight}
@@ -127,12 +172,23 @@ export const CountryPickerModal = ({
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
-            clearButtonMode="while-editing"
+            clearButtonMode="never"
+            returnKeyType="search"
+            showSoftInputOnFocus={false}
+            contextMenuHidden={true}
+            onFocus={() => {
+              Keyboard.dismiss();
+            }}
+            onTouchStart={() => {
+              Keyboard.dismiss();
+            }}
+            onSubmitEditing={() => hideKeyboard()}
           />
           {searchQuery ? (
             <TouchableOpacity
-              onPress={() => setSearchQuery('')}
+              onPress={handleClearSearch}
               style={styles.clearSearchBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Icon name="close" size={16} color={COLORS.textLight} />
             </TouchableOpacity>
@@ -152,7 +208,10 @@ export const CountryPickerModal = ({
             data={filteredCountries}
             keyExtractor={(item, index) => `${item.iso2 || index}_${item.dial_code}`}
             renderItem={renderItem}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
+            onScrollBeginDrag={() => {
+              hideKeyboard();
+            }}
             contentContainerStyle={styles.listContent}
             ItemSeparatorComponent={() => <View style={styles.separator} />}
             ListEmptyComponent={
@@ -168,18 +227,114 @@ export const CountryPickerModal = ({
             }
           />
         )}
-      </SafeAreaView>
+      </Animated.View>
+
+      {/* Custom Keyboard placed comfortably above the navigation buttons */}
+      {visible && (
+        <View
+          style={[
+            styles.keyboardWrapper,
+            { bottom: bottomOffset },
+          ]}
+          pointerEvents={keyboardVisible ? 'auto' : 'none'}
+        >
+          <CustomKeyboard isInModal={true} />
+        </View>
+      )}
+
+      {/* Matching bottom spacer so there is no awkward floating gap */}
+      {visible && keyboardVisible && bottomOffset > 0 && (
+        <View
+          style={[
+            styles.bottomSpacer,
+            {
+              height: bottomOffset,
+              backgroundColor: keyboardBg,
+            },
+          ]}
+          pointerEvents="none"
+        />
+      )}
+    </View>
+  );
+};
+
+export const CountryPickerModal = ({
+  visible,
+  onClose,
+  countries = [],
+  selectedCountry,
+  onSelectCountry,
+  loading = false,
+  ...restProps
+}) => {
+  const outerInsets = useSafeAreaInsets();
+  // Safe, user-friendly bottom clearance:
+  // On Android, 20dp keeps spacebar and ?123 clear of navigation buttons without floating too high.
+  // On iOS, uses outerInsets.bottom (34dp on modern iPhones, 0 on Home button devices).
+  const bottomOffset = Platform.OS === 'android'
+    ? 20
+    : (outerInsets?.bottom || 0);
+
+  const handleRequestClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent={false}
+      onRequestClose={handleRequestClose}
+      {...restProps}
+    >
+      <SafeAreaProvider>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+          <KeyboardProvider>
+            <CountryPickerModalInner
+              visible={visible}
+              onClose={onClose}
+              countries={countries}
+              selectedCountry={selectedCountry}
+              onSelectCountry={onSelectCountry}
+              loading={loading}
+              bottomOffset={bottomOffset}
+            />
+          </KeyboardProvider>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     maxWidth: 540,
     width: '100%',
     alignSelf: 'center',
+    position: 'relative',
+  },
+  keyboardWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    zIndex: 9999,
+  },
+  bottomSpacer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9998,
   },
   header: {
     flexDirection: 'row',
@@ -290,7 +445,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: SPACING.xxl,
+    padding: SPACING.xxxl,
   },
   loadingText: {
     marginTop: 12,

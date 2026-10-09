@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { COLORS } from '../theme/colors';
@@ -37,23 +37,38 @@ const DriverTabs = () => {
 
   const tabBarStyle = {
     backgroundColor: COLORS.white,
-    borderTopColor: COLORS.border,
-    borderTopWidth: 1,
-    height: 56 + Math.max(insets.bottom, 6),
+    borderTopColor: '#E2E8F0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: (isFoldableOrTablet ? 60 : 54) + Math.max(insets.bottom, 6),
     paddingBottom: Math.max(insets.bottom, 6),
-    paddingTop: 6,
-    paddingHorizontal: isLandscape ? Math.max(insets.left, insets.right, 16) : 0,
+    paddingTop: 5,
+    paddingHorizontal: 0,
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   };
+
+  const iconSize = isFoldableOrTablet ? 22 : 21;
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textLight,
+        tabBarInactiveTintColor: '#64748B',
+        tabBarLabelPosition: 'below-icon',
         tabBarStyle: tabBarStyle,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarItemStyle: isFoldableOrTablet ? { maxWidth: 180 } : undefined,
+        tabBarItemStyle: styles.tabBarItem,
       }}
     >
       <Tab.Screen
@@ -61,8 +76,10 @@ const DriverTabs = () => {
         component={DriverHomeScreen}
         options={{
           tabBarLabel: t('tabs.dashboard', 'Dashboard'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="navigation" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="navigation" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -71,8 +88,10 @@ const DriverTabs = () => {
         component={DriverTripsScreen}
         options={{
           tabBarLabel: t('tabs.trips', 'Trips'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="time" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="time" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -81,8 +100,10 @@ const DriverTabs = () => {
         component={DriverEarningsScreen}
         options={{
           tabBarLabel: t('tabs.earnings', 'Earnings'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="wallet" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="wallet" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -91,8 +112,10 @@ const DriverTabs = () => {
         component={DriverProfileScreen}
         options={{
           tabBarLabel: t('tabs.account', 'Account'),
-          tabBarIcon: ({ color }) => (
-            <Icon name="user" size={22} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+              <Icon name="user" size={iconSize} color={color} />
+            </View>
           ),
         }}
       />
@@ -133,10 +156,28 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingTop: 6,
   },
+  tabBarItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  iconPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 3,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconPillActive: {
+    backgroundColor: 'rgba(23, 186, 161, 0.12)',
+  },
   tabLabel: {
     ...TYPOGRAPHY.caption,
     fontWeight: '600',
     fontSize: responsiveFont(11),
+    lineHeight: Math.round(responsiveFont(11) * 1.3),
+    marginTop: 2,
   },
 });
 

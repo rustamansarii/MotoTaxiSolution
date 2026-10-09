@@ -228,6 +228,11 @@ export const RiderSignupScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         bounces={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onScrollBeginDrag={() => {
+          keyboard?.hideKeyboard?.();
+          Keyboard.dismiss();
+        }}
         contentContainerStyle={styles.scrollContent}
       >
         {/* =========================================
@@ -275,14 +280,7 @@ export const RiderSignupScreen = ({ navigation }) => {
         {/* =========================================
             FORM CARD
         ========================================= */}
-        <TouchableWithoutFeedback
-          onPress={() => {
-            keyboard?.hideKeyboard?.();
-            Keyboard.dismiss();
-          }}
-          accessible={false}
-        >
-          <View style={styles.card}>
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.formTitle}>
               {t('auth.createRiderAccount', 'Create Rider Account')}
@@ -444,12 +442,7 @@ export const RiderSignupScreen = ({ navigation }) => {
               </View>
             ) : null}
 
-            {/* Terms Disclaimer */}
-            <Text style={styles.terms}>
-              By signing up, you agree to Moto Taxi's{' '}
-              <Text style={styles.termsLink}>Terms & Conditions</Text> and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>.
-            </Text>
+           
 
             {/* SIGN UP BUTTON */}
             <CustomButton
@@ -500,7 +493,6 @@ export const RiderSignupScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
         </View>
-        </TouchableWithoutFeedback>
       </ScrollView>
 
       {/* Country Picker Modal */}

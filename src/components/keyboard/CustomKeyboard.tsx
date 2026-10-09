@@ -46,7 +46,7 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
   useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: keyboardVisible ? 0 : totalHeight + 60,
-      duration: 180, // Snappy 180ms response
+      duration: 140, // Ultra-snappy 140ms response
       useNativeDriver: true,
     }).start();
   }, [keyboardVisible, totalHeight]);
@@ -123,64 +123,73 @@ export const CustomKeyboard: React.FC<CustomKeyboardProps> = React.memo(({ isInM
             </Text>
           </View>
 
-          {/* Cursor Step Left / Right Buttons */}
-          <View style={styles.cursorRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => moveCursor('left')}
-              style={[
-                styles.shortcutChip,
-                { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
-              ]}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            >
-              <Icon name="chevron-left" size={13} color={isDark ? '#FFFFFF' : '#0F172A'} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => moveCursor('right')}
-              style={[
-                styles.shortcutChip,
-                { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
-              ]}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            >
-              <Icon name="chevron-right" size={13} color={isDark ? '#FFFFFF' : '#0F172A'} />
-            </TouchableOpacity>
-          </View>
+          {!isNumericOnly && (
+            <>
+              {/* Cursor Step Left / Right Buttons */}
+              <View style={styles.cursorRow}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => moveCursor('left')}
+                  style={[
+                    styles.shortcutChip,
+                    { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
+                  ]}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Icon name="chevron-left" size={13} color={isDark ? '#FFFFFF' : '#0F172A'} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => moveCursor('right')}
+                  style={[
+                    styles.shortcutChip,
+                    { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
+                  ]}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Icon name="chevron-right" size={13} color={isDark ? '#FFFFFF' : '#0F172A'} />
+                </TouchableOpacity>
+              </View>
 
-          {/* Quick Shortcuts for faster typing */}
-          <View style={styles.shortcutsRow}>
-            {['@', '.', '-', '_'].map((char) => (
-              <TouchableOpacity
-                key={char}
-                activeOpacity={0.7}
-                onPress={() => handleKeyPress({ label: char, action: 'char', value: char })}
-                style={[
-                  styles.shortcutChip,
-                  { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
-                ]}
-              >
-                <Text style={[styles.shortcutText, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
-                  {char}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+              {/* Quick Shortcuts for faster typing */}
+              <View style={styles.shortcutsRow}>
+                {['@', '.', '-', '_'].map((char) => (
+                  <TouchableOpacity
+                    key={char}
+                    activeOpacity={0.7}
+                    onPress={() => handleKeyPress({ label: char, action: 'char', value: char })}
+                    style={[
+                      styles.shortcutChip,
+                      { backgroundColor: isDark ? '#3F3F46' : '#FFFFFF' },
+                    ]}
+                  >
+                    <Text style={[styles.shortcutText, { color: isDark ? '#FFFFFF' : '#0F172A' }]}>
+                      {char}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         {/* Hide / Done Button with vector icon */}
-        <TouchableOpacity
+        <Pressable
+          onPressIn={() => {
+            hideKeyboard();
+          }}
           onPress={() => {
             hideKeyboard();
           }}
-          activeOpacity={0.6}
-          style={styles.doneButton}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+          style={({ pressed }) => [
+            styles.doneButton,
+            pressed && { opacity: 0.6, transform: [{ scale: 0.95 }] },
+          ]}
+          hitSlop={{ top: 10, bottom: 0, left: 16, right: 10 }}
         >
           <Text style={styles.doneButtonText}>Done</Text>
-          <Icon name="keyboard-hide" size={16} color={COLORS.primary} />
-        </TouchableOpacity>
+          <Icon name="keyboard-hide" size={17} color={COLORS.primary} />
+        </Pressable>
       </View>
 
       <Pressable style={{ flex: 1, paddingTop: 4, paddingBottom: insets.bottom || 8 }}>

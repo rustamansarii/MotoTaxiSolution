@@ -769,11 +769,12 @@ export const RiderHomeScreen = ({ navigation }) => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.addPlacesRow}
+        style={[styles.addPlacesScrollView, isSplitLayout && styles.addPlacesScrollViewTablet]}
+        contentContainerStyle={[styles.addPlacesRow, isSplitLayout && styles.addPlacesRowTablet]}
       >
         {/* Home Pill */}
         {riderHomeAddress ? (
-          <View style={styles.savedPlacePill}>
+          <View style={[styles.savedPlacePill, isSplitLayout && styles.savedPlacePillTablet]}>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
@@ -796,10 +797,10 @@ export const RiderHomeScreen = ({ navigation }) => {
                     authUser?.rider_profile?.home_lon,
                 });
               }}
-              style={styles.savedPlaceMain}
+              style={[styles.savedPlaceMain, isSplitLayout && styles.savedPlaceMainTablet]}
             >
-              <Icon name="home" size={20} color={COLORS.primary} />
-              <Text style={styles.addPlacePillText}>
+              <Icon name="home" size={isSplitLayout ? 18 : 20} color={COLORS.primary} />
+              <Text style={[styles.addPlacePillText, isSplitLayout && styles.addPlacePillTextTablet]}>
                 {t('rider.home', 'Home')}
               </Text>
             </TouchableOpacity>
@@ -817,9 +818,9 @@ export const RiderHomeScreen = ({ navigation }) => {
                 }
                 navigation.navigate('SavedPlaces', { initialFocus: 'home' });
               }}
-              style={styles.savedPlaceEditBtn}
+              style={[styles.savedPlaceEditBtn, isSplitLayout && styles.savedPlaceEditBtnTablet]}
             >
-              <Icon name="pencil" size={15} color={COLORS.primary} />
+              <Icon name="pencil" size={isSplitLayout ? 13 : 15} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -835,10 +836,10 @@ export const RiderHomeScreen = ({ navigation }) => {
               }
               navigation.navigate('SavedPlaces', { initialFocus: 'home' });
             }}
-            style={styles.addPlacePill}
+            style={[styles.addPlacePill, isSplitLayout && styles.addPlacePillTablet]}
           >
-            <Icon name="plus-circle" size={25} color={COLORS.primary} />
-            <Text style={styles.addPlacePillText}>
+            <Icon name="plus-circle" size={isSplitLayout ? 20 : 25} color={COLORS.primary} />
+            <Text style={[styles.addPlacePillText, isSplitLayout && styles.addPlacePillTextTablet]}>
               {t('rider.addHome', 'Add Home')}
             </Text>
           </TouchableOpacity>
@@ -846,7 +847,7 @@ export const RiderHomeScreen = ({ navigation }) => {
 
         {/* Work Pill */}
         {riderWorkAddress ? (
-          <View style={styles.savedPlacePill}>
+          <View style={[styles.savedPlacePill, isSplitLayout && styles.savedPlacePillTablet]}>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
@@ -869,10 +870,10 @@ export const RiderHomeScreen = ({ navigation }) => {
                     authUser?.rider_profile?.work_lon,
                 });
               }}
-              style={styles.savedPlaceMain}
+              style={[styles.savedPlaceMain, isSplitLayout && styles.savedPlaceMainTablet]}
             >
-              <Icon name="briefcase" size={20} color={COLORS.primary} />
-              <Text style={styles.addPlacePillText}>
+              <Icon name="briefcase" size={isSplitLayout ? 18 : 20} color={COLORS.primary} />
+              <Text style={[styles.addPlacePillText, isSplitLayout && styles.addPlacePillTextTablet]}>
                 {t('rider.work', 'Work')}
               </Text>
             </TouchableOpacity>
@@ -890,9 +891,9 @@ export const RiderHomeScreen = ({ navigation }) => {
                 }
                 navigation.navigate('SavedPlaces', { initialFocus: 'work' });
               }}
-              style={styles.savedPlaceEditBtn}
+              style={[styles.savedPlaceEditBtn, isSplitLayout && styles.savedPlaceEditBtnTablet]}
             >
-              <Icon name="pencil" size={15} color={COLORS.primary} />
+              <Icon name="pencil" size={isSplitLayout ? 13 : 15} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
         ) : (
@@ -908,10 +909,10 @@ export const RiderHomeScreen = ({ navigation }) => {
               }
               navigation.navigate('SavedPlaces', { initialFocus: 'work' });
             }}
-            style={styles.addPlacePill}
+            style={[styles.addPlacePill, isSplitLayout && styles.addPlacePillTablet]}
           >
-            <Icon name="plus-circle" size={25} color={COLORS.primary} />
-            <Text style={styles.addPlacePillText}>
+            <Icon name="plus-circle" size={isSplitLayout ? 20 : 25} color={COLORS.primary} />
+            <Text style={[styles.addPlacePillText, isSplitLayout && styles.addPlacePillTextTablet]}>
               {t('rider.addWork', 'Add Work')}
             </Text>
           </TouchableOpacity>
@@ -1235,7 +1236,7 @@ export const RiderHomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.white,
   },
   sideCard: {
     backgroundColor: COLORS.white,
@@ -2101,10 +2102,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.2,
   },
+  addPlacesScrollView: {
+    flexGrow: 0,
+  },
+  addPlacesScrollViewTablet: {
+    flexGrow: 0,
+    maxHeight: 56,
+    marginBottom: SPACING.sm,
+  },
   addPlacesRow: {
     paddingHorizontal: SPACING.md,
     paddingBottom: 8,
     gap: 10,
+    alignItems: 'center',
+  },
+  addPlacesRowTablet: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: 0,
+    gap: 12,
+    alignItems: 'center',
+    maxHeight: 56,
   },
   addPlacePill: {
     flexDirection: 'row',
@@ -2120,6 +2137,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 3,
     elevation: 1,
+  },
+  addPlacePillTablet: {
+    height: 48,
+    maxHeight: 52,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    minWidth: 135,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: '#E5E7EB',
+    backgroundColor: COLORS.white,
   },
   savedPlacePill: {
     flexDirection: 'row',
@@ -2137,10 +2166,29 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
+  savedPlacePillTablet: {
+    height: 48,
+    maxHeight: 52,
+    borderRadius: 16,
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingVertical: 0,
+    minWidth: 135,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderColor: '#E5E7EB',
+    backgroundColor: COLORS.white,
+  },
   savedPlaceMain: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 3,
+  },
+  savedPlaceMainTablet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 0,
+    height: '100%',
   },
   savedPlaceEditBtn: {
     width: 28,
@@ -2151,11 +2199,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: 8,
   },
+  savedPlaceEditBtnTablet: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
   addPlacePillText: {
     fontSize: responsiveFont(18),
     fontWeight: '600',
     color: '#111827',
     marginLeft: 7,
+  },
+  addPlacePillTextTablet: {
+    fontSize: responsiveFont(15),
+    fontWeight: '600',
+    color: '#111827',
+    marginLeft: 6,
   },
   floatingReferralBtn: {
     position: 'absolute',
