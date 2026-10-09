@@ -1015,7 +1015,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: COLORS.primary,
     paddingVertical: SPACING.md,
-    borderRadius: RADIUS.lg,
+    borderRadius:10,
+    
   },
   continueBtnDisabled: {
     backgroundColor: COLORS.inputBg,
