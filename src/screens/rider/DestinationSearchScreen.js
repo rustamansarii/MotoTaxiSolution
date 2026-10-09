@@ -28,8 +28,7 @@ import {
   setDropoffLocation,
   clearSearchResults,
   swapLocations,
-  loadRecentSearches,
-  addRecentSearch,
+  clearRecentSearches,
 } from '../../redux/features/location/locationSlice';
 import { fetchRecentDrops } from '../../redux/features/rides/ridesSlice';
 import { CustomAlertPopup } from '../../components/CustomAlertPopup';
@@ -49,7 +48,6 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     isSearching,
     pickupLocation,
     dropoffLocation,
-    recentSearches,
   } = useSelector((state) => state.location);
   const { recentDrops = [], isLoadingRecentDrops = false } = useSelector(
     (state) => state.rides || {}
@@ -145,9 +143,9 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
     pickupRef.current = pickup;
   }, [pickup]);
 
-  // Load recent searches and recent drops from API on screen mount
+  // Clear any stale local search cache and fetch recent drops from API on mount
   useEffect(() => {
-    dispatch(loadRecentSearches());
+    dispatch(clearRecentSearches());
     dispatch(fetchRecentDrops());
   }, [dispatch]);
 
@@ -235,63 +233,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       });
   }, [recentDrops, userSavedPlaces]);
 
-  // Formatted Recent Searches available for both pickup and destination selection
-  const formattedRecentSearches = useMemo(() => {
-    if (!recentSearches || recentSearches.length === 0) {
-      return [];
-    }
 
-    const savedIds = new Set(userSavedPlaces.map((p) => String(p.id)));
-    const savedAddresses = new Set(
-      userSavedPlaces
-        .map((p) => (p.address || p.display_name || '').trim().toLowerCase())
-        .filter(Boolean)
-    );
-    const dropAddresses = new Set(
-      formattedRecentDrops
-        .map((p) => (p.address || p.display_name || '').trim().toLowerCase())
-        .filter(Boolean)
-    );
-
-    const seenAddresses = new Set();
-
-    return recentSearches
-      .filter((item) => {
-        if (!item) return false;
-        const itemId = item.id ? String(item.id) : '';
-        if (savedIds.has(itemId) || itemId.startsWith('user_saved_')) {
-          return false;
-        }
-        const addr = (item.address || item.display_name || item.title || '').trim().toLowerCase();
-        if (addr) {
-          if (savedAddresses.has(addr)) return false;
-          if (dropAddresses.has(addr)) return false;
-          if (seenAddresses.has(addr)) return false;
-          seenAddresses.add(addr);
-        }
-        return true;
-      })
-      .map((item, idx) => {
-        const rawId = item.id || item.place_id || `${idx}`;
-        const uniqueId = String(rawId).startsWith('recent_') ? String(rawId) : `recent_${rawId}`;
-
-        return {
-          ...item,
-          id: uniqueId,
-          title:
-            item.title ||
-            item.city ||
-            (typeof item.display_name === 'string' ? item.display_name.split(',')[0].trim() : '') ||
-            (typeof item.address === 'string' ? item.address.split(',')[0].trim() : '') ||
-            'Recent Place',
-          address: item.address || item.display_name || '',
-          display_name: item.display_name || item.address || '',
-          latitude: item.latitude ?? (item.lat ? parseFloat(item.lat) : undefined),
-          longitude: item.longitude ?? (item.lon ? parseFloat(item.lon) : undefined),
-          icon: item.icon || 'clock',
-        };
-      });
-  }, [recentSearches, userSavedPlaces, formattedRecentDrops]);
 
   const handlePickupPress = () => {
     setActiveField('pickup');
@@ -405,7 +347,6 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
   // No auto navigation; just store selection
   const handleSelectLocation = (loc) => {
     const selectedAddress = loc.address || loc.display_name || loc.title;
-    dispatch(addRecentSearch(loc));
 
     if (activeField === 'pickup') {
       hasUserEditedPickup.current = true;
@@ -461,7 +402,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       });
     }
 
-    const combined = [...userSavedPlaces, ...formattedRecentDrops, ...formattedRecentSearches];
+    const combined = [...userSavedPlaces, ...formattedRecentDrops];
     const seen = new Set();
     return combined.filter((item, index) => {
       const key = item.id ? String(item.id) : `item_${index}`;
@@ -469,7 +410,7 @@ export const DestinationSearchScreen = ({ navigation, route }) => {
       seen.add(key);
       return true;
     });
-  }, [isQueryActive, searchResults, userSavedPlaces, formattedRecentDrops, formattedRecentSearches]);
+  }, [isQueryActive, searchResults, userSavedPlaces, formattedRecentDrops]);
 
   // Continue enabled only when both pickup + destination are chosen (and not guest)
   const canContinue = useMemo(() => {

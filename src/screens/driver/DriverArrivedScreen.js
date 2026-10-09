@@ -375,23 +375,6 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
           Ask {passengerName} for their 4-digit ride OTP (visible on their phone screen) before departing.
         </Text>
 
-        {/* Wait time & Free wait status strip */}
-        <View style={styles.statusBanner}>
-          <View style={styles.statusPill}>
-            <Icon name="clock" size={13} color={COLORS.primaryDark} />
-            <Text style={styles.statusPillText}>
-              Wait: {formatTime(elapsedWaitSeconds)}
-            </Text>
-          </View>
-          <View style={styles.freeWaitPill}>
-            <View style={styles.livePulseDot} />
-            <Text style={styles.freeWaitText}>
-              {elapsedWaitSeconds < 300
-                ? `Free wait: ${formatTime(300 - elapsedWaitSeconds)}`
-                : 'Wait fee active'}
-            </Text>
-          </View>
-        </View>
       </View>
 
       {/* OTP Inputs with Touch to Focus */}

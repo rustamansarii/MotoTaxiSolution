@@ -36,43 +36,84 @@ import { AppDatePicker } from '../../components/AppDatePicker';
 
 const GREEN = '#17baa1';
 
+/**
+ * Converts API format (YYYY-MM-DD) or ISO string to UI format (DD-MM-YYYY)
+ */
+const formatDateToDisplay = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const clean = dateStr.trim().split('T')[0];
+  const ymdMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch;
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+  const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const [, d, m, y] = dmyMatch;
+    return `${d.padStart(2, '0')}-${m.padStart(2, '0')}-${y}`;
+  }
+  return clean;
+};
+
+/**
+ * Converts UI format (DD-MM-YYYY) to API format (YYYY-MM-DD)
+ */
+const formatDateToApi = (dateStr) => {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const clean = dateStr.trim();
+  const dmyMatch = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const [, d, m, y] = dmyMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  const ymdMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+  return clean;
+};
+
 const DateInputTrigger = ({
   label,
   value,
   onPress,
-  placeholder = 'YYYY-MM-DD',
+  placeholder = 'DD-MM-YYYY',
   error,
   required = true,
-}) => (
-  <View style={styles.dateTriggerWrap}>
-    <View style={styles.labelRow}>
-      <Text style={styles.dateTriggerLabel}>{label}</Text>
-      {required ? <Text style={styles.requiredAsterisk}>*</Text> : null}
-    </View>
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      style={[
-        styles.dateTriggerBtn,
-        error ? styles.dateTriggerBtnError : null,
-      ]}
-    >
-      <View style={styles.dateTriggerLeft}>
-        <Icon name="calendar" size={17} color={value ? GREEN : '#94A3B8'} />
-        <Text
-          style={[
-            styles.dateTriggerValue,
-            !value && styles.dateTriggerPlaceholder,
-          ]}
-        >
-          {value || placeholder}
-        </Text>
+}) => {
+  const displayValue = formatDateToDisplay(value);
+  return (
+    <View style={styles.dateTriggerWrap}>
+      <View style={styles.labelRow}>
+        <Text style={styles.dateTriggerLabel}>{label}</Text>
+        {required ? <Text style={styles.requiredAsterisk}>*</Text> : null}
       </View>
-      <Icon name="chevron-down" size={15} color="#94A3B8" />
-    </TouchableOpacity>
-    {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
-  </View>
-);
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={onPress}
+        style={[
+          styles.dateTriggerBtn,
+          error ? styles.dateTriggerBtnError : null,
+        ]}
+      >
+        <View style={styles.dateTriggerLeft}>
+          <Icon name="calendar" size={17} color={displayValue ? GREEN : '#94A3B8'} />
+          <Text
+            style={[
+              styles.dateTriggerValue,
+              !displayValue && styles.dateTriggerPlaceholder,
+            ]}
+          >
+            {displayValue || placeholder}
+          </Text>
+        </View>
+        <Icon name="chevron-down" size={15} color="#94A3B8" />
+      </TouchableOpacity>
+      {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
+    </View>
+  );
+};
 
 export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
   const { t } = useTranslation();
@@ -136,29 +177,30 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
   const handleDateConfirm = (formattedDate) => {
     if (!activeDatePicker) return;
     const { id } = activeDatePicker;
+    const displayDate = formatDateToDisplay(formattedDate);
     if (id === 'rc_issue') {
-      setRcIssueDate(formattedDate);
+      setRcIssueDate(displayDate);
       if (fieldErrors.rc_issue_date) setFieldErrors(prev => ({ ...prev, rc_issue_date: '' }));
     } else if (id === 'rc_expiry') {
-      setRcExpiryDate(formattedDate);
+      setRcExpiryDate(displayDate);
       if (fieldErrors.rc_expiry_date) setFieldErrors(prev => ({ ...prev, rc_expiry_date: '' }));
     } else if (id === 'insurance_issue') {
-      setInsuranceIssueDate(formattedDate);
+      setInsuranceIssueDate(displayDate);
       if (fieldErrors.insurance_issue_date) setFieldErrors(prev => ({ ...prev, insurance_issue_date: '' }));
     } else if (id === 'insurance_expiry') {
-      setInsuranceExpiryDate(formattedDate);
+      setInsuranceExpiryDate(displayDate);
       if (fieldErrors.insurance_expiry_date) setFieldErrors(prev => ({ ...prev, insurance_expiry_date: '' }));
     } else if (id === 'puc_issue') {
-      setPucIssueDate(formattedDate);
+      setPucIssueDate(displayDate);
       if (fieldErrors.puc_issue_date) setFieldErrors(prev => ({ ...prev, puc_issue_date: '' }));
     } else if (id === 'puc_expiry') {
-      setPucExpiryDate(formattedDate);
+      setPucExpiryDate(displayDate);
       if (fieldErrors.puc_expiry_date) setFieldErrors(prev => ({ ...prev, puc_expiry_date: '' }));
     } else if (id === 'permit_issue') {
-      setPermitIssueDate(formattedDate);
+      setPermitIssueDate(displayDate);
       if (fieldErrors.permit_issue_date) setFieldErrors(prev => ({ ...prev, permit_issue_date: '' }));
     } else if (id === 'permit_expiry') {
-      setPermitExpiryDate(formattedDate);
+      setPermitExpiryDate(displayDate);
       if (fieldErrors.permit_expiry_date) setFieldErrors(prev => ({ ...prev, permit_expiry_date: '' }));
     }
     if (generalError) setGeneralError('');
@@ -306,8 +348,8 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
         type: rcType || 'image/jpeg',
       });
       formData.append('rc_number', rcNumber.trim());
-      formData.append('rc_issue_date', rcIssueDate.trim());
-      formData.append('rc_expiry_date', rcExpiryDate.trim());
+      formData.append('rc_issue_date', formatDateToApi(rcIssueDate));
+      formData.append('rc_expiry_date', formatDateToApi(rcExpiryDate));
 
       // 2. Insurance Fields
       let insFileUri = insuranceUri;
@@ -321,8 +363,8 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
         type: insuranceType || 'image/jpeg',
       });
       formData.append('insurance_number', insuranceNumber.trim());
-      formData.append('insurance_issue_date', insuranceIssueDate.trim());
-      formData.append('insurance_expiry_date', insuranceExpiryDate.trim());
+      formData.append('insurance_issue_date', formatDateToApi(insuranceIssueDate));
+      formData.append('insurance_expiry_date', formatDateToApi(insuranceExpiryDate));
 
       // 3. PUC Fields
       let pucFileUri = pucUri;
@@ -336,8 +378,8 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
         type: pucType || 'image/jpeg',
       });
       formData.append('puc_number', pucNumber.trim());
-      formData.append('puc_issue_date', pucIssueDate.trim());
-      formData.append('puc_expiry_date', pucExpiryDate.trim());
+      formData.append('puc_issue_date', formatDateToApi(pucIssueDate));
+      formData.append('puc_expiry_date', formatDateToApi(pucExpiryDate));
 
       // 4. Permit Fields
       let permitFileUri = permitUri;
@@ -351,8 +393,8 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
         type: permitType || 'image/jpeg',
       });
       formData.append('permit_number', permitNumber.trim());
-      formData.append('permit_issue_date', permitIssueDate.trim());
-      formData.append('permit_expiry_date', permitExpiryDate.trim());
+      formData.append('permit_issue_date', formatDateToApi(permitIssueDate));
+      formData.append('permit_expiry_date', formatDateToApi(permitExpiryDate));
 
       const headers = {
         Accept: 'application/json',
@@ -1132,6 +1174,7 @@ export const VehicleDocumentBulkUploadScreen = ({ navigation, route }) => {
         open={Boolean(activeDatePicker)}
         title={activeDatePicker?.title || 'Select Date'}
         value={activeDatePicker?.value || ''}
+        returnFormat="DD-MM-YYYY"
         onConfirm={handleDateConfirm}
         onCancel={() => setActiveDatePicker(null)}
       />

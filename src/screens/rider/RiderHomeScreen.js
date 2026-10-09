@@ -34,8 +34,7 @@ import { connectRiderWebSocket } from '../../redux/features/rider/riderSlice';
 import { fetchRecentDrops } from '../../redux/features/rides/ridesSlice';
 import {
   reverseGeocodeLocation,
-  loadRecentSearches,
-  addRecentSearch,
+  clearRecentSearches,
 } from '../../redux/features/location/locationSlice';
 import { CustomAlertPopup } from '../../components/CustomAlertPopup';
 import { isGuestMode } from '../../utils/storage';
@@ -66,7 +65,7 @@ export const RiderHomeScreen = ({ navigation }) => {
   const reduxBooking = useSelector((state) => state.rides?.currentBooking);
   const { recentDrops = [] } = useSelector((state) => state.rides || {});
   // Hook 5b - Location state
-  const { recentSearches = [], currentAddress, pickupLocation } = useSelector((state) => state.location);
+  const { currentAddress, pickupLocation } = useSelector((state) => state.location);
 
   const hasActiveRiderTrip = Boolean(
     tripStatus !== 'completed' &&
@@ -169,9 +168,9 @@ export const RiderHomeScreen = ({ navigation }) => {
     }
   }, [dispatch]);
 
-  // Load recent searches from AsyncStorage on mount
+  // Clear any stale local search cache on mount
   useEffect(() => {
-    dispatch(loadRecentSearches());
+    dispatch(clearRecentSearches());
   }, [dispatch]);
 
   // Hook 8 - Connect to Rider WebSocket on mount
@@ -351,28 +350,8 @@ export const RiderHomeScreen = ({ navigation }) => {
         });
       });
     }
-    if (recentSearches && recentSearches.length > 0) {
-      recentSearches.forEach((item, idx) => {
-        if (!item) return;
-        const addr = (item.address || item.display_name || item.title || '').trim().toLowerCase();
-        if (addr && seen.has(addr)) return;
-        if (addr) seen.add(addr);
-        list.push({
-          id: item.id || `recent_${idx}`,
-          title:
-            item.title ||
-            item.display_name?.split(',')[0] ||
-            item.address?.split(',')[0] ||
-            'Recent Place',
-          address: item.address || item.display_name,
-          latitude: item.latitude ?? item.lat,
-          longitude: item.longitude ?? item.lon,
-          icon: 'clock',
-        });
-      });
-    }
     return list;
-  }, [recentDrops, recentSearches]);
+  }, [recentDrops]);
 
   const displayedSuggestions = useMemo(() => {
     return combinedRecentLocations.slice(0, 3);
@@ -405,7 +384,6 @@ export const RiderHomeScreen = ({ navigation }) => {
       );
       return;
     }
-    dispatch(addRecentSearch(loc));
     const destAddress = loc.address || loc.display_name || loc.title;
     const destLat = loc.latitude ?? loc.lat;
     const destLon = loc.longitude ?? loc.lon;

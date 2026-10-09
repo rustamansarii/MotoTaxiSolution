@@ -57,18 +57,7 @@ export const loadRecentSearches = createAsyncThunk(
   'location/loadRecentSearches',
   async () => {
     try {
-      const saved = await AsyncStorage.getItem('recent_searches');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item, idx) => {
-            if (item && item.id && String(item.id).startsWith('user_saved_')) {
-              return { ...item, id: `recent_${idx}_${Date.now()}` };
-            }
-            return item;
-          });
-        }
-      }
+      await AsyncStorage.removeItem('recent_searches');
     } catch (_) {}
     return [];
   }
@@ -162,50 +151,19 @@ const locationSlice = createSlice({
       state.currentCoords = action.payload; // { latitude, longitude }
     },
 
-    addRecentSearch: (state, action) => {
-      const formatted = formatRecentItem(action.payload);
-      if (!formatted) return;
-      const targetAddr = formatted.address.toLowerCase().trim();
-      const filtered = (state.recentSearches || []).filter((s) => {
-        const addr = (s.address || s.display_name || s.title || '').toLowerCase().trim();
-        return addr !== targetAddr;
-      });
-      state.recentSearches = [formatted, ...filtered.slice(0, 9)];
+    addRecentSearch: (state) => {
+      state.recentSearches = [];
       try {
-        AsyncStorage.setItem('recent_searches', JSON.stringify(state.recentSearches)).catch(() => {});
+        AsyncStorage.removeItem('recent_searches').catch(() => {});
       } catch (_) {}
     },
 
     setPickupLocation: (state, action) => {
       state.pickupLocation = action.payload;
-      const formatted = formatRecentItem(action.payload);
-      if (formatted) {
-        const targetAddr = formatted.address.toLowerCase().trim();
-        const filtered = (state.recentSearches || []).filter((s) => {
-          const addr = (s.address || s.display_name || s.title || '').toLowerCase().trim();
-          return addr !== targetAddr;
-        });
-        state.recentSearches = [formatted, ...filtered.slice(0, 9)];
-        try {
-          AsyncStorage.setItem('recent_searches', JSON.stringify(state.recentSearches)).catch(() => {});
-        } catch (_) {}
-      }
     },
 
     setDropoffLocation: (state, action) => {
       state.dropoffLocation = action.payload;
-      const formatted = formatRecentItem(action.payload);
-      if (formatted) {
-        const targetAddr = formatted.address.toLowerCase().trim();
-        const filtered = (state.recentSearches || []).filter((s) => {
-          const addr = (s.address || s.display_name || s.title || '').toLowerCase().trim();
-          return addr !== targetAddr;
-        });
-        state.recentSearches = [formatted, ...filtered.slice(0, 9)];
-        try {
-          AsyncStorage.setItem('recent_searches', JSON.stringify(state.recentSearches)).catch(() => {});
-        } catch (_) {}
-      }
     },
 
     clearRecentSearches: (state) => {
@@ -232,10 +190,8 @@ const locationSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // loadRecentSearches
-      .addCase(loadRecentSearches.fulfilled, (state, action) => {
-        if (action.payload && action.payload.length > 0) {
-          state.recentSearches = action.payload;
-        }
+      .addCase(loadRecentSearches.fulfilled, (state) => {
+        state.recentSearches = [];
       })
 
       // reverseGeocodeLocation
