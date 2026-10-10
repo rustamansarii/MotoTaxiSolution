@@ -1,5 +1,6 @@
 import React, { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react';
 import { TextInput, TextInputProps, NativeSyntheticEvent, Platform, Keyboard } from 'react-native';
+import { NavigationContext } from '@react-navigation/native';
 import { useKeyboard } from './KeyboardContext';
 import { colors } from '../../theme/colors';
 
@@ -77,15 +78,34 @@ export const KeyboardTextInput = forwardRef<any, KeyboardTextInputProps>(({
     },
   }));
 
+  const navigation = React.useContext(NavigationContext);
+
+  // Auto-dismiss custom keyboard and blur input when the host screen loses focus (user navigates to another screen)
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('blur', () => {
+      if (customKeyboardEnabled && isActive) {
+        inputRef.current?.blur();
+        contextOnBlur(id);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, customKeyboardEnabled, isActive, id, contextOnBlur]);
+
   // Auto focus into global custom keyboard on mount if requested
   useEffect(() => {
+    let isCancelled = false;
     if (props.autoFocus && customKeyboardEnabled) {
       const timer = setTimeout(() => {
+        if (isCancelled) return;
         const valLen = value ? value.length : 0;
         setLocalText(value);
         contextOnFocus(id, value, { start: valLen, end: valLen });
-      }, 150);
-      return () => clearTimeout(timer);
+      }, 200);
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+      };
     }
   }, [id, customKeyboardEnabled, contextOnFocus, props.autoFocus]);
 

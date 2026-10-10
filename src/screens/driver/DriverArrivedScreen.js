@@ -7,10 +7,11 @@ import {
   Alert,
   TouchableOpacity,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
-import { KeyboardTextInput } from '../../components/keyboard/KeyboardTextInput';
+import { KeyboardTextInput, useKeyboardSafe } from '../../components/keyboard';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -216,6 +217,17 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
   const [elapsedWaitSeconds, setElapsedWaitSeconds] = useState(0);
   const [enteredPin, setEnteredPin] = useState('');
   const inputRef = useRef(null);
+  const keyboard = useKeyboardSafe ? useKeyboardSafe() : null;
+  const hideKeyboard = keyboard?.hideKeyboard;
+
+  // Automatically close custom keyboard once driver enters full 4-digit OTP
+  useEffect(() => {
+    if (enteredPin && enteredPin.length === 4) {
+      inputRef.current?.blur();
+      hideKeyboard?.();
+      Keyboard.dismiss();
+    }
+  }, [enteredPin, hideKeyboard]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -309,6 +321,9 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
   };
 
   const handleStartTrip = () => {
+    inputRef.current?.blur();
+    hideKeyboard?.();
+    Keyboard.dismiss();
     if (enteredPin.length < 4) {
       Alert.alert('Invalid OTP', 'Please enter the 4-digit OTP provided by the rider.');
       return;
@@ -405,7 +420,12 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
         {demoOtp ? (
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => setEnteredPin(String(demoOtp))}
+            onPress={() => {
+              setEnteredPin(String(demoOtp));
+              inputRef.current?.blur();
+              hideKeyboard?.();
+              Keyboard.dismiss();
+            }}
             style={styles.demoOtpBadge}
           >
             <Icon name="key" size={12} color={COLORS.primary} />
@@ -420,7 +440,14 @@ export const DriverArrivedScreen = ({ navigation, route }) => {
           value={enteredPin}
           onChangeText={(val) => {
             const num = val.replace(/[^0-9]/g, '');
-            if (num.length <= 4) setEnteredPin(num);
+            if (num.length <= 4) {
+              setEnteredPin(num);
+              if (num.length === 4) {
+                inputRef.current?.blur();
+                hideKeyboard?.();
+                Keyboard.dismiss();
+              }
+            }
           }}
           keyboardType="number-pad"
           maxLength={4}

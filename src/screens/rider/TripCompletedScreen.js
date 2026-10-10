@@ -87,29 +87,9 @@ export const TripCompletedScreen = ({ navigation, route }) => {
         <View style={styles.fareHighlightCard}>
           <Text style={styles.farePaidLabel}>Total Paid</Text>
           <Text style={styles.fareAmount}>{formatCurrency(totalFare)}</Text>
-          <View style={styles.paidMethodPill}>
-            <Icon name="apple" size={14} color={COLORS.text} />
-            <Text style={styles.paidMethodText}>Apple Pay • Charged</Text>
-          </View>
         </View>
 
-        {/* Trip Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statVal}>{tripDistance}</Text>
-            <Text style={styles.statLabel}>Distance</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statVal}>{tripDuration}</Text>
-            <Text style={styles.statLabel}>Duration</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Text style={styles.statVal}>Clean</Text>
-            <Text style={styles.statLabel}>Eco-Trip</Text>
-          </View>
-        </View>
+       
 
         {/* Route Summary */}
         <View style={styles.card}>

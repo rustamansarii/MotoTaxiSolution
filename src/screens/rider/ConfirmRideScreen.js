@@ -39,6 +39,7 @@ export const ConfirmRideScreen = ({ navigation, route }) => {
   const pickup = route.params?.pickup || 'Pickup Location';
   const destination = route.params?.destination || 'Drop-off Destination';
 
+
   // Distance & Duration estimate if available
   const distanceKm =
     route.params?.distance_km ??

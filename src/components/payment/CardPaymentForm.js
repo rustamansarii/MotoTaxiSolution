@@ -18,8 +18,15 @@ import {
   formatCVV,
 } from '../../services/paymentService';
 
+export const DEMO_CARD_DATA = {
+  cardNumber: '4242 4242 4242 4242',
+  cardHolder: 'JOHN DOE',
+  expiry: '12/28',
+  cvv: '123',
+};
+
 export const CardPaymentForm = ({
-  cardData,
+  cardData = DEMO_CARD_DATA,
   onChangeCardData,
   errors = {},
   disabled = false,
@@ -66,7 +73,12 @@ export const CardPaymentForm = ({
             <View style={styles.chipLineHorizontal} />
             <View style={styles.chipLineVertical} />
           </View>
-          <Text style={styles.previewBrandText}>{brandLabel}</Text>
+          <View style={styles.brandRow}>
+            <View style={styles.demoPill}>
+              <Text style={styles.demoPillText}>DEMO</Text>
+            </View>
+            <Text style={styles.previewBrandText}>{brandLabel}</Text>
+          </View>
         </View>
 
         {/* Card Number on Preview */}
@@ -90,6 +102,17 @@ export const CardPaymentForm = ({
           </View>
         </View>
       </View>
+
+      {/* Quick Fill Demo Card Button */}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        disabled={disabled}
+        onPress={() => onChangeCardData(DEMO_CARD_DATA)}
+        style={styles.demoFillBtn}
+      >
+        <Icon name="card" size={13} color={COLORS.primary} />
+        <Text style={styles.demoFillText}>Fill Demo Card Details (Visa 4242)</Text>
+      </TouchableOpacity>
 
       {/* Input Fields */}
       <View style={styles.fieldsContainer}>
@@ -402,6 +425,43 @@ const styles = StyleSheet.create({
     color: '#166534',
     flex: 1,
     fontSize: responsiveFont(11),
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  demoPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: RADIUS.small,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  demoPillText: {
+    fontSize: responsiveFont(9),
+    fontWeight: '900',
+    color: COLORS.white,
+    letterSpacing: 0.8,
+  },
+  demoFillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(23, 186, 161, 0.1)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: RADIUS.round,
+    marginBottom: SPACING.md,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(23, 186, 161, 0.3)',
+  },
+  demoFillText: {
+    fontSize: responsiveFont(11),
+    fontWeight: '700',
+    color: COLORS.primary,
   },
 });
 

@@ -4,191 +4,140 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Modal,
-  FlatList,
+  Clipboard,
 } from 'react-native';
 import { COLORS } from '../../theme/colors';
 import { RADIUS, SPACING } from '../../theme/spacing';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { responsiveFont } from '../../utils/responsive';
 import Icon from '../Icon';
-import { KeyboardTextInput } from '../keyboard/KeyboardTextInput';
-import {
-  MOBILE_MONEY_PROVIDERS,
-  MOBILE_MONEY_COUNTRIES,
-} from '../../services/paymentService';
+import { formatCurrency } from '../../utils/formatters';
+import { MOBILE_MONEY_PROVIDERS } from '../../services/paymentService';
 
 export const MobileMoneyForm = ({
-  mobileData,
-  onChangeMobileData,
-  errors = {},
+  amount = 24.5,
+  currency = 'USD',
+  driverPhone = '+254 712 345 678',
+  driverName = 'Driver Partner',
+  isDriver = false,
+  status = 'idle', // 'idle' | 'pending' | 'success'
+  selectedProvider = 'mpesa',
+  onSelectProvider,
   disabled = false,
 }) => {
-  const [showCountryModal, setShowCountryModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const selectedCountry =
-    MOBILE_MONEY_COUNTRIES.find((c) => c.code === mobileData.countryCode) ||
-    MOBILE_MONEY_COUNTRIES[0];
+  const formattedAmount = formatCurrency(
+    amount,
+    currency === 'INR' ? '₹' : currency === 'USD' ? '$' : currency
+  );
 
-  const handlePhoneChange = (text) => {
-    const clean = text.replace(/\D/g, '');
-    onChangeMobileData({ ...mobileData, phone: clean });
-  };
-
-  const handleSelectCountry = (country) => {
-    onChangeMobileData({ ...mobileData, countryCode: country.code });
-    setShowCountryModal(false);
-  };
-
-  const handleSelectProvider = (providerId) => {
-    onChangeMobileData({ ...mobileData, provider: providerId });
+  const handleCopyPhone = () => {
+    try {
+      Clipboard.setString(driverPhone);
+    } catch (e) {
+      console.log('Clipboard copy error:', e);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <View style={styles.container}>
-      {/* 1. Mobile Money Provider Selector */}
-      <View style={styles.sectionBlock}>
-        <Text style={styles.fieldLabel}>Select Network / Provider</Text>
-        <View style={styles.providersGrid}>
-          {MOBILE_MONEY_PROVIDERS.map((prov) => {
-            const isSelected = mobileData.provider === prov.id;
-            return (
-              <TouchableOpacity
-                key={prov.id}
-                activeOpacity={0.75}
-                disabled={disabled}
-                onPress={() => handleSelectProvider(prov.id)}
-                style={[
-                  styles.providerCard,
-                  isSelected && styles.providerCardSelected,
-                  isSelected && { borderColor: prov.color },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.providerIconCircle,
-                    { backgroundColor: `${prov.color}15` },
-                  ]}
-                >
-                  <Icon name={prov.logoIcon} size={18} color={prov.color} />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.providerName,
-                    isSelected && { color: COLORS.text, fontWeight: '800' },
-                  ]}
-                >
-                  {prov.name}
+      <View style={styles.momoCard}>
+        {/* Mobile Money Graphic Icon */}
+        <View style={styles.momoIconCircle}>
+          <Icon name="phone-portrait" size={32} color="#059669" />
+        </View>
+
+        {/* Title & Instructions */}
+        <Text style={styles.momoTitle}>
+          {isDriver ? 'Collect via Mobile Money' : 'Pay via Mobile Money'}
+        </Text>
+        <Text style={styles.momoDesc}>
+          {isDriver
+            ? 'Passenger should transfer the exact fare directly to your mobile money number below.'
+            : 'Please transfer the exact fare directly to the driver\'s mobile money number below.'}
+        </Text>
+
+        {/* Driver Phone Number Display Box */}
+        <View style={styles.driverPhoneBox}>
+          <View style={styles.phoneHeaderRow}>
+            <Text style={styles.phoneLabel}>
+              {isDriver ? 'YOUR REGISTERED NUMBER' : "DRIVER'S MOBILE NUMBER"}
+            </Text>
+            {driverName ? (
+              <View style={styles.driverNameBadge}>
+                <Icon name="checkmark" size={11} color="#059669" />
+                <Text style={styles.driverNameText} numberOfLines={1}>
+                  {driverName}
                 </Text>
-                {isSelected && (
-                  <View style={[styles.providerDot, { backgroundColor: prov.color }]} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        {errors.provider && (
-          <Text style={styles.errorText}>{errors.provider}</Text>
-        )}
-      </View>
+              </View>
+            ) : null}
+          </View>
 
-      {/* 2. Phone Number with Country Code Selector */}
-      <View style={styles.sectionBlock}>
-        <Text style={styles.fieldLabel}>Mobile Phone Number</Text>
-        <View
-          style={[
-            styles.phoneInputRow,
-            errors.phone && styles.phoneInputRowError,
-          ]}
-        >
-          {/* Country Code Trigger */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            disabled={disabled}
-            onPress={() => setShowCountryModal(true)}
-            style={styles.countryBtn}
-          >
-            <Text style={styles.flagText}>{selectedCountry.flag}</Text>
-            <Text style={styles.countryCodeText}>{selectedCountry.code}</Text>
-            <Icon name="chevron-down" size={12} color={COLORS.iconLight} />
-          </TouchableOpacity>
-
-          <View style={styles.verticalDivider} />
-
-          {/* Number Input */}
-          <KeyboardTextInput
-            id="payment_mobile_phone"
-            style={styles.phoneInput}
-            value={mobileData.phone}
-            onChangeText={handlePhoneChange}
-            placeholder={`e.g. ${'712345678'.slice(0, selectedCountry.length)}`}
-            placeholderTextColor={COLORS.textLight}
-            keyboardType="numeric"
-            editable={!disabled}
-            maxLength={14}
-          />
-        </View>
-        {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
-      </View>
-
-      {/* STK Push Info Notice Box */}
-      <View style={styles.infoCallout}>
-        <Icon name="info" size={18} color={COLORS.secondPrimary} />
-        <View style={styles.infoCol}>
-          <Text style={styles.infoTitle}>Instant USSD / STK Push</Text>
-          <Text style={styles.infoDesc}>
-            After tapping Pay Now, a secure push prompt will be sent to your phone. Enter your mobile money PIN to authorize the payment.
-          </Text>
-        </View>
-      </View>
-
-      {/* Country Code Selector Modal */}
-      <Modal
-        visible={showCountryModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowCountryModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity
-                onPress={() => setShowCountryModal(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Icon name="close" size={20} color={COLORS.text} />
-              </TouchableOpacity>
+          <View style={styles.phoneDisplayRow}>
+            <View style={styles.phoneMainCol}>
+              <Text style={styles.phoneNumberText}>{driverPhone}</Text>
             </View>
 
-            <FlatList
-              data={MOBILE_MONEY_COUNTRIES}
-              keyExtractor={(item) => item.code}
-              renderItem={({ item }) => {
-                const isItemChosen = item.code === selectedCountry.code;
-                return (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => handleSelectCountry(item)}
-                    style={[
-                      styles.countryItem,
-                      isItemChosen && styles.countryItemSelected,
-                    ]}
-                  >
-                    <Text style={styles.itemFlag}>{item.flag}</Text>
-                    <Text style={styles.itemCountryName}>{item.country}</Text>
-                    <Text style={styles.itemCode}>{item.code}</Text>
-                    {isItemChosen && (
-                      <Icon name="check" size={16} color={COLORS.primary} />
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-            />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleCopyPhone}
+              style={[styles.copyBtn, copied && styles.copyBtnSuccess]}
+            >
+              <Icon
+                name={copied ? 'checkmark' : 'copy'}
+                size={13}
+                color={copied ? '#059669' : COLORS.primary}
+              />
+              <Text style={[styles.copyBtnText, copied && styles.copyBtnTextSuccess]}>
+                {copied ? 'Copied!' : 'Copy'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+
+        {/* Amount Box */}
+        <View style={styles.amountBox}>
+          <Text style={styles.amountLabel}>TOTAL MOBILE MONEY DUE</Text>
+          <Text style={styles.amountValue}>{formattedAmount}</Text>
+          <View style={styles.momoPill}>
+            <Icon name="shield" size={12} color="#059669" />
+            <Text style={styles.momoPillText}>Direct Mobile Transfer</Text>
+          </View>
+        </View>
+
+       
+
+        {/* Status indicator when pending */}
+        {status === 'pending' && (
+          <View style={styles.pendingStatusBanner}>
+            <Icon name="time" size={18} color="#D97706" />
+            <View style={styles.pendingTextCol}>
+              <Text style={styles.pendingStatusTitle}>Mobile Money Pending</Text>
+              <Text style={styles.pendingStatusSub}>
+                {isDriver
+                  ? 'Awaiting passenger mobile transfer confirmation.'
+                  : 'Payment marked as pending verification.'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Status indicator when confirmed */}
+        {status === 'success' && (
+          <View style={styles.successStatusBanner}>
+            <Icon name="check-circle" size={18} color="#059669" />
+            <View style={styles.pendingTextCol}>
+              <Text style={styles.successStatusTitle}>Mobile Money Received</Text>
+              <Text style={styles.successStatusSub}>
+                Fare of {formattedAmount} verified and logged via Mobile Money.
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -197,184 +146,262 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: SPACING.md,
   },
-  sectionBlock: {
-    marginBottom: SPACING.md,
-  },
-  fieldLabel: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  providersGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  providerCard: {
-    width: '48%',
-    flexDirection: 'row',
-    alignItems: 'center',
+  momoCard: {
     backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.sm + 2,
-    borderRadius: RADIUS.medium,
+    borderRadius: RADIUS.large,
+    padding: SPACING.lg,
+    alignItems: 'center',
     borderWidth: 1.5,
     borderColor: COLORS.border,
-  },
-  providerCardSelected: {
-    backgroundColor: '#FAFCFD',
     shadowColor: COLORS.text,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  providerIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  momoIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#D1FAE5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
-  },
-  providerName: {
-    flex: 1,
-    ...TYPOGRAPHY.caption,
-    fontWeight: '700',
-    color: COLORS.textLight,
-    fontSize: responsiveFont(12),
-  },
-  providerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  phoneInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.medium,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    height: 50,
-  },
-  phoneInputRowError: {
-    borderColor: COLORS.danger,
-    backgroundColor: '#FEF2F2',
-  },
-  countryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    gap: 6,
-    height: '100%',
-  },
-  flagText: {
-    fontSize: responsiveFont(18),
-  },
-  countryCodeText: {
-    ...TYPOGRAPHY.bodySmall,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  verticalDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: COLORS.border,
-  },
-  phoneInput: {
-    flex: 1,
-    ...TYPOGRAPHY.bodySmall,
-    color: COLORS.text,
-    paddingHorizontal: SPACING.md,
-    height: '100%',
-  },
-  errorText: {
-    ...TYPOGRAPHY.caption,
-    color: COLORS.danger,
-    marginTop: 4,
-    fontSize: responsiveFont(11),
-  },
-  infoCallout: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.secondPrimaryLight,
-    borderRadius: RADIUS.medium,
-    padding: SPACING.md,
-    gap: SPACING.sm,
-    borderWidth: 1,
-    borderColor: '#D4DBFE',
-    marginTop: SPACING.xs,
-  },
-  infoCol: {
-    flex: 1,
-  },
-  infoTitle: {
-    ...TYPOGRAPHY.caption,
-    fontWeight: '800',
-    color: COLORS.secondPrimaryDark,
-    marginBottom: 2,
-  },
-  infoDesc: {
-    ...TYPOGRAPHY.caption,
-    color: '#374151',
-    lineHeight: 16,
-    fontSize: responsiveFont(11),
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.extraLarge,
-    borderTopRightRadius: RADIUS.extraLarge,
-    padding: SPACING.lg,
-    maxHeight: '60%',
-    maxWidth: 520,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: SPACING.md,
-    paddingBottom: SPACING.sm,
-    borderBottomWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: '#A7F3D0',
   },
-  modalTitle: {
+  momoTitle: {
     ...TYPOGRAPHY.h3,
     fontWeight: '800',
     color: COLORS.text,
+    marginBottom: 6,
+    textAlign: 'center',
   },
-  countryItem: {
+  momoDesc: {
+    ...TYPOGRAPHY.caption,
+    color: COLORS.textLight,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  driverPhoneBox: {
+    width: '100%',
+    backgroundColor: '#F0FDF4',
+    borderRadius: RADIUS.medium,
+    padding: SPACING.md,
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    marginBottom: SPACING.md,
+  },
+  phoneHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  phoneLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(10),
+    fontWeight: '800',
+    color: '#15803D',
+    letterSpacing: 0.8,
+  },
+  driverNameBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.sm + 4,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.medium,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.round,
+    gap: 4,
+    maxWidth: '55%',
   },
-  countryItemSelected: {
-    backgroundColor: COLORS.inputBg,
-  },
-  itemFlag: {
-    fontSize: responsiveFont(22),
-    marginRight: SPACING.sm,
-  },
-  itemCountryName: {
-    flex: 1,
-    ...TYPOGRAPHY.bodySmall,
-    color: COLORS.text,
-    fontWeight: '600',
-  },
-  itemCode: {
-    ...TYPOGRAPHY.bodySmall,
+  driverNameText: {
+    fontSize: responsiveFont(11),
     fontWeight: '700',
+    color: '#166534',
+  },
+  phoneDisplayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  phoneMainCol: {
+    flex: 1,
+  },
+  phoneNumberText: {
+    ...TYPOGRAPHY.h2,
+    fontSize: responsiveFont(22),
+    fontWeight: '900',
+    color: '#14532D',
+    letterSpacing: 1,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.medium,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  copyBtnSuccess: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  copyBtnText: {
+    fontSize: responsiveFont(11),
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  copyBtnTextSuccess: {
+    color: '#15803D',
+  },
+  amountBox: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: RADIUS.medium,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  amountLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(10),
+    fontWeight: '800',
     color: COLORS.textLight,
-    marginRight: SPACING.sm,
+    letterSpacing: 0.8,
+  },
+  amountValue: {
+    ...TYPOGRAPHY.h1,
+    fontSize: responsiveFont(32),
+    fontWeight: '900',
+    color: COLORS.primaryDark,
+    marginVertical: 4,
+  },
+  momoPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: RADIUS.round,
+    gap: 4,
+    marginTop: 2,
+  },
+  momoPillText: {
+    fontSize: responsiveFont(10),
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  networksSection: {
+    width: '100%',
+    marginBottom: SPACING.xs,
+  },
+  networksLabel: {
+    ...TYPOGRAPHY.caption,
+    fontSize: responsiveFont(10),
+    fontWeight: '800',
+    color: COLORS.textLight,
+    letterSpacing: 0.6,
+    marginBottom: SPACING.xs,
+    textAlign: 'center',
+  },
+  networksGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    justifyContent: 'center',
+  },
+  networkChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.inputBg,
+    borderRadius: RADIUS.round,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 6,
+  },
+  networkChipSelected: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    shadowColor: COLORS.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  networkDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  networkName: {
+    fontSize: responsiveFont(11),
+    fontWeight: '600',
+    color: COLORS.textLight,
+  },
+  pendingStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#FFFBEB',
+    padding: SPACING.md,
+    borderRadius: RADIUS.medium,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  pendingTextCol: {
+    flex: 1,
+  },
+  pendingStatusTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  pendingStatusSub: {
+    ...TYPOGRAPHY.caption,
+    color: '#B45309',
+    marginTop: 2,
+    fontSize: responsiveFont(11),
+  },
+  successStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#ECFDF5',
+    padding: SPACING.md,
+    borderRadius: RADIUS.medium,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    gap: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  successStatusTitle: {
+    ...TYPOGRAPHY.bodySmall,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  successStatusSub: {
+    ...TYPOGRAPHY.caption,
+    color: '#047857',
+    marginTop: 2,
+    fontSize: responsiveFont(11),
   },
 });
 

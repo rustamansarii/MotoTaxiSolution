@@ -51,6 +51,7 @@ export const DriverTripScreen = ({ navigation, route }) => {
     lastLocationAck,
     currentLocation,
   } = useSelector((state) => state.driver);
+  const authUser = useSelector((state) => state.auth?.user);
 
   const rideId =
     route.params?.ride_id ||
@@ -326,6 +327,8 @@ export const DriverTripScreen = ({ navigation, route }) => {
       vehicleType,
       vehicle_type: vehicleType,
       isDriver: true,
+      driverPhone: authUser?.phone_number || authUser?.phone || activeRide?.driver?.phone_number || '',
+      driverName: authUser?.full_name || (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) || 'Driver Partner',
     });
   };
 

@@ -281,7 +281,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
         </Text>
       )}
 
-      <CustomButton
+      {/* <CustomButton
         title={t('driver.cashOut', 'Cash Out')}
         onPress={() => {
           if (isGuest) {
@@ -295,7 +295,7 @@ export const DriverEarningsScreen = ({ navigation }) => {
         icon="wallet"
         size="small"
         style={styles.cashoutBtn}
-      />
+      /> */}
     </View>
   );
 

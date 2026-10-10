@@ -50,6 +50,7 @@ export const RideInProgressScreen = ({ navigation, route }) => {
 
   const driver = wsDriverDetails || route.params?.driver || ACTIVE_MOCK_DRIVER;
   const totalFare = route.params?.totalFare || 18.5;
+  
 
   const pickupCoords = useMemo(() => {
     const p = route.params?.pickup;

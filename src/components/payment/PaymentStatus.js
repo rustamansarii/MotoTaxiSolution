@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -47,6 +47,15 @@ export const PaymentStatus = ({
         return 'Payment';
     }
   };
+
+  useEffect(() => {
+    if (visible && status === 'success') {
+      const timer = setTimeout(() => {
+        onPrimaryAction?.();
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, status, onPrimaryAction]);
 
   return (
     <Modal
@@ -112,15 +121,6 @@ export const PaymentStatus = ({
                 ) : null}
               </View>
 
-              {/* <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={onPrimaryAction}
-                style={styles.successBtn}
-              >
-                <Text style={styles.successBtnText}>
-                  {isDriver ? 'Complete Trip & View Receipt ›' : 'Done ›'}
-                </Text>
-              </TouchableOpacity> */}
             </View>
           )}
 

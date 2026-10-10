@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { StatusBar, Animated, View, Platform, Keyboard, TouchableWithoutFeedback, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
@@ -81,12 +81,30 @@ function AppNavigationContent(): React.JSX.Element {
     }).start();
   }, [keyboardVisible, keyboardHeight, bottomOffsetAnim]);
 
+  // Close custom keyboard and dismiss soft keyboard on screen navigation
+  const handleNavigationStateChange = useCallback(() => {
+    hideKeyboard();
+    Keyboard.dismiss();
+  }, [hideKeyboard]);
+
+  // Extra safeguard: subscribe directly to navigation state change events
+  useEffect(() => {
+    const unsubscribe = navigationRef.addListener('state', () => {
+      hideKeyboard();
+      Keyboard.dismiss();
+    });
+    return unsubscribe;
+  }, [hideKeyboard]);
+
   return (
     <View style={{ flex: 1 }}>
       <Animated.View
         style={{ flex: 1, marginBottom: bottomOffsetAnim }}
       >
-        <NavigationContainer ref={navigationRef}>
+        <NavigationContainer
+          ref={navigationRef}
+          onStateChange={handleNavigationStateChange}
+        >
           <RootNavigator />
         </NavigationContainer>
       </Animated.View>

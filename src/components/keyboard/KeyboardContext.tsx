@@ -247,6 +247,9 @@ export const KeyboardProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setActiveInputId(null);
     activeInputIdRef.current = null;
     try {
+      Keyboard.dismiss();
+    } catch (e) {}
+    try {
       BackHandler.removeEventListener?.('hardwareBackPress' as any, () => false);
     } catch (e) {}
     if (activeId) {

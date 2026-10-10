@@ -272,12 +272,7 @@ export const DriverRequestListScreen = ({ navigation }) => {
               </View>
             )}
 
-            <View style={styles.metaRiderBadge}>
-              <Icon name="user" size={13} color={COLORS.textLight} />
-              <Text style={styles.metaRiderText} numberOfLines={1}>
-                {riderName} ★ {riderRating}
-              </Text>
-            </View>
+           
           </View>
         </TouchableOpacity>
 

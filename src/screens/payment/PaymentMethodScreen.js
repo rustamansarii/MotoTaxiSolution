@@ -73,22 +73,46 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
   const vehicleType = route.params?.vehicleType || 'CAR';
   const isDriver = route.params?.isDriver ?? true; // Default true when opened by driver
 
+  const authUser = useSelector((state) => state.auth?.user);
+  const activeRide = useSelector((state) => state.driver?.activeRide);
+  const driverState = useSelector((state) => state.driver);
+
+  // Driver details
+  const driverPhone =
+    route.params?.driverPhone ||
+    route.params?.driver_phone ||
+    authUser?.phone_number ||
+    authUser?.phone ||
+    activeRide?.driver?.phone_number ||
+    activeRide?.driver?.phone ||
+    driverState?.driverProfile?.phone_number ||
+    '+254 712 345 678';
+
+  const driverName =
+    route.params?.driverName ||
+    route.params?.driver_name ||
+    authUser?.full_name ||
+    (authUser?.first_name ? `${authUser.first_name} ${authUser.last_name || ''}`.trim() : null) ||
+    activeRide?.driver?.full_name ||
+    driverState?.driverProfile?.full_name ||
+    'Driver Partner';
+
   // Payment state: "card" | "qr" | "mobile_money" | "cash"
   const [paymentMethod, setPaymentMethod] = useState('card');
 
   // Payment Status: "idle" | "processing" | "success" | "failed" | "pending"
   const [paymentStatus, setPaymentStatus] = useState('idle');
 
-  // Form states
+  // Form states with realistic demo card data pre-filled
   const [cardData, setCardData] = useState({
-    cardNumber: '',
-    cardHolder: '',
-    expiry: '',
-    cvv: '',
+    cardNumber: '4242 4242 4242 4242',
+    cardHolder: 'JOHN DOE',
+    expiry: '12/28',
+    cvv: '123',
   });
 
   const [mobileData, setMobileData] = useState({
-    phone: '',
+    phone: driverPhone,
     countryCode: '+254',
     provider: 'mpesa',
   });
@@ -113,32 +137,25 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
     setErrorMessage('');
   };
 
-  // 1. Submit Card Payment
+  // 1. Submit Card Payment - calls same confirmation functionality as cash collected
   const handleSubmitCard = async () => {
-    const valResult = validateCard(cardData);
-    if (!valResult.isValid) {
-      setErrors(valResult.errors);
-      return;
-    }
-
-    setErrors({});
     setPaymentStatus('processing');
 
     try {
-      const res = await processCardPayment({
-        cardNumber: cardData.cardNumber,
-        cardHolder: cardData.cardHolder,
-        expiry: cardData.expiry,
-        cvv: cardData.cvv,
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const res = await confirmCashPayment({
+        rideId,
         amount: totalFare,
         currency,
-        rideId,
+        note: `Card Payment (${(cardData.cardNumber || '4242').slice(-4)})`,
+        collected: true,
       });
 
-      setTransactionId(res.transactionId);
+      const txnId = `TXN_CARD_${rideId}_${Date.now()}`;
+      setTransactionId(txnId);
       setPaymentStatus('success');
 
-      // If driver initiated, dispatch complete trip to server
       if (isDriver) {
         dispatch(driverCompleteTrip({ rideId }));
       }
@@ -172,35 +189,30 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
     }
   };
 
-  // 3. Submit Mobile Money
+  // 3. Submit Mobile Money - calls same confirmation functionality as cash collected
   const handleSubmitMobileMoney = async () => {
-    const valResult = validateMobileMoney(mobileData);
-    if (!valResult.isValid) {
-      setErrors(valResult.errors);
-      return;
-    }
-
-    setErrors({});
     setPaymentStatus('processing');
 
     try {
-      const res = await processMobileMoneyPayment({
-        phone: mobileData.phone,
-        countryCode: mobileData.countryCode,
-        provider: mobileData.provider,
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const res = await confirmCashPayment({
+        rideId,
         amount: totalFare,
         currency,
-        rideId,
+        note: `Mobile Money (${(mobileData.provider || 'momo').toUpperCase()} to ${driverPhone})`,
+        collected: true,
       });
 
-      setTransactionId(res.transactionId);
+      const txnId = `MOMO_${rideId}_${Date.now()}`;
+      setTransactionId(txnId);
       setPaymentStatus('success');
 
       if (isDriver) {
         dispatch(driverCompleteTrip({ rideId }));
       }
     } catch (err) {
-      setErrorMessage(err?.message || 'Mobile money request failed');
+      setErrorMessage(err?.message || 'Failed to confirm mobile money payment');
       setPaymentStatus('failed');
     }
   };
@@ -296,10 +308,10 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
         };
       case 'mobile_money':
         return {
-          title: `Request Prompt`,
+          title: isDriver ? 'Confirm Mobile Money Collected' : 'Confirm Mobile Money Payment',
           amount: formattedAmount,
           icon: 'phone-portrait',
-          variant: 'primary',
+          variant: 'success',
         };
       case 'cash':
         return {
@@ -413,9 +425,16 @@ export const PaymentMethodScreen = ({ navigation, route }) => {
 
       {paymentMethod === 'mobile_money' && (
         <MobileMoneyForm
-          mobileData={mobileData}
-          onChangeMobileData={setMobileData}
-          errors={errors}
+          amount={totalFare}
+          currency={currency}
+          driverPhone={driverPhone}
+          driverName={driverName}
+          isDriver={isDriver}
+          status={paymentStatus === 'success' ? 'success' : 'idle'}
+          selectedProvider={mobileData.provider}
+          onSelectProvider={(providerId) =>
+            setMobileData((prev) => ({ ...prev, provider: providerId }))
+          }
           disabled={paymentStatus === 'processing'}
         />
       )}

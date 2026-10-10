@@ -27,10 +27,10 @@ import {
 } from '../../redux/features/driver/driverSlice';
 
 const COMPLIMENT_OPTIONS = [
-  { id: 'polite', label: 'Polite & Friendly', icon: 'smile' },
-  { id: 'ontime', label: 'Ready on Time', icon: 'clock' },
-  { id: 'clean', label: 'Respectful Rider', icon: 'shield' },
-  { id: 'tip', label: 'Generous Tipper', icon: 'heart' },
+  { id: 'polite', labelKey: 'driver.complimentPolite', defaultLabel: 'Polite & Friendly', icon: 'smile' },
+  { id: 'ontime', labelKey: 'driver.complimentOntime', defaultLabel: 'Ready on Time', icon: 'clock' },
+  { id: 'clean', labelKey: 'driver.complimentClean', defaultLabel: 'Respectful Rider', icon: 'shield' },
+  { id: 'tip', labelKey: 'driver.complimentTip', defaultLabel: 'Generous Tipper', icon: 'heart' },
 ];
 
 export const DriverTripCompletedScreen = ({ navigation, route }) => {
@@ -44,26 +44,33 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
     route.params?.pickup ||
     ride?.pickup_address ||
     ride?.pickup ||
-    'Pickup Location';
+    t('driver.pickupDestinationFallback', t('rider.pickupLocation', 'Pickup Location'));
   const destination =
     route.params?.destination ||
     ride?.drop_address ||
     ride?.destination_address ||
     ride?.destination ||
-    'Drop-off Destination';
+    t('driver.dropoffDestinationFallback', t('rider.dropoffLocation', 'Drop-off Destination'));
   const fare = route.params?.fare ?? ride?.driver_payout ?? ride?.fare ?? 28.5;
   const currency = route.params?.currency || ride?.currency || 'USD';
   const passengerName =
     route.params?.passengerName ||
     ride?.rider_name ||
     ride?.passengerName ||
-    'Rider';
+    t('driver.rider', 'Rider');
   const distance =
     route.params?.distance ||
-    (ride?.distance_km !== undefined ? `${ride.distance_km} km` : '2.1 km');
-  const duration = route.params?.duration || '12 mins';
-  const vehicleType =
+    (ride?.distance_km !== undefined
+      ? `${ride.distance_km} ${t('navigation.km', 'km')}`
+      : `2.1 ${t('navigation.km', 'km')}`);
+  const duration =
+    route.params?.duration || `12 ${t('navigation.min', 'mins')}`;
+  const rawVehicleType =
     route.params?.vehicleType || ride?.vehicle_type || 'Moto Taxi';
+  const vehicleType =
+    rawVehicleType === 'Moto Taxi'
+      ? t('driver.motoTaxi', 'Moto Taxi')
+      : rawVehicleType;
 
   const [rating, setRating] = useState(5);
   const [selectedCompliments, setSelectedCompliments] = useState(['polite', 'ontime']);
@@ -82,17 +89,17 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
   const getRatingFeedback = (score) => {
     switch (score) {
       case 5:
-        return '🌟 Outstanding Rider!';
+        return t('driver.ratingOutstanding', '🌟 Outstanding Rider!');
       case 4:
-        return '👍 Great Experience';
+        return t('driver.ratingGreat', '👍 Great Experience');
       case 3:
-        return '😐 Average Trip';
+        return t('driver.ratingAverage', '😐 Average Trip');
       case 2:
-        return '👎 Below Expectation';
+        return t('driver.ratingBelow', '👎 Below Expectation');
       case 1:
-        return '⚠️ Poor Experience';
+        return t('driver.ratingPoor', '⚠️ Poor Experience');
       default:
-        return 'Rate Experience';
+        return t('driver.rateExperience', 'Rate Experience');
     }
   };
 
@@ -153,9 +160,14 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
             </View>
           </View>
 
-          <Text style={styles.title}>{t('driver.completeTrip', 'Trip Completed!')}</Text>
+          <Text style={styles.title}>
+            {t('driver.tripCompletedTitle', t('driver.tripCompleted', 'Trip Completed!'))}
+          </Text>
           <Text style={styles.subtitle}>
-            Great job! Earnings have been credited to your active driver wallet.
+            {t(
+              'driver.tripCompletedSubtitle',
+              'Great job! Earnings have been credited to your active driver wallet.',
+            )}
           </Text>
 
           {/* Passenger Identity Pill */}
@@ -171,12 +183,14 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
               </Text>
               <View style={styles.passengerRatingRow}>
                 <Icon name="star" size={11} color="#F59E0B" />
-                <Text style={styles.passengerRatingText}>5.0 ★ Rider</Text>
+                <Text style={styles.passengerRatingText}>
+                  5.0 ★ {t('driver.rider', 'Rider')}
+                </Text>
               </View>
             </View>
             <View style={styles.paidBadge}>
               <Icon name="check" size={12} color="#047857" />
-              <Text style={styles.paidBadgeText}>Paid</Text>
+              <Text style={styles.paidBadgeText}>{t('driver.paid', 'Paid')}</Text>
             </View>
           </View>
 
@@ -184,42 +198,21 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
           <View style={styles.earningsCard}>
             <View style={styles.earningsHeaderRow}>
               <Text style={styles.earningsLabel}>
-                {t('driver.totalEarnings', 'TOTAL EARNED')}
+                {t('driver.totalEarned', t('driver.totalEarnings', 'TOTAL EARNED')).toUpperCase()}
               </Text>
               <View style={styles.walletCreditedChip}>
                 <Icon name="wallet" size={12} color={COLORS.primaryDark} />
-                <Text style={styles.walletCreditedText}>In Wallet</Text>
+                <Text style={styles.walletCreditedText}>
+                  {t('driver.inWallet', 'In Wallet')}
+                </Text>
               </View>
             </View>
 
             <Text style={styles.earningsAmount}>
-              {formatCurrency(totalEarned, currency === 'USD' ? '$' : currency)}
+              {formatCurrency(fare, currency === 'USD' ? '$' : currency)}
             </Text>
 
-            <View style={styles.breakdownDivider} />
 
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Base Ride Fare</Text>
-              <Text style={styles.breakdownVal}>
-                {formatCurrency(fare, currency === 'USD' ? '$' : currency)}
-              </Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <View style={styles.labelWithIconRow}>
-                <Text style={styles.breakdownLabel}>Surge Zone Bonus</Text>
-              </View>
-              <Text style={styles.surgeVal}>
-                +{formatCurrency(surgeBonus, currency === 'USD' ? '$' : currency)}
-              </Text>
-            </View>
-            <View style={styles.breakdownRow}>
-              <View style={styles.labelWithIconRow}>
-                <Text style={styles.breakdownLabel}>Passenger Tip</Text>
-              </View>
-              <Text style={styles.tipVal}>
-                +{formatCurrency(tipBonus, currency === 'USD' ? '$' : currency)}
-              </Text>
-            </View>
           </View>
 
           {/* Pick and Drop Route Summary */}
@@ -232,7 +225,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
             <View style={styles.routeAddresses}>
               <View style={styles.addressBlock}>
                 <Text style={styles.addressLabel}>
-                  {t('rider.pickupLocation', 'PICKUP')}
+                  {t('driver.pickupLocationLabel', t('rider.pickupLocation', 'PICKUP')).toUpperCase()}
                 </Text>
                 <Text numberOfLines={1} style={styles.addressText}>
                   {pickup}
@@ -240,7 +233,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
               </View>
               <View style={[styles.addressBlock, { marginTop: SPACING.sm }]}>
                 <Text style={styles.addressLabel}>
-                  {t('rider.dropoffLocation', 'DROPOFF')}
+                  {t('driver.dropoffLocationLabel', t('rider.dropoffLocation', 'DROPOFF')).toUpperCase()}
                 </Text>
                 <Text numberOfLines={1} style={styles.addressText}>
                   {destination}
@@ -258,12 +251,16 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <Text style={styles.statNum}>{duration}</Text>
-              <Text style={styles.statLabel}>Duration</Text>
+              <Text style={styles.statLabel}>
+                {t('driver.durationLabel', 'Duration')}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCol}>
               <Text style={styles.statNum}>{vehicleType}</Text>
-              <Text style={styles.statLabel}>Vehicle</Text>
+              <Text style={styles.statLabel}>
+                {t('driver.vehicleLabel', 'Vehicle')}
+              </Text>
             </View>
           </View>
 
@@ -271,7 +268,7 @@ export const DriverTripCompletedScreen = ({ navigation, route }) => {
 
           {/* Rate Passenger Action Button */}
           <CustomButton
-            title={t('common.done', 'Rate Passenger ›')}
+            title={t('driver.ratePassengerBtn', t('driver.ratePassenger', 'Rate Passenger ›'))}
             onPress={handleRate}
             loading={isFinishing || actionLoading}
             disabled={isFinishing || actionLoading}

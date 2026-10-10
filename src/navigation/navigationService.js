@@ -1,4 +1,5 @@
 import { createNavigationContainerRef, CommonActions } from '@react-navigation/native';
+import { Keyboard } from 'react-native';
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -6,6 +7,9 @@ export const navigationRef = createNavigationContainerRef();
  * Navigate to a given route name
  */
 export const navigate = (name, params) => {
+  try {
+    Keyboard.dismiss();
+  } catch (e) {}
   if (navigationRef.isReady()) {
     navigationRef.navigate(name, params);
   }
@@ -15,6 +19,9 @@ export const navigate = (name, params) => {
  * Reset entire navigation stack to a given screen
  */
 export const resetTo = (name, params) => {
+  try {
+    Keyboard.dismiss();
+  } catch (e) {}
   const resetAction = CommonActions.reset({
     index: 0,
     routes: [{ name, ...(params ? { params } : {}) }],
